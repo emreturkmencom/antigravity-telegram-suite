@@ -1,0 +1,124 @@
+{
+    "bot": {
+        "started": "🚀 Antigravity Remote Bot Started!\nChat ID: {chatId}\nType /help to see all available commands.",
+        "polling": "Antigravity Bot is actively polling!"
+    },
+    "auth": {
+        "unauthorized": "❌ Unauthorized."
+    },
+    "help": {
+        "title": "🤖 <b>Available Commands:</b>",
+        "messaging_title": "📝 <i>Messaging &amp; Interaction:</i>",
+        "messaging_text": "- Just type text → Talk to the agent (headless mode)\n- 📎 Send image/file → Forward to agent (caption supported)\n- /ask &lt;question&gt; → Send a question to the agent",
+        "status_title": "👁️ <i>Status &amp; Info:</i>",
+        "status_text": "- /latest → Get latest response (cleaned)\n- /screenshot → Take IDE screenshot\n- /check → Check if agent is working\n- /status → System status (IDE, CDP, PM2)",
+        "ide_title": "🛠️ <i>IDE Controls:</i>",
+        "ide_text": "- /start_ide → Start the IDE if closed\n- /close → Fully close the IDE (kill process + clean locks)\n- /new → Open a new chat\n- /model → Open model selection menu\n- /workspace → Switch project workspace\n- /lang → Switch language\n- /help → Show this help message"
+    },
+    "ide": {
+        "already_running": "✅ Antigravity IDE is already running! No need to open another window.\n💡 Use /close to shut it down.",
+        "starting": "🔄 Starting Antigravity IDE...",
+        "start_failed": "❌ Failed to start IDE: {error}",
+        "started": "✅ IDE started successfully!",
+        "already_closed": "ℹ️ IDE is already closed. (Lock file cleaned)",
+        "closing": "🔄 Closing IDE...",
+        "closed": "✅ IDE fully closed! (All processes and lock files cleaned)",
+        "not_installed": "❌ Antigravity IDE not found. Please install it first.\nSee: https://github.com/nicepkg/antigravity"
+    },
+    "status": {
+        "title": "📊 <b>System Status:</b>\n",
+        "ide_running": "🟢 IDE: Running",
+        "ide_stopped": "🔴 IDE: Stopped",
+        "cdp_active": "🟢 CDP Connection: Active",
+        "cdp_inactive": "🔴 CDP Connection: Inactive",
+        "bot_running": "🟢 Bot: Running"
+    },
+    "latest": {
+        "title": "📝 Latest Response:\n\n",
+        "no_new": "[No new messages]",
+        "error": "❌ Error: {error}\n(Is Antigravity open?)"
+    },
+    "screenshot": {
+        "taking": "📸 Taking IDE screenshot (via CDP)...",
+        "error": "❌ Error: {error}\n(Is the IDE open?)"
+    },
+    "ask": {
+        "empty": "Please type a question. Example: `/ask Hello`",
+        "sent": "✅ Message Sent: {query}\n\nWaiting for response...",
+        "done": "✅ Completed!",
+        "done_empty": "✅ Completed but no new text was generated.",
+        "timeout": "⚠️ Agent is still thinking or timed out. Use /latest to check.",
+        "send_error": "❌ Send Error: {error}",
+        "headless_error": "❌ Headless Error: {error}"
+    },
+    "check": {
+        "done": "✅ Agent has already finished!",
+        "working": "⏳ Agent is currently working in the background...",
+        "connection_error": "❌ Connection failed. (Port {port})"
+    },
+    "stop": {
+        "stopping": "🛑 Stopping agent...",
+        "stopped": "✅ Agent stopped!",
+        "already_stopped": "ℹ️ Agent is already stopped or stop button not found.",
+        "error": "❌ Error: {error}"
+    },
+    "new_chat": {
+        "opened": "✅ New chat opened!",
+        "not_found": "❌ New chat button not found.",
+        "error": "❌ Error: {error}"
+    },
+    "model": {
+        "selecting": "🔄 Selecting model: {model}",
+        "changed": "✅ Model changed: {model}",
+        "not_found": "❌ Model not found or could not be selected.",
+        "select_prompt": "🤖 Select a model:",
+        "changing": "🔄 Changing model: {model}",
+        "select_failed": "❌ Model could not be selected. Make sure the chat screen is open in the IDE.",
+        "error": "Error!"
+    },
+    "workspace": {
+        "switching": "🔄 Closing current IDE and opening new workspace: {workspace}",
+        "start_failed": "❌ Failed to start: {error}",
+        "started": "✅ IDE started with new workspace!",
+        "select_prompt": "Please select the workspace you want to switch to:",
+        "read_error": "❌ Could not read projects directory.",
+        "selected": "Workspace selected: {project}"
+    },
+    "file": {
+        "empty_dir": "📂 This directory is empty.",
+        "dir_read_error": "❌ Could not read directory: {error}",
+        "not_found": "❌ File not found: {path}",
+        "too_large": "❌ File too large ({size}MB). Telegram limit is 50MB.",
+        "send_failed": "❌ Could not send file: {error}",
+        "sending": "Sending: {filename}",
+        "parent_dir": "⬆️ Parent Directory",
+        "prev_page": "◀️ Previous",
+        "next_page": "▶️ Next",
+        "dir_info": "({count} items, page {page}/{totalPages})"
+    },
+    "menu": {
+        "updated": "✅ Menu updated! You can see it from the ☰ menu at the bottom left.",
+        "help_desc": "Show all available commands",
+        "ask_desc": "Send a question to the agent",
+        "latest_desc": "Get the latest response",
+        "screenshot_desc": "Take an IDE screenshot",
+        "check_desc": "Check agent status",
+        "status_desc": "System status (IDE, CDP, PM2)",
+        "start_ide_desc": "Start the IDE",
+        "close_desc": "Fully close the IDE",
+        "new_desc": "Open a new chat",
+        "model_desc": "Open model selection menu",
+        "workspace_desc": "Switch project",
+        "lang_desc": "Switch language"
+    },
+    "photo": {
+        "downloaded": "✅ File downloaded and forwarding to agent...",
+        "error": "❌ File Processing Error: {error}"
+    },
+    "lang": {
+        "current": "🌐 Current language: {lang}",
+        "changed": "✅ Language changed to: {lang}",
+        "select_prompt": "🌐 Select language:"
+    },
+    "response_too_long": "⚠️ Response too long. Use /latest to see the full version."
+}

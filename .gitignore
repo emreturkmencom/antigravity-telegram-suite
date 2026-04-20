@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Environment (contains secrets)
+.env
+
+# OS/IDE artifacts
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Debug/scratch files
+core
+check_dom*.js
+find_buttons.js
+patch.js
+test_send.js
+
+# Logs
+*.log
+npm-debug.log*
+
+# PM2
+ecosystem.config.js

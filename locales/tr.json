@@ -1,0 +1,124 @@
+{
+    "bot": {
+        "started": "🚀 Antigravity Uzaktan Bot Başlatıldı!\nChat ID: {chatId}\nTüm komutları görmek için /help yazabilirsiniz.",
+        "polling": "Antigravity Bot aktif olarak dinliyor!"
+    },
+    "auth": {
+        "unauthorized": "❌ Yetkisiz erişim."
+    },
+    "help": {
+        "title": "🤖 <b>Mevcut Komutlar:</b>",
+        "messaging_title": "📝 <i>Mesajlaşma &amp; Etkileşim:</i>",
+        "messaging_text": "- Sadece yazı yazarak → Ajanla konuşur (Headless mod)\n- 📎 Resim/Dosya göndererek → Ajana dosya iletir (caption desteklenir)\n- /ask &lt;soru&gt; → Ajanla konuşur",
+        "status_title": "👁️ <i>Durum &amp; Bilgi:</i>",
+        "status_text": "- /latest → Son yanıtı getirir (temizlenmiş)\n- /screenshot → IDE ekran görüntüsü alır\n- /check → Ajanın çalışma durumunu kontrol eder\n- /status → Sistem durumu (IDE, CDP, PM2)",
+        "ide_title": "🛠️ <i>IDE Kontrolleri:</i>",
+        "ide_text": "- /start_ide → IDE kapalıysa başlatır\n- /close → IDE'yi tamamen kapatır (tüm process + lock temizler)\n- /new → Yeni sohbet açar\n- /model → Model seçimi menüsünü açar\n- /workspace → Projeyi değiştirir\n- /lang → Dil değiştirir\n- /help → Bu yardım mesajını gösterir"
+    },
+    "ide": {
+        "already_running": "✅ Antigravity IDE zaten çalışıyor! Ekstra pencere açmaya gerek yok.\n💡 Kapatmak için /close yazabilirsiniz.",
+        "starting": "🔄 Antigravity IDE başlatılıyor...",
+        "start_failed": "❌ IDE başlatılamadı: {error}",
+        "started": "✅ IDE başarıyla başlatıldı!",
+        "already_closed": "ℹ️ IDE zaten kapalı. (Lock dosyası temizlendi)",
+        "closing": "🔄 IDE kapatılıyor...",
+        "closed": "✅ IDE tamamen kapatıldı! (Tüm process ve lock dosyaları temizlendi)",
+        "not_installed": "❌ Antigravity IDE bulunamadı. Lütfen önce yükleyin.\nBkz: https://github.com/nicepkg/antigravity"
+    },
+    "status": {
+        "title": "📊 <b>Sistem Durumu:</b>\n",
+        "ide_running": "🟢 IDE: Çalışıyor",
+        "ide_stopped": "🔴 IDE: Kapalı",
+        "cdp_active": "🟢 CDP Bağlantısı: Aktif",
+        "cdp_inactive": "🔴 CDP Bağlantısı: Yok",
+        "bot_running": "🟢 Bot: Çalışıyor"
+    },
+    "latest": {
+        "title": "📝 Son Yanıt:\n\n",
+        "no_new": "[Yeni mesaj yok]",
+        "error": "❌ Hata: {error}\n(Antigravity açık mı?)"
+    },
+    "screenshot": {
+        "taking": "📸 IDE ekran görüntüsü alınıyor (CDP üzerinden)...",
+        "error": "❌ Hata: {error}\n(IDE açık mı?)"
+    },
+    "ask": {
+        "empty": "Lütfen bir soru yazın. Örn: `/ask Merhaba`",
+        "sent": "✅ Mesaj Gönderildi: {query}\n\nYanıt bekleniyor...",
+        "done": "✅ İşlem Tamamlandı!",
+        "done_empty": "✅ İşlem tamamlandı ancak yeni bir metin üretilmedi.",
+        "timeout": "⚠️ Agent hala düşünüyor veya zaman aşımına uğradı. /latest ile kontrol edebilirsiniz.",
+        "send_error": "❌ Gönderme Hatası: {error}",
+        "headless_error": "❌ Headless İletim Hatası: {error}"
+    },
+    "check": {
+        "done": "✅ Agent işlemini çoktan tamamlamış!",
+        "working": "⏳ Agent şu an arka planda aktif olarak çalışıyor...",
+        "connection_error": "❌ Bağlantı kurulamadı. (Port {port})"
+    },
+    "stop": {
+        "stopping": "🛑 Agent durduruluyor...",
+        "stopped": "✅ Agent durduruldu!",
+        "already_stopped": "ℹ️ Agent zaten durmuş veya stop butonu bulunamadı.",
+        "error": "❌ Hata: {error}"
+    },
+    "new_chat": {
+        "opened": "✅ Yeni sohbet ekranı açıldı!",
+        "not_found": "❌ Yeni sohbet butonu bulunamadı.",
+        "error": "❌ Hata: {error}"
+    },
+    "model": {
+        "selecting": "🔄 Model seçiliyor: {model}",
+        "changed": "✅ Model değiştirildi: {model}",
+        "not_found": "❌ Model bulunamadı veya seçilemedi.",
+        "select_prompt": "🤖 Model seçin:",
+        "changing": "🔄 Model değiştiriliyor: {model}",
+        "select_failed": "❌ Model seçilemedi. IDE'de sohbet ekranı açık olduğundan emin olun.",
+        "error": "Hata!"
+    },
+    "workspace": {
+        "switching": "🔄 Mevcut IDE kapatılıp yeni workspace açılıyor: {workspace}",
+        "start_failed": "❌ Başlatılamadı: {error}",
+        "started": "✅ Yeni workspace ile IDE başlatıldı!",
+        "select_prompt": "Lütfen geçiş yapmak istediğiniz çalışma alanını seçin:",
+        "read_error": "❌ Projects dizini okunamadı.",
+        "selected": "Workspace seçildi: {project}"
+    },
+    "file": {
+        "empty_dir": "📂 Bu dizin boş.",
+        "dir_read_error": "❌ Dizin okunamadı: {error}",
+        "not_found": "❌ Dosya bulunamadı: {path}",
+        "too_large": "❌ Dosya çok büyük ({size}MB). Telegram limiti 50MB.",
+        "send_failed": "❌ Dosya gönderilemedi: {error}",
+        "sending": "Gönderiliyor: {filename}",
+        "parent_dir": "⬆️ Üst Dizin",
+        "prev_page": "◀️ Önceki",
+        "next_page": "▶️ Sonraki",
+        "dir_info": "({count} öğe, sayfa {page}/{totalPages})"
+    },
+    "menu": {
+        "updated": "✅ Menü güncellendi! Sol alttaki ☰ menüsünden görebilirsiniz.",
+        "help_desc": "Tüm komutların listesini gösterir",
+        "ask_desc": "Sorunuzu ajana iletir",
+        "latest_desc": "Son yanıtı getirir",
+        "screenshot_desc": "IDE ekran görüntüsü alır",
+        "check_desc": "Ajan durumunu kontrol eder",
+        "status_desc": "Sistem durumu (IDE, CDP, PM2)",
+        "start_ide_desc": "IDE başlatır",
+        "close_desc": "IDE tamamen kapatır",
+        "new_desc": "Yeni sohbet açar",
+        "model_desc": "Model seçimi menüsünü açar",
+        "workspace_desc": "Projeyi değiştirir",
+        "lang_desc": "Dil değiştirir"
+    },
+    "photo": {
+        "downloaded": "✅ Dosya indirildi ve ajana yönlendiriliyor...",
+        "error": "❌ Dosya İşleme Hatası: {error}"
+    },
+    "lang": {
+        "current": "🌐 Mevcut dil: {lang}",
+        "changed": "✅ Dil değiştirildi: {lang}",
+        "select_prompt": "🌐 Dil seçin:"
+    },
+    "response_too_long": "⚠️ Yanıt çok uzun, /latest ile tam halini görebilirsiniz."
+}
