@@ -68,7 +68,10 @@ async function getLatestAgentResponse(port) {
                             
                             // Strip typical system logs and agent thoughts
                             extractedText = extractedText.replace(/Thinking.../g, "").replace(/Gelişim App Dev/g, "");
-                            extractedText = extractedText.replace(/Prioritizing Tool Usage.*?targeted actions\./gis, "");
+                            // Robust regex for LLM thoughts: matches "Thought for X s" and "Prioritizing Tool Usage" blocks regardless of how the sentence ends
+                            extractedText = extractedText.replace(/Thought for \\d+s\\s*Prioritizing Tool Usage[\\s\\S]*?(?=\\n\\n|$)/gi, "");
+                            extractedText = extractedText.replace(/Prioritizing Tool Usage[\\s\\S]*?(?=\\n\\n|$)/gi, "");
+                            extractedText = extractedText.replace(/Thought for \\d+s/gi, "");
                             extractedText = extractedText.trim();
 
                         } catch(e) {}
