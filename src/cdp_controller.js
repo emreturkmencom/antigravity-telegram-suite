@@ -145,19 +145,10 @@ async function getFullLatestResponse(port) {
                     (function() {
                         let extractedText = "";
                         try {
-                            // Try to get only the last agent message block
-                            const msgs = document.querySelectorAll('[class*="message"], [class*="response"], [class*="agent"], [class*="assistant"], .interactive-item-container');
-                            if (msgs.length > 0) {
-                                const lastMsg = msgs[msgs.length - 1];
-                                extractedText = lastMsg.innerText || lastMsg.textContent || "";
-                            }
-                            
-                            // Fallback to full container if nothing found
-                            if (!extractedText || extractedText.length < 5) {
-                                const container = document.querySelector('.flex.w-full.grow.flex-col.overflow-hidden, #conversation, #chat, .interactive-session');
-                                if (container) {
-                                    extractedText = container.innerText || container.textContent || "";
-                                }
+                            // Use the SAME container as getLatestAgentResponse (chat area only, not notifications)
+                            const container = document.querySelector('.flex.w-full.grow.flex-col.overflow-hidden, #conversation, #chat, .interactive-session');
+                            if (container) {
+                                extractedText = container.innerText || container.textContent || "";
                             }
 
                             // Clean up UI clutter
@@ -170,6 +161,12 @@ async function getFullLatestResponse(port) {
                             extractedText = extractedText.replace(/Worked for \\d+s/gi, '');
                             extractedText = extractedText.replace(/\\d{1,2}:\\d{2}\\s*(?:AM|PM)/ig, '');
                             extractedText = extractedText.replace(/Thinking.../g, "").trim();
+                            
+                            // Filter out IDE notification/dialog text
+                            extractedText = extractedText.replace(/Do you want to install.*?\?/g, '');
+                            extractedText = extractedText.replace(/recommended.*?extension.*?language\??/gi, '');
+                            extractedText = extractedText.replace(/Install\b|Don't Show Again|Show Recommendations/g, '');
+                            extractedText = extractedText.trim();
 
                         } catch(e) {}
                         
