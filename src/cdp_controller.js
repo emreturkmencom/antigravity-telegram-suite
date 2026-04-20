@@ -64,8 +64,10 @@ async function getLatestAgentResponse(port) {
                             extractedText = extractedText.replace(/Worked for \\d+s/gi, '');
                             extractedText = extractedText.replace(/\\d{1,2}:\\d{2}\\s*(?:AM|PM)/ig, ''); // e.g. 4:24 PM
                             
-                            // Strip typical system logs
-                            extractedText = extractedText.replace(/Thinking.../g, "").replace(/Gelişim App Dev/g, "").trim();
+                            // Strip typical system logs and agent thoughts
+                            extractedText = extractedText.replace(/Thinking.../g, "").replace(/Gelişim App Dev/g, "");
+                            extractedText = extractedText.replace(/Prioritizing Tool Usage.*?targeted actions\./gis, "");
+                            extractedText = extractedText.trim();
 
                         } catch(e) {}
                         
@@ -160,7 +162,8 @@ async function getFullLatestResponse(port) {
                             extractedText = extractedText.replace(/chevron_left|chevron_right|content_copy|thumb_up|thumb_down|undo/g, '');
                             extractedText = extractedText.replace(/Worked for \\d+s/gi, '');
                             extractedText = extractedText.replace(/\\d{1,2}:\\d{2}\\s*(?:AM|PM)/ig, '');
-                            extractedText = extractedText.replace(/Thinking.../g, "").trim();
+                            extractedText = extractedText.replace(/Thinking.../g, "");
+                            extractedText = extractedText.replace(/Prioritizing Tool Usage.*?targeted actions\./gis, "");
                             
                             // Filter out IDE notification/dialog text
                             extractedText = extractedText.replace(/Do you want to install.*?\?/g, '');
