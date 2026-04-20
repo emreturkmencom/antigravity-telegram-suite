@@ -170,7 +170,7 @@ bot.command('status', async (ctx) => {
 
 bot.command('latest', async (ctx) => {
     try {
-        const text = await getFullLatestResponse(CDP_PORT);
+        const text = await getLatestAgentResponse(CDP_PORT);
         await sendLongMessage(ctx, text, t('latest.title'));
     } catch (err) {
         ctx.reply(t('latest.error', { error: err.message }));
@@ -571,7 +571,8 @@ bot.on('text', (ctx) => {
                 await ctx.reply(t('ask.timeout'));
             }
         } catch(err) {
-            ctx.reply(t('ask.headless_error', { error: err.message })).catch(() => {});
+            const errorMsg = err.message === 'no_chat_input' ? t('ask.no_chat_input') : err.message;
+            ctx.reply(t('ask.headless_error', { error: errorMsg })).catch(() => {});
         }
     })();
 });
@@ -635,7 +636,8 @@ bot.on(['photo', 'document'], (ctx) => {
                 await ctx.reply(t('ask.timeout'));
             }
         } catch(err) {
-            ctx.reply(t('photo.error', { error: err.message })).catch(() => {});
+            const errorMsg = err.message === 'no_chat_input' ? t('ask.no_chat_input') : err.message;
+            ctx.reply(t('photo.error', { error: errorMsg })).catch(() => {});
         }
     })();
 });

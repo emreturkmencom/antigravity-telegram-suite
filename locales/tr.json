@@ -49,7 +49,8 @@
         "done_empty": "✅ İşlem tamamlandı ancak yeni bir metin üretilmedi.",
         "timeout": "⚠️ Agent hala düşünüyor veya zaman aşımına uğradı. /latest ile kontrol edebilirsiniz.",
         "send_error": "❌ Gönderme Hatası: {error}",
-        "headless_error": "❌ Headless İletim Hatası: {error}"
+        "headless_error": "❌ Headless İletim Hatası: {error}",
+        "no_chat_input": "IDE'de sohbet kutusu bulunamadı. Lütfen Antigravity'de bir chat penceresi açık olduğundan emin olun."
     },
     "check": {
         "done": "✅ Agent işlemini çoktan tamamlamış!",

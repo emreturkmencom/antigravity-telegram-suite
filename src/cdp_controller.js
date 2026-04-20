@@ -346,7 +346,7 @@ async function sendViaCDP(text, port) {
                         try {
                             const escapedText = ${JSON.stringify(text)};
                             const editors = [...document.querySelectorAll('.interactive-input-editor textarea, #conversation textarea, #chat textarea, .chat-input textarea, [aria-label*="chat input" i] textarea, [contenteditable="true"]')]
-                                .filter(el => el.offsetParent !== null && !el.className.includes('xterm'));
+                                .filter(el => !el.className.includes('xterm'));
                             
                             const editor = editors.at(-1);
                             if (!editor) return { found: false, reason: "no_editor", editorCount: 0 };
@@ -416,7 +416,7 @@ async function sendViaCDP(text, port) {
         }
     }
     console.log("sendViaCDP: Failed on all targets:", errors.join(' | '));
-    throw new Error("No chat input found in the IDE. Please make sure a chat session is open in Antigravity.");
+    throw new Error("no_chat_input");
 }
 
 async function triggerNewChat(port) {
