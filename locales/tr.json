@@ -13,7 +13,7 @@
         "status_title": "👁️ <i>Durum &amp; Bilgi:</i>",
         "status_text": "- /latest → Son yanıtı getirir (temizlenmiş)\n- /screenshot → IDE ekran görüntüsü alır\n- /check → Ajanın çalışma durumunu kontrol eder\n- /status → Sistem durumu (IDE, CDP, PM2)",
         "ide_title": "🛠️ <i>IDE Kontrolleri:</i>",
-        "ide_text": "- /start_ide → IDE kapalıysa başlatır\n- /close → IDE'yi tamamen kapatır (tüm process + lock temizler)\n- /new → Yeni sohbet açar\n- /model → Model seçimi menüsünü açar\n- /workspace → Projeyi değiştirir\n- /lang → Dil değiştirir\n- /help → Bu yardım mesajını gösterir"
+        "ide_text": "- /start_ide → IDE kapalıysa başlatır\n- /close → IDE'yi tamamen kapatır (tüm process + lock temizler)\n- /new → Yeni sohbet açar\n- /model → Model seçimi menüsünü açar\n- /workspace → Projeyi değiştirir\n- /lang → Dil değiştirir\n- /cmd &lt;komut&gt; → Terminalde komut çalıştırır\n- /help → Bu yardım mesajını gösterir"
     },
     "ide": {
         "already_running": "✅ Antigravity IDE zaten çalışıyor! Ekstra pencere açmaya gerek yok.\n💡 Kapatmak için /close yazabilirsiniz.",
@@ -109,7 +109,8 @@
         "new_desc": "Yeni sohbet açar",
         "model_desc": "Model seçimi menüsünü açar",
         "workspace_desc": "Projeyi değiştirir",
-        "lang_desc": "Dil değiştirir"
+        "lang_desc": "Dil değiştirir",
+        "cmd_desc": "Terminalde komut çalıştırır"
     },
     "photo": {
         "downloaded": "✅ Dosya indirildi ve ajana yönlendiriliyor...",

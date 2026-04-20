@@ -3,6 +3,7 @@ const { Telegraf } = require('telegraf');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { exec } = require('child_process');
 const { loadLocale, t, getLang } = require('./i18n');
 const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, PLATFORM } = require('./platform');
 const { getLatestAgentResponse, getFullLatestResponse, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, stopAgent } = require('./cdp_controller');
@@ -229,6 +230,26 @@ bot.command('check', async (ctx) => {
     } catch (e) {
         ctx.reply(t('check.connection_error', { port: CDP_PORT }));
     }
+});
+
+bot.command('cmd', async (ctx) => {
+    const cmdStr = ctx.message.text.split(' ').slice(1).join(' ');
+    if (!cmdStr) {
+        return ctx.reply('Lütfen çalıştırılacak komutu girin. Örnek: /cmd ls -la');
+    }
+    
+    ctx.reply(`⏳ Komut çalıştırılıyor:\n\`${cmdStr}\``, { parse_mode: 'MarkdownV2' });
+    
+    exec(cmdStr, { timeout: 60000, maxBuffer: 1024 * 1024 * 5 }, async (error, stdout, stderr) => {
+        let output = "";
+        if (stdout) output += `[STDOUT]\n${stdout}\n`;
+        if (stderr) output += `[STDERR]\n${stderr}\n`;
+        if (error) output += `[ERROR]\n${error.message}\n`;
+        
+        if (!output) output = "✅ Komut başarıyla çalıştı (Çıktı yok).";
+        
+        await sendLongMessage(ctx, output, `💻 Komut Çıktısı:`);
+    });
 });
 
 bot.command('stop', async (ctx) => {
@@ -621,8 +642,28 @@ bot.on(['photo', 'document'], (ctx) => {
 
 // ===== LAUNCH =====
 
-bot.launch().then(() => {
+bot.launch().then(async () => {
     console.log(t('bot.polling'));
+    try {
+        await bot.telegram.setMyCommands([
+            { command: 'help', description: t('menu.help_desc') },
+            { command: 'ask', description: t('menu.ask_desc') },
+            { command: 'latest', description: t('menu.latest_desc') },
+            { command: 'screenshot', description: t('menu.screenshot_desc') },
+            { command: 'check', description: t('menu.check_desc') },
+            { command: 'status', description: t('menu.status_desc') },
+            { command: 'start_ide', description: t('menu.start_ide_desc') },
+            { command: 'close', description: t('menu.close_desc') },
+            { command: 'new', description: t('menu.new_desc') },
+            { command: 'model', description: t('menu.model_desc') },
+            { command: 'workspace', description: t('menu.workspace_desc') },
+            { command: 'lang', description: t('menu.lang_desc') },
+            { command: 'cmd', description: t('menu.cmd_desc') }
+        ]);
+        console.log("Menu commands set.");
+    } catch(e) {
+        console.error("Could not set commands", e.message);
+    }
 });
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
