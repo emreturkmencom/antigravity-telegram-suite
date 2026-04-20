@@ -3,6 +3,8 @@ const http = require('http');
 
 // Store the previous full chat state to filter out old messages
 let globalLastChatState = "";
+// Store the last successful extracted agent message
+let globalLastValidResponse = "";
 
 function httpGet(url) {
     return new Promise((resolve, reject) => {
@@ -107,6 +109,10 @@ async function getLatestAgentResponse(port) {
                     globalLastChatState = fullStr; // Save state for next call
                 }
                 
+                if (diffStr && diffStr.trim() !== '') {
+                    globalLastValidResponse = diffStr;
+                }
+                
                 return diffStr || "[No new messages]";
             } else {
                 logs.push(`${target.title}: empty`);
@@ -121,77 +127,13 @@ async function getLatestAgentResponse(port) {
 /**
  * Get the full last agent response block (no diffing).
  * Used by /latest command so it always returns something useful.
+ * Now it simply returns the cached last successful diff, avoiding grabbing user messages.
  */
 async function getFullLatestResponse(port) {
-    const raw = await httpGet(`http://127.0.0.1:${port}/json`);
-    const targets = JSON.parse(raw);
-    const candidates = targets.filter(t => (t.type === 'page' || t.type === 'iframe' || t.type === 'webview') &&
-        t.webSocketDebuggerUrl &&
-        !t.url.includes('devtools://'));
-
-    candidates.sort((a, b) => {
-        const aMatch = a.title.toLowerCase().includes('antigravity') ? 1 : 0;
-        const bMatch = b.title.toLowerCase().includes('antigravity') ? 1 : 0;
-        return bMatch - aMatch;
-    });
-
-    const logs = [];
-    for (const target of candidates) {
-        try {
-            const client = await CDP({ target: target.webSocketDebuggerUrl });
-            const { Runtime } = client;
-            await Runtime.enable();
-
-            const boxResult = await Runtime.evaluate({
-                expression: `
-                    (function() {
-                        let extractedText = "";
-                        try {
-                            // Use the SAME container as getLatestAgentResponse (chat area only, not notifications)
-                            const container = document.querySelector('.flex.w-full.grow.flex-col.overflow-hidden, #conversation, #chat, .interactive-session');
-                            if (container) {
-                                extractedText = container.innerText || container.textContent || "";
-                            }
-
-                            // Clean up UI clutter
-                            extractedText = extractedText.replace(/Ask anything, @ to mention, \\/ for workflows/g, '');
-                            extractedText = extractedText.replace(/0 Files With Changes/g, '');
-                            extractedText = extractedText.replace(/Review Changes/g, '');
-                            extractedText = extractedText.replace(/Gemini 3\\.1 Pro \\(High\\)/g, '');
-                            extractedText = extractedText.replace(/Send\\s*mic/g, '');
-                            extractedText = extractedText.replace(/chevron_left|chevron_right|content_copy|thumb_up|thumb_down|undo/g, '');
-                            extractedText = extractedText.replace(/Worked for \\d+s/gi, '');
-                            extractedText = extractedText.replace(/\\d{1,2}:\\d{2}\\s*(?:AM|PM)/ig, '');
-                            extractedText = extractedText.replace(/Thinking.../g, "");
-                            extractedText = extractedText.replace(/Prioritizing Tool Usage.*?targeted actions\./gis, "");
-                            
-                            // Filter out IDE notification/dialog text
-                            extractedText = extractedText.replace(/Do you want to install.*?\?/g, '');
-                            extractedText = extractedText.replace(/recommended.*?extension.*?language\??/gi, '');
-                            extractedText = extractedText.replace(/Install\b|Don't Show Again|Show Recommendations/g, '');
-                            extractedText = extractedText.trim();
-
-                        } catch(e) {}
-                        
-                        return String(extractedText);
-                    })()
-                `,
-                awaitPromise: true,
-                returnByValue: true
-            });
-            const val = boxResult?.result?.value;
-            await client.close();
-            
-            if (val && val.length > 0) {
-                return val;
-            } else {
-                logs.push(`${target.title}: empty`);
-            }
-        } catch(e) {
-            logs.push(`${target.title}: ${e.message}`);
-        }
+    if (globalLastValidResponse) {
+        return globalLastValidResponse;
     }
-    throw new Error(`Failed to extract text. Details: ${logs.join(', ')}`);
+    return "[No previous message stored yet. Run a prompt first.]";
 }
 
 async function captureAgentScreenshot(port) {
