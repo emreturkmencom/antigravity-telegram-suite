@@ -43,20 +43,22 @@ async function getLatestAgentResponse(port) {
                         try {
                             const container = document.querySelector('.flex.w-full.grow.flex-col.overflow-hidden, #conversation, #chat, .interactive-session');
                             if (container) {
-                                // Clone the container so we don't destroy the actual UI
-                                const clone = container.cloneNode(true);
-                                
-                                // Find all 'Thought' buttons and remove their parent blocks (which contain the thought text)
-                                const buttons = clone.querySelectorAll('button');
+                                // Temporarily hide 'Thought' blocks on the live DOM to prevent CSS class leakage from detached clone innerText
+                                const buttons = Array.from(container.querySelectorAll('button')).filter(btn => btn.innerText && btn.innerText.includes('Thought for'));
+                                const hiddenEls = [];
                                 buttons.forEach(btn => {
-                                    if (btn.innerText && btn.innerText.includes('Thought for')) {
-                                        if (btn.parentElement) {
-                                            btn.parentElement.remove();
-                                        }
+                                    if (btn.parentElement) {
+                                        hiddenEls.push({ el: btn.parentElement, display: btn.parentElement.style.display });
+                                        btn.parentElement.style.setProperty('display', 'none', 'important');
                                     }
                                 });
                                 
-                                extractedText = clone.innerText || clone.textContent || "";
+                                extractedText = container.innerText || container.textContent || "";
+                                
+                                // Restore visibility
+                                hiddenEls.forEach(item => {
+                                    item.el.style.display = item.display;
+                                });
                             }
 
                             // Clean up specific OpenCode/Antigravity React UI clutter safely without wildcard swallows
