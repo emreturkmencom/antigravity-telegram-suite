@@ -5,7 +5,7 @@ const path = require('path');
 const os = require('os');
 const { loadLocale, t, getLang } = require('./i18n');
 const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, PLATFORM } = require('./platform');
-const { getLatestAgentResponse, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, stopAgent } = require('./cdp_controller');
+const { getLatestAgentResponse, getFullLatestResponse, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, stopAgent } = require('./cdp_controller');
 
 // Load configured language
 const lang = process.env.LANGUAGE || 'en';
@@ -169,21 +169,8 @@ bot.command('status', async (ctx) => {
 
 bot.command('latest', async (ctx) => {
     try {
-        const text = await getLatestAgentResponse(CDP_PORT);
-        const MAX_LEN = 4000;
-        if (text.length <= MAX_LEN) {
-            await ctx.reply(t('latest.title') + text);
-        } else {
-            const chunks = [];
-            for (let i = 0; i < text.length; i += MAX_LEN) {
-                chunks.push(text.substring(i, i + MAX_LEN));
-            }
-            for (let i = 0; i < chunks.length; i++) {
-                const prefix = i === 0 ? t('latest.title') : '';
-                const suffix = chunks.length > 1 ? `\n\n(${i + 1}/${chunks.length})` : '';
-                await ctx.reply(prefix + chunks[i] + suffix);
-            }
-        }
+        const text = await getFullLatestResponse(CDP_PORT);
+        await sendLongMessage(ctx, text, t('latest.title'));
     } catch (err) {
         ctx.reply(t('latest.error', { error: err.message }));
     }
@@ -215,6 +202,11 @@ bot.command('ask', (ctx) => {
             if (isDone) {
                 let text = await getLatestAgentResponse(CDP_PORT);
                 text = stripQueryFromResponse(text, query);
+                // Fallback: if diff is empty, get the full last response
+                if (!text || text === '[No new messages]') {
+                    text = await getFullLatestResponse(CDP_PORT);
+                    text = stripQueryFromResponse(text, query);
+                }
                 if (!text) text = t('ask.done_empty');
                 await sendLongMessage(ctx, text, t('ask.done'));
             } else {
@@ -547,6 +539,11 @@ bot.on('text', (ctx) => {
             if (isDone) {
                 let text = await getLatestAgentResponse(CDP_PORT);
                 text = stripQueryFromResponse(text, query);
+                // Fallback: if diff is empty, get the full last response
+                if (!text || text === '[No new messages]') {
+                    text = await getFullLatestResponse(CDP_PORT);
+                    text = stripQueryFromResponse(text, query);
+                }
                 if (!text) text = t('ask.done_empty');
                 await sendLongMessage(ctx, text, t('ask.done'));
             } else {
@@ -604,6 +601,12 @@ bot.on(['photo', 'document'], (ctx) => {
                 text = stripQueryFromResponse(text, query);
                 if (caption) {
                     text = stripQueryFromResponse(text, caption);
+                }
+                // Fallback: if diff is empty, get the full last response
+                if (!text || text === '[No new messages]') {
+                    text = await getFullLatestResponse(CDP_PORT);
+                    text = stripQueryFromResponse(text, query);
+                    if (caption) text = stripQueryFromResponse(text, caption);
                 }
                 if (!text) text = t('ask.done_empty');
                 await sendLongMessage(ctx, text, t('ask.done'));
