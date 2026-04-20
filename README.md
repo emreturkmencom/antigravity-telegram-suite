@@ -39,8 +39,8 @@ Send messages, switch AI models, manage workspaces, take screenshots — all fro
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/emreturkmen/antigravity-bot.git
-cd antigravity-bot
+git clone https://github.com/emreturkmencom/antigravity-telegram-suite.git
+cd antigravity-telegram-suite
 npm install
 ```
 
@@ -124,7 +124,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 ## 🏗️ Architecture
 
 ```
-antigravity-bot/
+antigravity-telegram-suite/
 ├── src/
 │   ├── index.js           # Main bot logic & Telegram handlers
 │   ├── cdp_controller.js   # Chrome DevTools Protocol communication
