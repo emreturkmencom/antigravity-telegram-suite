@@ -336,7 +336,7 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null)
         if (foundChat) {
             if (isIdle && !isGenerating) {
                 consecutiveIdleCount++;
-                if (consecutiveIdleCount >= 2) return true;
+                if (consecutiveIdleCount >= 4) return true;
             } else {
                 consecutiveIdleCount = 0;
             }
