@@ -43,7 +43,20 @@ async function getLatestAgentResponse(port) {
                         try {
                             const container = document.querySelector('.flex.w-full.grow.flex-col.overflow-hidden, #conversation, #chat, .interactive-session');
                             if (container) {
-                                extractedText = container.innerText || container.textContent || "";
+                                // Clone the container so we don't destroy the actual UI
+                                const clone = container.cloneNode(true);
+                                
+                                // Find all 'Thought' buttons and remove their parent blocks (which contain the thought text)
+                                const buttons = clone.querySelectorAll('button');
+                                buttons.forEach(btn => {
+                                    if (btn.innerText && btn.innerText.includes('Thought for')) {
+                                        if (btn.parentElement) {
+                                            btn.parentElement.remove();
+                                        }
+                                    }
+                                });
+                                
+                                extractedText = clone.innerText || clone.textContent || "";
                             }
 
                             // Clean up specific OpenCode/Antigravity React UI clutter safely without wildcard swallows
@@ -71,6 +84,7 @@ async function getLatestAgentResponse(port) {
                             // Robust regex for LLM thoughts: matches "Thought for X s" and "Prioritizing Tool Usage" blocks regardless of how the sentence ends
                             extractedText = extractedText.replace(/Thought for \\d+s\\s*Prioritizing Tool Usage[\\s\\S]*?(?=\\n\\n|$)/gi, "");
                             extractedText = extractedText.replace(/Prioritizing Tool Usage[\\s\\S]*?(?=\\n\\n|$)/gi, "");
+                            extractedText = extractedText.replace(/I'm now focusing on tool selection[\\s\\S]*?(?=\\n\\n|$)/gi, "");
                             extractedText = extractedText.replace(/Thought for \\d+s/gi, "");
                             extractedText = extractedText.trim();
 
