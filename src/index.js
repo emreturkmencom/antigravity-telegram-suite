@@ -770,6 +770,7 @@ async function clearAllMenuScopes() {
 async function setMenuOnAllScopes() {
     const langs = ['en', 'tr'];
     const defaultLang = process.env.LANGUAGE || 'en';
+    const originalLang = getLang(); // Save the user's active language
 
     // Helper to register commands for a specific language and scope
     const register = async (langCode) => {
@@ -807,6 +808,9 @@ async function setMenuOnAllScopes() {
     }
     // 2. Register the default fallback language last (no language_code)
     await register(defaultLang);
+    
+    // 3. Restore the original active language
+    loadLocale(originalLang);
 }
 
 bot.command('menu', async (ctx) => {
