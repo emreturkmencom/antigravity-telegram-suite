@@ -7,6 +7,7 @@ const { exec } = require('child_process');
 const { loadLocale, t, getLang } = require('./i18n');
 const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, trustWorkspaceViaCDP, PLATFORM } = require('./platform');
 const { getLatestAgentResponse, getFullLatestResponse, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, stopAgent } = require('./cdp_controller');
+const autoaccept = require('./autoaccept');
 
 // Load configured language
 const lang = process.env.LANGUAGE || 'en';
@@ -325,6 +326,135 @@ bot.action(/md_(.+)/, async (ctx) => {
     }
 });
 
+// ===== AUTO-ACCEPT =====
+
+bot.command('autoaccept', async (ctx) => {
+    const parts = ctx.message.text.split(' ');
+    parts.shift();
+    const subCommand = parts.join(' ').trim().toLowerCase();
+
+    try {
+        if (subCommand === 'on' || (subCommand === '' && !autoaccept.isEnabled)) {
+            // Enable auto-accept
+            ctx.reply(t('autoaccept.enabling'));
+            const result = await autoaccept.enable(CDP_PORT);
+            if (result.extensionActive) {
+                ctx.reply(t('autoaccept.enabled_ext'));
+            } else if (result.injected > 0) {
+                ctx.reply(t('autoaccept.enabled_bot', { injected: result.injected }));
+            } else {
+                ctx.reply(t('autoaccept.enabled_none'));
+            }
+        } else if (subCommand === 'off' || (subCommand === '' && autoaccept.isEnabled)) {
+            // Disable auto-accept
+            ctx.reply(t('autoaccept.disabling'));
+            const result = await autoaccept.disable(CDP_PORT);
+            ctx.reply(t('autoaccept.disabled', { clicks: result.totalClicks }));
+        } else if (subCommand === 'status') {
+            // Show status
+            const status = await autoaccept.getStatus(CDP_PORT);
+            let msg = t('autoaccept.status_title');
+            msg += (status.enabled ? t('autoaccept.status_enabled') : t('autoaccept.status_disabled')) + '\n';
+
+            // Extension status
+            if (status.extensionActive) {
+                msg += t('autoaccept.status_ext_active') + '\n';
+                if (status.extensionClicks > 0) {
+                    msg += t('autoaccept.status_ext_clicks', { clicks: status.extensionClicks }) + '\n';
+                }
+            } else if (status.extensionPaused) {
+                msg += t('autoaccept.status_ext_paused') + '\n';
+            } else {
+                msg += t('autoaccept.status_ext_none') + '\n';
+            }
+
+            // Bot observer status
+            if (status.botActive) {
+                msg += t('autoaccept.status_bot_active', { targets: status.injectedTargets }) + '\n';
+            } else {
+                msg += t('autoaccept.status_bot_inactive') + '\n';
+            }
+
+            // Click stats
+            msg += t('autoaccept.status_clicks', { total: status.totalClicks, session: status.sessionClicks }) + '\n';
+
+            // Last click info
+            if (status.lastClickText && status.lastClickTimeSec !== null) {
+                msg += t('autoaccept.status_last_click', { text: status.lastClickText, sec: status.lastClickTimeSec }) + '\n';
+            }
+
+            // Blocked commands
+            msg += t('autoaccept.status_blocked', { count: status.blockedCommandsCount }) + '\n';
+
+            // Agent panel warning
+            if (!status.hasAgentPanel) {
+                msg += '\n' + t('autoaccept.status_no_panel');
+            }
+
+            ctx.reply(msg, { parse_mode: 'HTML' });
+        } else {
+            // Unknown subcommand — show inline buttons
+            const buttons = [
+                [{ text: '⚡ ' + (autoaccept.isEnabled ? 'Kapat' : 'Aç'), callback_data: autoaccept.isEnabled ? 'aa_off' : 'aa_on' }],
+                [{ text: '📊 Durum', callback_data: 'aa_status' }]
+            ];
+            ctx.reply(t('autoaccept.status_title') + (autoaccept.isEnabled ? t('autoaccept.status_enabled') : t('autoaccept.status_disabled')), {
+                parse_mode: 'HTML',
+                reply_markup: { inline_keyboard: buttons }
+            });
+        }
+    } catch (e) {
+        ctx.reply(t('autoaccept.error', { error: e.message }));
+    }
+});
+
+bot.action('aa_on', async (ctx) => {
+    try {
+        ctx.answerCbQuery('Enabling...');
+        const result = await autoaccept.enable(CDP_PORT);
+        if (result.extensionActive) {
+            ctx.reply(t('autoaccept.enabled_ext'));
+        } else if (result.injected > 0) {
+            ctx.reply(t('autoaccept.enabled_bot', { injected: result.injected }));
+        } else {
+            ctx.reply(t('autoaccept.enabled_none'));
+        }
+    } catch (e) {
+        ctx.reply(t('autoaccept.error', { error: e.message }));
+    }
+});
+
+bot.action('aa_off', async (ctx) => {
+    try {
+        ctx.answerCbQuery('Disabling...');
+        const result = await autoaccept.disable(CDP_PORT);
+        ctx.reply(t('autoaccept.disabled', { clicks: result.totalClicks }));
+    } catch (e) {
+        ctx.reply(t('autoaccept.error', { error: e.message }));
+    }
+});
+
+bot.action('aa_status', async (ctx) => {
+    try {
+        ctx.answerCbQuery('Loading...');
+        const status = await autoaccept.getStatus(CDP_PORT);
+        let msg = t('autoaccept.status_title');
+        msg += (status.enabled ? t('autoaccept.status_enabled') : t('autoaccept.status_disabled')) + '\n';
+        if (status.extensionActive) msg += t('autoaccept.status_ext_active') + '\n';
+        else if (status.extensionPaused) msg += t('autoaccept.status_ext_paused') + '\n';
+        else msg += t('autoaccept.status_ext_none') + '\n';
+        if (status.botActive) msg += t('autoaccept.status_bot_active', { targets: status.injectedTargets }) + '\n';
+        else msg += t('autoaccept.status_bot_inactive') + '\n';
+        msg += t('autoaccept.status_clicks', { total: status.totalClicks, session: status.sessionClicks }) + '\n';
+        if (status.lastClickText && status.lastClickTimeSec !== null) {
+            msg += t('autoaccept.status_last_click', { text: status.lastClickText, sec: status.lastClickTimeSec }) + '\n';
+        }
+        ctx.reply(msg, { parse_mode: 'HTML' });
+    } catch (e) {
+        ctx.reply(t('autoaccept.error', { error: e.message }));
+    }
+});
+
 // ===== WORKSPACE =====
 
 function doLaunchWorkspace(ctx, workspace) {
@@ -594,6 +724,7 @@ function getMenuCommands() {
         { command: 'cmd', description: t('menu.cmd_desc') },
         { command: 'file', description: t('menu.file_desc') },
         { command: 'stop', description: t('menu.stop_desc') },
+        { command: 'autoaccept', description: t('menu.autoaccept_desc') },
         { command: 'menu', description: t('menu.menu_desc') }
     ];
 }

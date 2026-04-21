@@ -13,7 +13,7 @@
         "status_title": "👁️ <i>Durum &amp; Bilgi:</i>",
         "status_text": "- /latest → Son yanıtı getirir (temizlenmiş)\n- /screenshot → IDE ekran görüntüsü alır\n- /check → Ajanın çalışma durumunu kontrol eder\n- /status → Sistem durumu (IDE, CDP, PM2)",
         "ide_title": "🛠️ <i>IDE Kontrolleri:</i>",
-        "ide_text": "- /start_ide → IDE kapalıysa başlatır\n- /close → IDE'yi tamamen kapatır (tüm process + lock temizler)\n- /new → Yeni sohbet açar\n- /model → Model seçimi menüsünü açar\n- /workspace → Projeyi değiştirir\n- /lang → Dil değiştirir\n- /cmd &lt;komut&gt; → Terminalde komut çalıştırır\n- /help → Bu yardım mesajını gösterir"
+        "ide_text": "- /start_ide → IDE kapalıysa başlatır\n- /close → IDE'yi tamamen kapatır (tüm process + lock temizler)\n- /new → Yeni sohbet açar\n- /model → Model seçimi menüsünü açar\n- /workspace → Projeyi değiştirir\n- /autoaccept → Otomatik kabul aç/kapat\n- /lang → Dil değiştirir\n- /cmd &lt;komut&gt; → Terminalde komut çalıştırır\n- /help → Bu yardım mesajını gösterir"
     },
     "ide": {
         "already_running": "✅ Antigravity IDE zaten çalışıyor! Ekstra pencere açmaya gerek yok.\n💡 Kapatmak için /close yazabilirsiniz.",
@@ -116,6 +116,7 @@
         "cmd_desc": "Terminalde komut çalıştırır",
         "file_desc": "Dosya gezgini",
         "stop_desc": "Ajanı durdur",
+        "autoaccept_desc": "Otomatik kabul aç/kapat",
         "menu_desc": "Komut menüsünü güncelle"
     },
     "photo": {
@@ -126,6 +127,30 @@
         "current": "🌐 Mevcut dil: {lang}",
         "changed": "✅ Dil değiştirildi: {lang}",
         "select_prompt": "🌐 Dil seçin:"
+    },
+    "autoaccept": {
+        "enabling": "🔄 Otomatik kabul etkinleştiriliyor...",
+        "enabled_ext": "⚡ Otomatik Kabul AKTİF!\n\n🔌 YazanBaker AutoAccept extension'ı algılandı ve zaten aktif.\nBot, extension üzerinden izleme yapacak.",
+        "enabled_bot": "⚡ Otomatik Kabul AKTİF!\n\n🤖 Bot kendi observer'ını {injected} hedefe enjekte etti.\nRun, Accept, Allow, Continue butonları otomatik tıklanacak.",
+        "enabled_none": "⚡ Otomatik Kabul AKTİF!\n\n⚠️ Henüz hedef bulunamadı. Agent paneli açıldığında otomatik enjekte edilecek.",
+        "already_enabled": "ℹ️ Otomatik kabul zaten aktif.",
+        "disabling": "🔄 Otomatik kabul devre dışı bırakılıyor...",
+        "disabled": "✅ Otomatik Kabul KAPALI.\n\n📊 Bu oturumda toplam {clicks} tıklama yapıldı.",
+        "already_disabled": "ℹ️ Otomatik kabul zaten kapalı.",
+        "status_title": "📊 <b>Otomatik Kabul Durumu:</b>\n",
+        "status_enabled": "⚡ Durum: AKTİF",
+        "status_disabled": "⏸️ Durum: KAPALI",
+        "status_ext_active": "🔌 Extension: Aktif (YazanBaker AutoAccept)",
+        "status_ext_paused": "⏸️ Extension: Duraklatılmış",
+        "status_ext_none": "📴 Extension: Algılanmadı",
+        "status_bot_active": "🤖 Bot Observer: Aktif ({targets} hedef)",
+        "status_bot_inactive": "📴 Bot Observer: Pasif",
+        "status_clicks": "🖱️ Toplam Tıklama: {total} (oturum: {session})",
+        "status_ext_clicks": "🔌 Extension Tıklamaları: {clicks}",
+        "status_last_click": "⏱️ Son Tıklama: {text} ({sec}sn önce)",
+        "status_blocked": "🛡️ Engellenen Komut Sayısı: {count}",
+        "status_no_panel": "⚠️ Agent paneli algılanmadı. Lütfen bir sohbet açın.",
+        "error": "❌ Hata: {error}"
     },
     "response_too_long": "⚠️ Yanıt çok uzun, /latest ile tam halini görebilirsiniz."
 }
