@@ -23,7 +23,7 @@
         "already_closed": "ℹ️ IDE zaten kapalı. (Lock dosyası temizlendi)",
         "closing": "🔄 IDE kapatılıyor...",
         "closed": "✅ IDE tamamen kapatıldı! (Tüm process ve lock dosyaları temizlendi)",
-        "not_installed": "❌ Antigravity IDE bulunamadı. Lütfen önce yükleyin.\nBkz: https://github.com/nicepkg/antigravity"
+        "not_installed": "❌ Antigravity IDE bulunamadı. Lütfen önce yükleyin.\nBkz: https://antigravity.google/"
     },
     "status": {
         "title": "📊 <b>Sistem Durumu:</b>\n",
