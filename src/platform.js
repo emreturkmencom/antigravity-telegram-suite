@@ -13,7 +13,10 @@ const config = {
     get ideBinary() {
         switch (PLATFORM) {
             case 'darwin':
-                return '/Applications/Antigravity.app/Contents/MacOS/Antigravity';
+                const fs = require('fs');
+                const userApp = path.join(HOME, 'Applications', 'Antigravity.app');
+                if (fs.existsSync(userApp)) return userApp;
+                return '/Applications/Antigravity.app';
             case 'win32':
                 return path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Antigravity', 'Antigravity.exe');
             default: // linux
@@ -78,7 +81,7 @@ function isIDERunning() {
                 });
                 break;
             case 'darwin':
-                cmd = `pgrep -x "${config.processName}"`;
+                cmd = `pgrep -f "Antigravity.app/Contents/MacOS"`;
                 exec(cmd, (err, stdout) => {
                     resolve(!!(stdout && stdout.trim()));
                 });
@@ -132,9 +135,13 @@ function killIDE() {
             // Verification loop: wait until all antigravity processes are truly dead (max 5s)
             if (PLATFORM === 'linux' || PLATFORM === 'darwin') {
                 let attempts = 0;
+                const verifyCmd = PLATFORM === 'darwin' 
+                    ? 'pgrep -f "Antigravity.app/Contents/MacOS" 2>/dev/null'
+                    : 'pgrep -x "antigravity" 2>/dev/null';
+                
                 const verifyDead = () => {
                     attempts++;
-                    exec('pgrep -x "antigravity" 2>/dev/null', (err, stdout) => {
+                    exec(verifyCmd, (err, stdout) => {
                         const pids = (stdout || '').trim();
                         if (!pids || attempts >= 10) {
                             if (pids && attempts >= 10) {
