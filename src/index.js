@@ -709,7 +709,6 @@ bot.action(/fp_(.+)/, (ctx) => {
 function getMenuCommands() {
     return [
         { command: 'help', description: t('menu.help_desc') },
-        { command: 'ask', description: t('menu.ask_desc') },
         { command: 'latest', description: t('menu.latest_desc') },
         { command: 'screenshot', description: t('menu.screenshot_desc') },
         { command: 'check', description: t('menu.check_desc') },

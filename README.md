@@ -107,7 +107,6 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | Command | Description |
 |---|---|
 | *(any text)* | Send directly to the AI agent |
-| `/ask <question>` | Send a question to the agent |
 | `/latest` | Get the latest agent response |
 | `/screenshot` | Take an IDE screenshot |
 | `/check` | Check if the agent is working |

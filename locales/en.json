@@ -9,7 +9,7 @@
     "help": {
         "title": "🤖 <b>Available Commands:</b>",
         "messaging_title": "📝 <i>Messaging &amp; Interaction:</i>",
-        "messaging_text": "- Just type text → Talk to the agent (headless mode)\n- 📎 Send image/file → Forward to agent (caption supported)\n- /ask &lt;question&gt; → Send a question to the agent",
+        "messaging_text": "- Just type text → Talk to the agent (headless mode)\n- 📎 Send image/file → Forward to agent (caption supported)",
         "status_title": "👁️ <i>Status &amp; Info:</i>",
         "status_text": "- /latest → Get latest response (cleaned)\n- /screenshot → Take IDE screenshot\n- /check → Check if agent is working\n- /status → System status (IDE, CDP, PM2)",
         "ide_title": "🛠️ <i>IDE Controls:</i>",

@@ -9,7 +9,7 @@
     "help": {
         "title": "🤖 <b>Mevcut Komutlar:</b>",
         "messaging_title": "📝 <i>Mesajlaşma &amp; Etkileşim:</i>",
-        "messaging_text": "- Sadece yazı yazarak → Ajanla konuşur (Headless mod)\n- 📎 Resim/Dosya göndererek → Ajana dosya iletir (caption desteklenir)\n- /ask &lt;soru&gt; → Ajanla konuşur",
+        "messaging_text": "- Sadece yazı yazarak → Ajanla konuşur (Headless mod)\n- 📎 Resim/Dosya göndererek → Ajana dosya iletir (caption desteklenir)",
         "status_title": "👁️ <i>Durum &amp; Bilgi:</i>",
         "status_text": "- /latest → Son yanıtı getirir (temizlenmiş)\n- /screenshot → IDE ekran görüntüsü alır\n- /check → Ajanın çalışma durumunu kontrol eder\n- /status → Sistem durumu (IDE, CDP, PM2)",
         "ide_title": "🛠️ <i>IDE Kontrolleri:</i>",
