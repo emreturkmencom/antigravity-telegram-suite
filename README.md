@@ -174,7 +174,8 @@ antigravity-telegram-suite/
 
 ## 🙏 Acknowledgments
 
-This project was inspired by [acmavirus/antigravity-telegram-control](https://github.com/acmavirus/antigravity-telegram-control), a clean and open-source Telegram integration for Antigravity. I built upon that foundation with additional features like file management, model switching, DOM-level response filtering, cross-platform support, and i18n.
+- **[acmavirus/antigravity-telegram-control](https://github.com/acmavirus/antigravity-telegram-control)** — A clean, open-source Telegram integration for Antigravity that served as the foundation for this project.
+- **[yazanbaker94/AntiGravity-AutoAccept](https://github.com/yazanbaker94/AntiGravity-AutoAccept)** — The DOM observer pattern used in the Auto-Accept module was inspired by this project's approach to automated button clicking.
 
 ## 📄 License
 

@@ -7,7 +7,8 @@
  * Injects a MutationObserver into the IDE's webview targets that watches
  * for button elements and clicks them automatically with safety guards.
  * 
- * DOM Observer pattern inspired by community open-source solutions.
+ * DOM Observer pattern inspired by yazanbaker94/AntiGravity-AutoAccept
+ * (https://github.com/yazanbaker94/AntiGravity-AutoAccept)
  */
 
 const http = require('http');
