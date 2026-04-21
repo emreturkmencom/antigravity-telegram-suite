@@ -81,6 +81,8 @@
         "switching": "🔄 Mevcut IDE kapatılıp yeni workspace açılıyor: {workspace}",
         "start_failed": "❌ Başlatılamadı: {error}",
         "started": "✅ Yeni workspace ile IDE başlatıldı!",
+        "trusted": "🔓 Workspace otomatik olarak güvenilir olarak işaretlendi.",
+        "cdp_warning": "\n⚠️ CDP bağlantısı henüz hazır olmayabilir. Birkaç saniye bekleyip tekrar deneyin.",
         "select_prompt": "Lütfen geçiş yapmak istediğiniz çalışma alanını seçin:",
         "read_error": "❌ Projects dizini okunamadı.",
         "selected": "Workspace seçildi: {project}"

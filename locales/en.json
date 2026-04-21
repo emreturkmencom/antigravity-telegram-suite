@@ -81,6 +81,8 @@
         "switching": "🔄 Closing current IDE and opening new workspace: {workspace}",
         "start_failed": "❌ Failed to start: {error}",
         "started": "✅ IDE started with new workspace!",
+        "trusted": "🔓 Workspace automatically marked as trusted.",
+        "cdp_warning": "\n⚠️ CDP connection may not be ready yet. Wait a few seconds and try again.",
         "select_prompt": "Please select the workspace you want to switch to:",
         "read_error": "❌ Could not read projects directory.",
         "selected": "Workspace selected: {project}"

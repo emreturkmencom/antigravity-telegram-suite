@@ -5,7 +5,7 @@ const path = require('path');
 const os = require('os');
 const { exec } = require('child_process');
 const { loadLocale, t, getLang } = require('./i18n');
-const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, PLATFORM } = require('./platform');
+const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, trustWorkspaceViaCDP, PLATFORM } = require('./platform');
 const { getLatestAgentResponse, getFullLatestResponse, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, stopAgent } = require('./cdp_controller');
 
 // Load configured language
@@ -331,10 +331,55 @@ function doLaunchWorkspace(ctx, workspace) {
     ctx.reply(t('workspace.switching', { workspace }));
     (async () => {
         await killIDE();
+        // Wait for IDE processes to fully terminate (includes port cleanup)
+        await new Promise(r => setTimeout(r, 5000));
+        
+        // Verify all processes are dead before relaunching
+        const stillRunning = await isIDERunning();
+        if (stillRunning) {
+            console.log('[workspace] IDE still running after kill, waiting extra...');
+            await killIDE();
+            await new Promise(r => setTimeout(r, 3000));
+        }
+        
         try {
             await launchIDE(workspace, CDP_PORT);
-            ctx.reply(t('workspace.started'));
+            // Poll CDP until the new IDE is responsive (max 30 seconds)
+            let cdpReady = false;
+            for (let i = 0; i < 15; i++) {
+                await new Promise(r => setTimeout(r, 2000));
+                try {
+                    const http = require('http');
+                    const targets = await new Promise((resolve, reject) => {
+                        http.get(`http://127.0.0.1:${CDP_PORT}/json`, (res) => {
+                            let data = '';
+                            res.on('data', chunk => data += chunk);
+                            res.on('end', () => {
+                                try { resolve(JSON.parse(data)); } catch(e) { reject(e); }
+                            });
+                        }).on('error', reject);
+                    });
+                    if (targets && targets.length > 0) {
+                        cdpReady = true;
+                        break;
+                    }
+                } catch (_) {
+                    // CDP not ready yet, keep waiting
+                }
+            }
+            if (cdpReady) {
+                ctx.reply(t('workspace.started'));
+                // Auto-click Trust Workspace dialog if it appears
+                trustWorkspaceViaCDP(CDP_PORT, 10).then(trusted => {
+                    if (trusted) {
+                        ctx.reply(t('workspace.trusted'));
+                    }
+                }).catch(() => {});
+            } else {
+                ctx.reply(t('workspace.started') + t('workspace.cdp_warning'));
+            }
         } catch (err) {
+            console.error('doLaunchWorkspace error:', err);
             ctx.reply(t('workspace.start_failed', { error: err.message }));
         }
     })();
@@ -358,7 +403,10 @@ bot.command('workspace', (ctx) => {
         });
         return;
     }
-    doLaunchWorkspace(ctx, workspace);
+    // If user typed a folder name (not full path), resolve it to full path
+    const wsPath = workspace.startsWith('/') ? workspace : path.join(config.projectsDir, workspace);
+    currentWorkspaceDir = wsPath;
+    doLaunchWorkspace(ctx, wsPath);
 });
 
 bot.action(/ws_(.+)/, (ctx) => {
