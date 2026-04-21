@@ -113,7 +113,10 @@
         "model_desc": "Open model selection menu",
         "workspace_desc": "Switch project",
         "lang_desc": "Switch language",
-        "cmd_desc": "Run a terminal command"
+        "cmd_desc": "Run a terminal command",
+        "file_desc": "Browse and send files",
+        "stop_desc": "Stop the agent",
+        "menu_desc": "Update the command menu"
     },
     "photo": {
         "downloaded": "✅ File downloaded and forwarding to agent...",

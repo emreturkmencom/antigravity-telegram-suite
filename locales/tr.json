@@ -113,7 +113,10 @@
         "model_desc": "Model seçimi menüsünü açar",
         "workspace_desc": "Projeyi değiştirir",
         "lang_desc": "Dil değiştirir",
-        "cmd_desc": "Terminalde komut çalıştırır"
+        "cmd_desc": "Terminalde komut çalıştırır",
+        "file_desc": "Dosya gezgini",
+        "stop_desc": "Ajanı durdur",
+        "menu_desc": "Komut menüsünü güncelle"
     },
     "photo": {
         "downloaded": "✅ Dosya indirildi ve ajana yönlendiriliyor...",

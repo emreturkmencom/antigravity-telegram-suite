@@ -574,9 +574,11 @@ bot.action(/fp_(.+)/, (ctx) => {
 
 // ===== MENU REGISTRATION =====
 
-bot.command('menu', async (ctx) => {
-    await bot.telegram.deleteMyCommands();
-    await bot.telegram.setMyCommands([
+/**
+ * Build the full command list for Telegram menu.
+ */
+function getMenuCommands() {
+    return [
         { command: 'help', description: t('menu.help_desc') },
         { command: 'ask', description: t('menu.ask_desc') },
         { command: 'latest', description: t('menu.latest_desc') },
@@ -589,8 +591,51 @@ bot.command('menu', async (ctx) => {
         { command: 'model', description: t('menu.model_desc') },
         { command: 'workspace', description: t('menu.workspace_desc') },
         { command: 'lang', description: t('menu.lang_desc') },
-        { command: 'cmd', description: t('menu.cmd_desc') }
-    ]);
+        { command: 'cmd', description: t('menu.cmd_desc') },
+        { command: 'file', description: t('menu.file_desc') },
+        { command: 'stop', description: t('menu.stop_desc') },
+        { command: 'menu', description: t('menu.menu_desc') }
+    ];
+}
+
+/**
+ * Delete commands from ALL Telegram scopes and language codes
+ * to prevent stale entries from overriding the default menu.
+ */
+async function clearAllMenuScopes() {
+    const scopes = [
+        { type: 'default' },
+        { type: 'all_private_chats' },
+        { type: 'all_group_chats' },
+        { type: 'all_chat_administrators' }
+    ];
+    const langs = ['', 'en', 'tr'];
+    
+    for (const scope of scopes) {
+        for (const lang of langs) {
+            try {
+                const params = { scope };
+                if (lang) params.language_code = lang;
+                await bot.telegram.callApi('deleteMyCommands', params);
+            } catch (_) {}
+        }
+    }
+    
+    // Also clear chat-specific scope if ALLOWED_CHAT_ID is set
+    if (ALLOWED_CHAT_ID) {
+        for (const lang of langs) {
+            try {
+                const params = { scope: { type: 'chat', chat_id: parseInt(ALLOWED_CHAT_ID) } };
+                if (lang) params.language_code = lang;
+                await bot.telegram.callApi('deleteMyCommands', params);
+            } catch (_) {}
+        }
+    }
+}
+
+bot.command('menu', async (ctx) => {
+    await clearAllMenuScopes();
+    await bot.telegram.callApi('setMyCommands', { commands: getMenuCommands() });
     ctx.reply(t('menu.updated'));
 });
 
@@ -696,21 +741,8 @@ bot.on(['photo', 'document'], (ctx) => {
 bot.launch().then(async () => {
     console.log(t('bot.polling'));
     try {
-        await bot.telegram.setMyCommands([
-            { command: 'help', description: t('menu.help_desc') },
-            { command: 'ask', description: t('menu.ask_desc') },
-            { command: 'latest', description: t('menu.latest_desc') },
-            { command: 'screenshot', description: t('menu.screenshot_desc') },
-            { command: 'check', description: t('menu.check_desc') },
-            { command: 'status', description: t('menu.status_desc') },
-            { command: 'start_ide', description: t('menu.start_ide_desc') },
-            { command: 'close', description: t('menu.close_desc') },
-            { command: 'new', description: t('menu.new_desc') },
-            { command: 'model', description: t('menu.model_desc') },
-            { command: 'workspace', description: t('menu.workspace_desc') },
-            { command: 'lang', description: t('menu.lang_desc') },
-            { command: 'cmd', description: t('menu.cmd_desc') }
-        ]);
+        await clearAllMenuScopes();
+        await bot.telegram.callApi('setMyCommands', { commands: getMenuCommands() });
         console.log("Menu commands set.");
     } catch(e) {
         console.error("Could not set commands", e.message);
