@@ -148,9 +148,14 @@
     },
     "quota": {
         "checking": "🔄 Checking quota status...",
-        "result": "📊 <b>Current Quota Status:</b>",
         "not_found": "❌ Quota information could not be read. It might not be visible in Settings > Customisation.",
-        "error": "❌ Error: {error}"
+        "error": "❌ Error: {error}",
+        "header": "📊 Account and Quota Status\n",
+        "plan": "📋 Plan: {plan}",
+        "prompt_credits": "📊 Prompt Credits: {available}{monthly}",
+        "model_quota": "⏱️ Model Quota Status:",
+        "remaining": " {pct}% remaining",
+        "empty": " ⛔ EXHAUSTED"
     },
     "response_too_long": "⚠️ Response too long. Use /latest to see the full version."
 }

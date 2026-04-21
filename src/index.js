@@ -191,7 +191,7 @@ bot.command('screenshot', async (ctx) => {
 bot.command('quota', async (ctx) => {
     try {
         ctx.reply(t('quota.checking'));
-        const quotaInfo = await getQuota(CDP_PORT);
+        const quotaInfo = await getQuota(CDP_PORT, t);
         if (quotaInfo) {
             ctx.reply(quotaInfo);
         } else {

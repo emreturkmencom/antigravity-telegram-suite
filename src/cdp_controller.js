@@ -741,7 +741,7 @@ async function stopAgent(port) {
     return false;
 }
 
-async function getQuota(_port) {
+async function getQuota(_port, t) {
     const { exec } = require('child_process');
     const { promisify } = require('util');
     const https = require('https');
@@ -834,13 +834,13 @@ async function getQuota(_port) {
         const userStatus = apiData.userStatus || apiData;
         const result = [];
 
-        result.push('📊 Hesap ve Kota Bilgisi\n');
+        result.push(t ? t('quota.header') : '📊 Hesap ve Kota Bilgisi\n');
         if (userStatus.email) result.push(`👤 ${userStatus.email}`);
 
         // AI Credits from userTier.availableCredits
         const userTier = userStatus.userTier;
         if (userTier) {
-            if (userTier.name) result.push(`📋 Plan: ${userTier.name}`);
+            if (userTier.name) result.push(t ? t('quota.plan', { plan: userTier.name }) : `📋 Plan: ${userTier.name}`);
             const credits = userTier.availableCredits;
             if (Array.isArray(credits) && credits.length > 0) {
                 const c = credits[0];
@@ -854,13 +854,15 @@ async function getQuota(_port) {
         // Prompt Credits
         const planStatus = userStatus.planStatus;
         if (planStatus && typeof planStatus.availablePromptCredits === 'number') {
-            result.push(`📊 Prompt Credits: ${planStatus.availablePromptCredits.toLocaleString()}` + (planStatus.planInfo?.monthlyPromptCredits ? ` / ${planStatus.planInfo.monthlyPromptCredits.toLocaleString()}` : ''));
+            const availStr = planStatus.availablePromptCredits.toLocaleString();
+            const monthlyStr = planStatus.planInfo?.monthlyPromptCredits ? ` / ${planStatus.planInfo.monthlyPromptCredits.toLocaleString()}` : '';
+            result.push(t ? t('quota.prompt_credits', { available: availStr, monthly: monthlyStr }) : `📊 Prompt Credits: ${availStr}${monthlyStr}`);
         }
 
         const configs = userStatus.cascadeModelConfigData?.clientModelConfigs;
         if (Array.isArray(configs) && configs.length > 0) {
             result.push('');
-            result.push('⏱️ Model Kota Durumu:');
+            result.push(t ? t('quota.model_quota') : '⏱️ Model Kota Durumu:');
 
             // Sort models: Gemini > Claude > others, so best representative is picked per group
             const priority = (label) => {
@@ -894,7 +896,8 @@ async function getQuota(_port) {
                         const empty = 8 - filled;
                         const bar = '█'.repeat(filled) + '░'.repeat(empty);
                         const icon = rem > 0.5 ? '🟢' : rem > 0.2 ? '🟡' : '🔴';
-                        line += ` ${icon} ${bar} %${remPct} kalan`;
+                        const remText = t ? t('quota.remaining', { pct: remPct }) : ` %${remPct} kalan`;
+                        line += ` ${icon} ${bar}${remText}`;
                     }
                     if (resetTime) {
                         try {
@@ -902,11 +905,13 @@ async function getQuota(_port) {
                             if (diff > 0) {
                                 const hours = Math.floor(diff / 3600000);
                                 const mins = Math.floor((diff % 3600000) / 60000);
-                                line += ` ⏳ ${hours}sa ${mins}dk`;
+                                // Since 'sa' and 'dk' are universal enough we can keep them or use a simplified approach
+                                // However, keeping ⏳ Xh Ym or ⏳ Xsa Ydk
+                                line += t && t('lang.current') ? ` ⏳ ${hours}h ${mins}m` : ` ⏳ ${hours}sa ${mins}dk`;
                             }
                         } catch(e) {}
                     }
-                    if (rem === 0) line += ' ⛔ TÜKENDİ';
+                    if (rem === 0) line += t ? t('quota.empty') : ' ⛔ TÜKENDİ';
                 }
                 result.push(line);
             }

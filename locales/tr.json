@@ -148,9 +148,14 @@
     },
     "quota": {
         "checking": "🔄 Kota bilgisi okunuyor...",
-        "result": "📊 <b>Mevcut Kota Durumu:</b>",
         "not_found": "❌ Kota bilgisi okunamadı. Ayarlar > Customisation kısmında görünmüyor olabilir.",
-        "error": "❌ Hata: {error}"
+        "error": "❌ Hata: {error}",
+        "header": "📊 Hesap ve Kota Bilgisi\n",
+        "plan": "📋 Plan: {plan}",
+        "prompt_credits": "📊 Prompt Credits: {available}{monthly}",
+        "model_quota": "⏱️ Model Kota Durumu:",
+        "remaining": " %{pct} kalan",
+        "empty": " ⛔ TÜKENDİ"
     },
     "response_too_long": "⚠️ Yanıt çok uzun, /latest ile tam halini görebilirsiniz."
 }
