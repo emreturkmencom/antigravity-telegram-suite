@@ -633,9 +633,23 @@ async function clearAllMenuScopes() {
     }
 }
 
+/**
+ * Set commands on all relevant scopes so the menu is always visible.
+ */
+async function setMenuOnAllScopes(commands) {
+    await bot.telegram.callApi('setMyCommands', { commands });
+    await bot.telegram.callApi('setMyCommands', { commands, scope: { type: 'all_private_chats' } });
+    if (ALLOWED_CHAT_ID) {
+        await bot.telegram.callApi('setMyCommands', { 
+            commands, 
+            scope: { type: 'chat', chat_id: parseInt(ALLOWED_CHAT_ID) } 
+        });
+    }
+}
+
 bot.command('menu', async (ctx) => {
     await clearAllMenuScopes();
-    await bot.telegram.callApi('setMyCommands', { commands: getMenuCommands() });
+    await setMenuOnAllScopes(getMenuCommands());
     ctx.reply(t('menu.updated'));
 });
 
@@ -742,7 +756,7 @@ bot.launch().then(async () => {
     console.log(t('bot.polling'));
     try {
         await clearAllMenuScopes();
-        await bot.telegram.callApi('setMyCommands', { commands: getMenuCommands() });
+        await setMenuOnAllScopes(getMenuCommands());
         console.log("Menu commands set.");
     } catch(e) {
         console.error("Could not set commands", e.message);
