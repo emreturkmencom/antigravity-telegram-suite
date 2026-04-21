@@ -544,13 +544,15 @@ bot.action(/ws_(.+)/, (ctx) => {
 
 // ===== LANGUAGE SWITCH =====
 
-bot.command('lang', (ctx) => {
+bot.command('lang', async (ctx) => {
     const parts = ctx.message.text.split(' ');
     parts.shift();
     const newLang = parts.join(' ').trim().toLowerCase();
     
     if (newLang && ['en', 'tr'].includes(newLang)) {
         loadLocale(newLang);
+        await clearAllMenuScopes();
+        await setMenuOnAllScopes(getMenuCommands());
         return ctx.reply(t('lang.changed', { lang: newLang }));
     }
     
@@ -564,9 +566,11 @@ bot.command('lang', (ctx) => {
     });
 });
 
-bot.action(/lang_(.+)/, (ctx) => {
+bot.action(/lang_(.+)/, async (ctx) => {
     const newLang = ctx.match[1];
     loadLocale(newLang);
+    await clearAllMenuScopes();
+    await setMenuOnAllScopes(getMenuCommands());
     ctx.answerCbQuery(t('lang.changed', { lang: newLang }));
     ctx.reply(t('lang.changed', { lang: newLang }));
 });
