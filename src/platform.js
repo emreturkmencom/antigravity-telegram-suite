@@ -35,7 +35,11 @@ const config = {
 
     /** Default projects directory */
     get projectsDir() {
-        return process.env.PROJECTS_DIR || path.join(HOME, 'Projects');
+        let dir = process.env.PROJECTS_DIR || path.join(HOME, 'Projects');
+        if (dir.startsWith('~')) {
+            dir = path.join(HOME, dir.slice(1));
+        }
+        return dir;
     },
 
     /** Temp directory for file downloads */
