@@ -117,6 +117,7 @@
         "file_desc": "Dosya gezgini",
         "stop_desc": "Ajanı durdur",
         "autoaccept_desc": "Otomatik kabul aç/kapat",
+        "quota_desc": "Kota durumunu gösterir",
         "menu_desc": "Komut menüsünü güncelle"
     },
     "photo": {
@@ -143,6 +144,12 @@
         "status_last_click": "⏱️ Son Tıklama: {text} ({sec}sn önce)",
         "status_blocked": "🛡️ Engellenen Komut Sayısı: {count}",
         "status_no_panel": "⚠️ Agent paneli algılanmadı. Lütfen bir sohbet açın.",
+        "error": "❌ Hata: {error}"
+    },
+    "quota": {
+        "checking": "🔄 Kota bilgisi okunuyor...",
+        "result": "📊 <b>Mevcut Kota Durumu:</b>",
+        "not_found": "❌ Kota bilgisi okunamadı. Ayarlar > Customisation kısmında görünmüyor olabilir.",
         "error": "❌ Hata: {error}"
     },
     "response_too_long": "⚠️ Yanıt çok uzun, /latest ile tam halini görebilirsiniz."

@@ -117,6 +117,7 @@
         "file_desc": "Browse and send files",
         "stop_desc": "Stop the agent",
         "autoaccept_desc": "Toggle auto-accept on/off",
+        "quota_desc": "Shows Antigravity quota usage",
         "menu_desc": "Update the command menu"
     },
     "photo": {
@@ -143,6 +144,12 @@
         "status_last_click": "⏱️ Last Click: {text} ({sec}s ago)",
         "status_blocked": "🛡️ Blocked Commands: {count}",
         "status_no_panel": "⚠️ Agent panel not detected. Please open a chat session.",
+        "error": "❌ Error: {error}"
+    },
+    "quota": {
+        "checking": "🔄 Checking quota status...",
+        "result": "📊 <b>Current Quota Status:</b>",
+        "not_found": "❌ Quota information could not be read. It might not be visible in Settings > Customisation.",
         "error": "❌ Error: {error}"
     },
     "response_too_long": "⚠️ Response too long. Use /latest to see the full version."

@@ -487,7 +487,8 @@ module.exports = {
     triggerModelMenu,
     getAvailableModels,
     selectModel,
-    stopAgent
+    stopAgent,
+    getQuota
 };
 
 async function captureFullIDEScreenshot(port) {
@@ -738,4 +739,102 @@ async function stopAgent(port) {
         } catch(e) {}
     }
     return false;
+}
+
+async function getQuota(port) {
+    const raw = await httpGet(`http://127.0.0.1:${port}/json`);
+    const targets = JSON.parse(raw);
+    const candidates = targets.filter(t => (t.type === 'page' || t.type === 'webview') && t.webSocketDebuggerUrl && !t.url.includes('devtools://'));
+
+    for (const target of candidates) {
+        try {
+            const client = await CDP({ target: target.webSocketDebuggerUrl });
+            const { Runtime } = client;
+            await Runtime.enable();
+
+            const res = await Runtime.evaluate({
+                expression: `
+                    (async () => {
+                        // 1. Try to open settings by clicking gear icon or 'Settings' button
+                        let settingsBtn = document.querySelector('.ai-pane .gear-icon, [aria-label*="Antigravity Settings" i], [title*="Antigravity Settings" i], [aria-label*="Settings" i], .settings-icon');
+                        let clickedSettings = false;
+                        if (settingsBtn) {
+                            settingsBtn.click();
+                            clickedSettings = true;
+                            await new Promise(r => setTimeout(r, 800));
+                        }
+
+                        // 2. Look for "Customisation" or "Account" or "Usage" tab and click it
+                        let tabs = Array.from(document.querySelectorAll('div, span, button, a')).filter(el => {
+                            const t = el.textContent ? el.textContent.toLowerCase().trim() : '';
+                            return t === 'customisation' || t === 'customization' || t === 'account' || t === 'usage' || t === 'general';
+                        });
+                        
+                        if (tabs.length > 0) {
+                            // Click the most relevant one, prioritizing customisation
+                            let targetTab = tabs.find(t => t.textContent.toLowerCase().includes('customis') || t.textContent.toLowerCase().includes('customiz')) || tabs[0];
+                            targetTab.click();
+                            await new Promise(r => setTimeout(r, 1000));
+                        } else if (!clickedSettings) {
+                            // If we couldn't even click settings, try to look for the quota in the DOM directly
+                            await new Promise(r => setTimeout(r, 500));
+                        }
+
+                        // 3. Extract text from the page that looks like quota
+                        const allTextElements = Array.from(document.querySelectorAll('div, span, p'));
+                        let quotaLines = [];
+                        
+                        for (let el of allTextElements) {
+                            const text = (el.textContent || '').trim();
+                            const lowerText = text.toLowerCase();
+                            // If it's a short text block (not the whole page) and contains quota keywords
+                            if (text.length > 5 && text.length < 200 && el.children.length === 0) {
+                                if (lowerText.includes('quota') || 
+                                    lowerText.includes('premium requests') || 
+                                    lowerText.includes('fast requests') || 
+                                    (lowerText.includes('usage') && text.match(/[0-9]+/)) ||
+                                    text.match(/[0-9]+\\s*\\/\\s*[0-9]+/) || 
+                                    (text.includes('%') && lowerText.includes('used'))) {
+                                    if (!quotaLines.includes(text)) {
+                                        quotaLines.push(text);
+                                    }
+                                }
+                            }
+                        }
+
+                        // 4. Close settings modal (press Escape)
+                        try {
+                            const escapeEvent = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true });
+                            document.dispatchEvent(escapeEvent);
+                            const closeBtn = document.querySelector('[aria-label="Close"], [title="Close"], .close-icon, .close-button');
+                            if(closeBtn) closeBtn.click();
+                        } catch(e) {}
+
+                        if (quotaLines.length > 0) {
+                            return quotaLines.join('\\n');
+                        }
+                        
+                        // Fallback: If nothing specific found, return everything that has numbers and keywords from the active modal
+                        const modal = document.querySelector('.settings-modal, [role="dialog"], .monaco-dialog-box') || document.body;
+                        const modalText = modal.innerText || '';
+                        const lines = modalText.split('\\n');
+                        const potentialLines = lines.filter(l => {
+                            const low = l.toLowerCase();
+                            return low.includes('requests') || low.includes('quota') || low.includes('limit') || low.includes('usage') || l.includes('%');
+                        });
+                        
+                        return potentialLines.length > 0 ? potentialLines.join('\\n') : null;
+                    })()
+                `,
+                awaitPromise: true,
+                returnByValue: true
+            });
+
+            await client.close();
+            if (res.result?.value) {
+                return res.result.value;
+            }
+        } catch(e) {}
+    }
+    return null;
 }

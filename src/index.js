@@ -6,7 +6,7 @@ const os = require('os');
 const { exec } = require('child_process');
 const { loadLocale, t, getLang } = require('./i18n');
 const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, trustWorkspaceViaCDP, PLATFORM } = require('./platform');
-const { getLatestAgentResponse, getFullLatestResponse, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, stopAgent } = require('./cdp_controller');
+const { getLatestAgentResponse, getFullLatestResponse, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, stopAgent, getQuota } = require('./cdp_controller');
 const autoaccept = require('./autoaccept');
 
 // Load configured language
@@ -185,6 +185,20 @@ bot.command('screenshot', async (ctx) => {
         await ctx.replyWithPhoto({ source: buffer });
     } catch (err) {
         ctx.reply(t('screenshot.error', { error: err.message }));
+    }
+});
+
+bot.command('quota', async (ctx) => {
+    try {
+        ctx.reply(t('quota.checking'));
+        const quotaInfo = await getQuota(CDP_PORT);
+        if (quotaInfo) {
+            ctx.reply(t('quota.result') + '\\n\\n' + quotaInfo);
+        } else {
+            ctx.reply(t('quota.not_found'));
+        }
+    } catch (err) {
+        ctx.reply(t('quota.error', { error: err.message }));
     }
 });
 
@@ -706,6 +720,7 @@ function getMenuCommands() {
         { command: 'file', description: t('menu.file_desc') },
         { command: 'stop', description: t('menu.stop_desc') },
         { command: 'autoaccept', description: t('menu.autoaccept_desc') },
+        { command: 'quota', description: t('menu.quota_desc') },
         { command: 'menu', description: t('menu.menu_desc') }
     ];
 }
