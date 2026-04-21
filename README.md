@@ -2,7 +2,7 @@
 
 # 🤖 Antigravity Telegram Suite
 
-**Control your [Antigravity IDE](https://github.com/nicepkg/antigravity) remotely via Telegram.**
+**Control your [Antigravity IDE](https://antigravity.google/) remotely via Telegram.**
 
 Send messages, switch AI models, manage workspaces, take screenshots — all from your phone.
 
@@ -21,7 +21,7 @@ Send messages, switch AI models, manage workspaces, take screenshots — all fro
 | 💬 **Headless Chat** | Send messages directly to the AI agent via Telegram |
 | 📎 **File & Image Upload** | Forward files/images to the agent with captions |
 | 📸 **IDE Screenshots** | Capture and receive IDE screenshots remotely |
-| 🤖 **Model Switching** | Change AI models (Gemini, Claude, GPT) with inline buttons |
+| 🤖 **Model Switching** | Change AI models (Gemini, Claude) with inline buttons |
 | 📂 **File Explorer** | Browse, navigate, and download project files |
 | 🔄 **Workspace Management** | Switch between projects without touching the keyboard |
 | 🌐 **Multi-Language** | English and Turkish UI (extensible) |
@@ -33,7 +33,7 @@ Send messages, switch AI models, manage workspaces, take screenshots — all fro
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) >= 18
-- [Antigravity IDE](https://github.com/nicepkg/antigravity) installed
+- [Antigravity IDE](https://antigravity.google/) installed
 - A Telegram bot token (get one from [@BotFather](https://t.me/BotFather))
 
 ### 1. Clone & Install
@@ -167,6 +167,10 @@ antigravity-telegram-suite/
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+## 🙏 Acknowledgments
+
+This project was inspired by [acmavirus/antigravity-telegram-control](https://github.com/acmavirus/antigravity-telegram-control), a clean and open-source Telegram integration for Antigravity. I built upon that foundation with additional features like file management, model switching, DOM-level response filtering, cross-platform support, and i18n.
 
 ## 📄 License
 
