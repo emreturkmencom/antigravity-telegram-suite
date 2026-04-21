@@ -118,6 +118,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/model` | Switch AI model |
 | `/workspace` | Switch project workspace |
 | `/file` | Browse & download project files |
+| `/quota` | Check AI credits and model usage limits |
 | `/autoaccept` | Toggle auto-accept (on/off/status) |
 | `/lang` | Switch language (EN/TR) |
 | `/stop` | Stop the running agent |

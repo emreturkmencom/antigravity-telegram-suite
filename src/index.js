@@ -193,7 +193,7 @@ bot.command('quota', async (ctx) => {
         ctx.reply(t('quota.checking'));
         const quotaInfo = await getQuota(CDP_PORT);
         if (quotaInfo) {
-            ctx.reply(t('quota.result') + '\\n\\n' + quotaInfo);
+            ctx.reply(quotaInfo);
         } else {
             ctx.reply(t('quota.not_found'));
         }

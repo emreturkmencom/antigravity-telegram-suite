@@ -741,100 +741,181 @@ async function stopAgent(port) {
     return false;
 }
 
-async function getQuota(port) {
-    const raw = await httpGet(`http://127.0.0.1:${port}/json`);
-    const targets = JSON.parse(raw);
-    const candidates = targets.filter(t => (t.type === 'page' || t.type === 'webview') && t.webSocketDebuggerUrl && !t.url.includes('devtools://'));
+async function getQuota(_port) {
+    const { exec } = require('child_process');
+    const { promisify } = require('util');
+    const https = require('https');
+    const execAsync = promisify(exec);
 
-    for (const target of candidates) {
+    try {
+        // 1. Detect Antigravity language server process and extract csrf_token + ports
+        const { stdout } = await execAsync('ps aux');
+        const psLines = stdout.split('\n');
+        let csrfToken = null;
+        let lsPid = null;
+
+        for (const line of psLines) {
+            if (!line.toLowerCase().includes('antigravity')) continue;
+            if (!line.includes('language_server') && !line.includes('--csrf_token')) continue;
+            if (line.includes('grep')) continue;
+            const csrfMatch = line.match(/--csrf_token\s+([^\s]+)/);
+            if (csrfMatch) csrfToken = csrfMatch[1];
+            const parts = line.trim().split(/\s+/);
+            if (parts.length >= 2) lsPid = parseInt(parts[1], 10);
+            if (csrfToken) break;
+        }
+
+        if (!csrfToken || !lsPid) {
+            console.log('[Quota] Language server bulunamadı');
+            return null;
+        }
+        console.log(`[Quota] LS bulundu: PID=${lsPid}, token=${csrfToken.substring(0, 8)}...`);
+
+        // 2. Discover ports the language server is listening on
+        let ports = [];
         try {
-            const client = await CDP({ target: target.webSocketDebuggerUrl });
-            const { Runtime } = client;
-            await Runtime.enable();
-
-            const res = await Runtime.evaluate({
-                expression: `
-                    (async () => {
-                        // 1. Try to open settings by clicking gear icon or 'Settings' button
-                        let settingsBtn = document.querySelector('.ai-pane .gear-icon, [aria-label*="Antigravity Settings" i], [title*="Antigravity Settings" i], [aria-label*="Settings" i], .settings-icon');
-                        let clickedSettings = false;
-                        if (settingsBtn) {
-                            settingsBtn.click();
-                            clickedSettings = true;
-                            await new Promise(r => setTimeout(r, 800));
-                        }
-
-                        // 2. Look for "Customisation" or "Account" or "Usage" tab and click it
-                        let tabs = Array.from(document.querySelectorAll('div, span, button, a')).filter(el => {
-                            const t = el.textContent ? el.textContent.toLowerCase().trim() : '';
-                            return t === 'customisation' || t === 'customization' || t === 'account' || t === 'usage' || t === 'general';
-                        });
-                        
-                        if (tabs.length > 0) {
-                            // Click the most relevant one, prioritizing customisation
-                            let targetTab = tabs.find(t => t.textContent.toLowerCase().includes('customis') || t.textContent.toLowerCase().includes('customiz')) || tabs[0];
-                            targetTab.click();
-                            await new Promise(r => setTimeout(r, 1000));
-                        } else if (!clickedSettings) {
-                            // If we couldn't even click settings, try to look for the quota in the DOM directly
-                            await new Promise(r => setTimeout(r, 500));
-                        }
-
-                        // 3. Extract text from the page that looks like quota
-                        const allTextElements = Array.from(document.querySelectorAll('div, span, p'));
-                        let quotaLines = [];
-                        
-                        for (let el of allTextElements) {
-                            const text = (el.textContent || '').trim();
-                            const lowerText = text.toLowerCase();
-                            // If it's a short text block (not the whole page) and contains quota keywords
-                            if (text.length > 5 && text.length < 200 && el.children.length === 0) {
-                                if (lowerText.includes('quota') || 
-                                    lowerText.includes('premium requests') || 
-                                    lowerText.includes('fast requests') || 
-                                    (lowerText.includes('usage') && text.match(/[0-9]+/)) ||
-                                    text.match(/[0-9]+\\s*\\/\\s*[0-9]+/) || 
-                                    (text.includes('%') && lowerText.includes('used'))) {
-                                    if (!quotaLines.includes(text)) {
-                                        quotaLines.push(text);
-                                    }
-                                }
-                            }
-                        }
-
-                        // 4. Close settings modal (press Escape)
-                        try {
-                            const escapeEvent = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true });
-                            document.dispatchEvent(escapeEvent);
-                            const closeBtn = document.querySelector('[aria-label="Close"], [title="Close"], .close-icon, .close-button');
-                            if(closeBtn) closeBtn.click();
-                        } catch(e) {}
-
-                        if (quotaLines.length > 0) {
-                            return quotaLines.join('\\n');
-                        }
-                        
-                        // Fallback: If nothing specific found, return everything that has numbers and keywords from the active modal
-                        const modal = document.querySelector('.settings-modal, [role="dialog"], .monaco-dialog-box') || document.body;
-                        const modalText = modal.innerText || '';
-                        const lines = modalText.split('\\n');
-                        const potentialLines = lines.filter(l => {
-                            const low = l.toLowerCase();
-                            return low.includes('requests') || low.includes('quota') || low.includes('limit') || low.includes('usage') || l.includes('%');
-                        });
-                        
-                        return potentialLines.length > 0 ? potentialLines.join('\\n') : null;
-                    })()
-                `,
-                awaitPromise: true,
-                returnByValue: true
-            });
-
-            await client.close();
-            if (res.result?.value) {
-                return res.result.value;
+            const { stdout: ssOut } = await execAsync(`ss -tlnp | grep "pid=${lsPid},"`);
+            for (const l of ssOut.split('\n')) {
+                const m = l.match(/:(\d+)\s/);
+                if (m) { const p = parseInt(m[1], 10); if (!isNaN(p) && !ports.includes(p)) ports.push(p); }
             }
-        } catch(e) {}
+        } catch(e) {
+            try {
+                const { stdout: lsofOut } = await execAsync(`lsof -nP -iTCP -sTCP:LISTEN -a -p ${lsPid}`);
+                for (const l of lsofOut.split('\n')) {
+                    const m = l.match(/:(\d+)\s+\(LISTEN\)/);
+                    if (m) { const p = parseInt(m[1], 10); if (!isNaN(p) && !ports.includes(p)) ports.push(p); }
+                }
+            } catch(e2) {}
+        }
+
+        if (ports.length === 0) { console.log('[Quota] LS port bulunamadı'); return null; }
+        console.log(`[Quota] Portlar: ${ports.join(', ')}`);
+
+        // 3. Probe ports with Connect RPC GetUserStatus
+        const RPC_PATH = '/exa.language_server_pb.LanguageServerService/GetUserStatus';
+        const body = JSON.stringify({ metadata: { ideName: 'antigravity', extensionName: 'antigravity', locale: 'en' } });
+
+        function probePort(p, protocol) {
+            return new Promise((resolve) => {
+                const mod = protocol === 'https' ? https : http;
+                const req = mod.request({
+                    hostname: '127.0.0.1', port: p, path: RPC_PATH, method: 'POST',
+                    timeout: 3000, rejectUnauthorized: false,
+                    headers: { 'Content-Type': 'application/json', 'Connect-Protocol-Version': '1', 'X-Codeium-Csrf-Token': csrfToken }
+                }, (res) => {
+                    let d = '';
+                    res.on('data', c => d += c);
+                    res.on('end', () => {
+                        if (res.statusCode >= 200 && res.statusCode < 300) {
+                            try { resolve(JSON.parse(d)); } catch(e) { resolve(null); }
+                        } else { resolve(null); }
+                    });
+                });
+                req.on('error', () => resolve(null));
+                req.on('timeout', () => { req.destroy(); resolve(null); });
+                req.write(body);
+                req.end();
+            });
+        }
+
+        let apiData = null;
+        for (const p of ports) {
+            apiData = await probePort(p, 'https');
+            if (apiData) break;
+            apiData = await probePort(p, 'http');
+            if (apiData) break;
+        }
+
+        if (!apiData) { console.log('[Quota] Connect RPC yanıt yok'); return null; }
+        console.log('[Quota] API yanıtı alındı');
+
+        // 4. Format the response
+        const userStatus = apiData.userStatus || apiData;
+        const result = [];
+
+        result.push('📊 Hesap ve Kota Bilgisi\n');
+        if (userStatus.email) result.push(`👤 ${userStatus.email}`);
+
+        // AI Credits from userTier.availableCredits
+        const userTier = userStatus.userTier;
+        if (userTier) {
+            if (userTier.name) result.push(`📋 Plan: ${userTier.name}`);
+            const credits = userTier.availableCredits;
+            if (Array.isArray(credits) && credits.length > 0) {
+                const c = credits[0];
+                const amount = parseInt(c.creditAmount, 10);
+                if (!isNaN(amount)) {
+                    result.push(`💰 AI Credits: ${amount.toLocaleString()}`);
+                }
+            }
+        }
+
+        // Prompt Credits
+        const planStatus = userStatus.planStatus;
+        if (planStatus && typeof planStatus.availablePromptCredits === 'number') {
+            result.push(`📊 Prompt Credits: ${planStatus.availablePromptCredits.toLocaleString()}` + (planStatus.planInfo?.monthlyPromptCredits ? ` / ${planStatus.planInfo.monthlyPromptCredits.toLocaleString()}` : ''));
+        }
+
+        const configs = userStatus.cascadeModelConfigData?.clientModelConfigs;
+        if (Array.isArray(configs) && configs.length > 0) {
+            result.push('');
+            result.push('⏱️ Model Kota Durumu:');
+
+            // Sort models: Gemini > Claude > others, so best representative is picked per group
+            const priority = (label) => {
+                if (label.includes('Gemini')) return 0;
+                if (label.includes('Claude')) return 1;
+                return 2;
+            };
+            const sorted = [...configs].sort((a, b) => priority(a.label || '') - priority(b.label || ''));
+
+            // Group models by same quota (remainingFraction + resetTime) to avoid duplicates
+            const seen = new Map();
+            for (const m of sorted) {
+                const modelId = m.modelOrAlias?.model || 'unknown';
+                const label = m.label || modelId;
+                // Skip autocomplete models and GPT-OSS
+                if (modelId.includes('gemini-2.5') || label.includes('Gemini 2.5')) continue;
+                if (modelId.includes('GPT_OSS') || label.includes('GPT-OSS') || label.includes('GPT OSS')) continue;
+
+                const rem = m.quotaInfo?.remainingFraction;
+                const resetTime = m.quotaInfo?.resetTime || '';
+                const key = `${rem}|${resetTime}`;
+
+                if (seen.has(key)) continue;
+                seen.set(key, label);
+
+                let line = `🤖 ${label}`;
+                if (m.quotaInfo) {
+                    if (typeof rem === 'number') {
+                        const remPct = Math.round(rem * 100);
+                        const filled = Math.round(rem * 8);
+                        const empty = 8 - filled;
+                        const bar = '█'.repeat(filled) + '░'.repeat(empty);
+                        const icon = rem > 0.5 ? '🟢' : rem > 0.2 ? '🟡' : '🔴';
+                        line += ` ${icon} ${bar} %${remPct} kalan`;
+                    }
+                    if (resetTime) {
+                        try {
+                            const diff = new Date(resetTime).getTime() - Date.now();
+                            if (diff > 0) {
+                                const hours = Math.floor(diff / 3600000);
+                                const mins = Math.floor((diff % 3600000) / 60000);
+                                line += ` ⏳ ${hours}sa ${mins}dk`;
+                            }
+                        } catch(e) {}
+                    }
+                    if (rem === 0) line += ' ⛔ TÜKENDİ';
+                }
+                result.push(line);
+            }
+        }
+
+        return result.length > 0 ? result.join('\n') : null;
+    } catch(e) {
+        console.error('[Quota] Hata:', e.message);
+        return null;
     }
-    return null;
 }
+
