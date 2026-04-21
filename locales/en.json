@@ -44,7 +44,7 @@
     },
     "ask": {
         "empty": "Please type a question. Example: `/ask Hello`",
-        "sent": "✅ Message Sent: {query}\n\nWaiting for response...",
+        "sent": "✅ Message Sent, waiting for response...",
         "done": "✅ Completed!",
         "done_empty": "✅ Completed but no new text was generated.",
         "timeout": "⚠️ Agent is still thinking or timed out. Use /latest to check.",

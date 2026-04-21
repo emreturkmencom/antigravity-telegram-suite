@@ -198,7 +198,7 @@ bot.command('ask', (ctx) => {
     (async () => {
         try {
             await sendViaCDP(query, CDP_PORT);
-            await ctx.reply(t('ask.sent', { query }));
+            await ctx.reply(t('ask.sent'));
             
             const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx));
             if (isDone) {
@@ -774,7 +774,7 @@ bot.on('text', (ctx) => {
     (async () => {
         try {
             await sendViaCDP(query, CDP_PORT);
-            await ctx.reply(t('ask.sent', { query }));
+            await ctx.reply(t('ask.sent'));
             
             const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx));
             if (isDone) {

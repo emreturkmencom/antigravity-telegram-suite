@@ -24,6 +24,7 @@ Send messages, switch AI models, manage workspaces, take screenshots — all fro
 | 🤖 **Model Switching** | Change AI models (Gemini, Claude) with inline buttons |
 | 📂 **File Explorer** | Browse, navigate, and download project files |
 | 🔄 **Workspace Management** | Switch between projects without touching the keyboard |
+| ⚡ **Auto-Accept** | Automatically click Run, Accept, Allow, Continue buttons |
 | 🌐 **Multi-Language** | English and Turkish UI (extensible) |
 | ⌨️ **Typing Indicator** | Shows "typing..." instead of spamming progress messages |
 | 🖥️ **Cross-Platform** | Works on Linux, macOS (Intel), and Windows |
@@ -117,6 +118,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/model` | Switch AI model |
 | `/workspace` | Switch project workspace |
 | `/file` | Browse & download project files |
+| `/autoaccept` | Toggle auto-accept (on/off/status) |
 | `/lang` | Switch language (EN/TR) |
 | `/stop` | Stop the running agent |
 | `/menu` | Update Telegram command menu |
@@ -128,6 +130,7 @@ antigravity-telegram-suite/
 ├── src/
 │   ├── index.js           # Main bot logic & Telegram handlers
 │   ├── cdp_controller.js   # Chrome DevTools Protocol communication
+│   ├── autoaccept.js       # Auto-accept button clicker via CDP
 │   ├── i18n.js             # Internationalization module
 │   └── platform.js         # Cross-platform OS abstraction
 ├── locales/
@@ -153,6 +156,7 @@ antigravity-telegram-suite/
 2. The bot injects text into the IDE's chat input via CDP
 3. The bot monitors the IDE for agent completion (typing indicator shown)
 4. Once done, the response is extracted and sent back to Telegram
+5. **Auto-Accept**: When enabled, a MutationObserver watches for action buttons (Run, Accept, Allow, Continue) and clicks them automatically — no manual intervention needed
 
 ## 🌐 Adding a Language
 

@@ -43,8 +43,8 @@
         "error": "❌ Hata: {error}\n(IDE açık mı?)"
     },
     "ask": {
-        "empty": "Lütfen bir soru yazın. Örn: `/ask Merhaba`",
-        "sent": "✅ Mesaj Gönderildi: {query}\n\nYanıt bekleniyor...",
+        "empty": "Lütfen bir soru yazın. Örn: /ask Merhaba",
+        "sent": "✅ Mesaj Gönderildi, yanıt bekleniyor...",
         "done": "✅ İşlem Tamamlandı!",
         "done_empty": "✅ İşlem tamamlandı ancak yeni bir metin üretilmedi.",
         "timeout": "⚠️ Agent hala düşünüyor veya zaman aşımına uğradı. /latest ile kontrol edebilirsiniz.",
