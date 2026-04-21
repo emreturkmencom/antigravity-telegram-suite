@@ -4,13 +4,10 @@
  * Automatically clicks Run, Accept, Always Allow, and Continue buttons
  * in the Antigravity IDE agent panel via CDP (Chrome DevTools Protocol).
  * 
- * Hybrid approach:
- * - Detects if YazanBaker's AutoAccept extension is active
- * - If extension is active: interacts with it (pause/unpause/stats)
- * - If extension is inactive: injects its own MutationObserver
+ * Injects a MutationObserver into the IDE's webview targets that watches
+ * for button elements and clicks them automatically with safety guards.
  * 
- * Based on the open-source AntiGravity AutoAccept extension by YazanBaker
- * https://github.com/yazanbaker94/AntiGravity-AutoAccept (MIT License)
+ * DOM Observer pattern inspired by community open-source solutions.
  */
 
 const http = require('http');
@@ -23,7 +20,6 @@ let totalClicks = 0;
 let sessionClicks = 0;
 let lastClickTime = 0;
 let lastClickText = '';
-let extensionActive = false;
 
 // Default blocked commands (safety presets)
 let blockedCommands = [
@@ -74,7 +70,6 @@ async function getWebviewTargets(port) {
 }
 
 // ─── Build DOM Observer Script ────────────────────────────────────────
-// Simplified version of YazanBaker's DOMObserver.js (MIT License)
 function buildObserverScript() {
     const buttonTexts = [
         'run', 'accept', 'always allow', 'allow this conversation',
@@ -345,21 +340,18 @@ async function cdpEval(wsUrl, expression, timeoutMs = 5000) {
     }
 }
 
-// ─── Check Extension Status ──────────────────────────────────────────
-async function checkExtensionStatus(port) {
+// ─── Check Observer Status ───────────────────────────────────────────
+async function checkObserverStatus(port) {
     const targets = await getWebviewTargets(port);
     for (const target of targets) {
         try {
             const result = await cdpEval(target.webSocketDebuggerUrl, `
                 (function() {
                     return {
-                        extensionActive: !!window.__AA_OBSERVER_ACTIVE,
-                        extensionPaused: !!window.__AA_PAUSED,
-                        extensionClicks: window.__AA_CLICK_COUNT || 0,
-                        botActive: !!window.__AA_BOT_OBSERVER_ACTIVE,
-                        botPaused: !!window.__AA_BOT_PAUSED,
-                        botClicks: window.__AA_BOT_CLICK_COUNT || 0,
-                        botClickLog: (window.__AA_BOT_CLICK_LOG || []).slice(-5),
+                        active: !!window.__AA_BOT_OBSERVER_ACTIVE,
+                        paused: !!window.__AA_BOT_PAUSED,
+                        clicks: window.__AA_BOT_CLICK_COUNT || 0,
+                        clickLog: (window.__AA_BOT_CLICK_LOG || []).slice(-5),
                         hasAgentPanel: !!(document.querySelector('.react-app-container') || document.querySelector('[class*="agent"]'))
                     };
                 })()
@@ -479,32 +471,23 @@ async function heartbeat(port) {
 /**
  * Enable auto-accept.
  * @param {number} port - CDP debugging port
- * @returns {Promise<{success: boolean, extensionActive: boolean, injected: number}>}
+ * @returns {Promise<{success: boolean, injected: number}>}
  */
 async function enable(port) {
-    if (isEnabled) return { success: true, extensionActive, injected: injectedTargets.size };
+    if (isEnabled) return { success: true, injected: injectedTargets.size };
 
     isEnabled = true;
     sessionClicks = 0;
 
-    // Check if extension is already handling things
-    const status = await checkExtensionStatus(port);
-    extensionActive = !!(status && status.extensionActive && !status.extensionPaused);
+    // Inject our observer into all webview targets
+    const injected = await injectObserver(port);
+    console.log(`[autoaccept] Enabled — injected into ${injected} targets`);
 
-    let injected = 0;
-    if (extensionActive) {
-        console.log('[autoaccept] Extension is active, deferring to it');
-    } else {
-        // Inject our own observer
-        injected = await injectObserver(port);
-        console.log(`[autoaccept] Injected into ${injected} targets`);
-    }
-
-    // Start heartbeat
+    // Start heartbeat (monitor health + inject new targets every 10s)
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     heartbeatTimer = setInterval(() => heartbeat(port), 10000);
 
-    return { success: true, extensionActive, injected };
+    return { success: true, injected };
 }
 
 /**
@@ -523,7 +506,7 @@ async function disable(port) {
         heartbeatTimer = null;
     }
 
-    // Pause our observer in all targets
+    // Kill our observer in all targets
     const targets = await getWebviewTargets(port).catch(() => []);
     for (const target of targets) {
         try {
@@ -544,6 +527,7 @@ async function disable(port) {
     }
 
     injectedTargets.clear();
+    console.log(`[autoaccept] Disabled — total clicks: ${totalClicks}`);
     return { success: true, totalClicks };
 }
 
@@ -555,18 +539,16 @@ async function disable(port) {
 async function getStatus(port) {
     let status = null;
     try {
-        status = await checkExtensionStatus(port);
+        status = await checkObserverStatus(port);
     } catch (_) {}
 
     const timeSince = lastClickTime ? Math.round((Date.now() - lastClickTime) / 1000) : null;
 
     return {
         enabled: isEnabled,
-        extensionActive: !!(status && status.extensionActive),
-        extensionPaused: !!(status && status.extensionPaused),
-        extensionClicks: status?.extensionClicks || 0,
-        botActive: !!(status && status.botActive),
-        botClicks: status?.botClicks || 0,
+        active: !!(status && status.active),
+        paused: !!(status && status.paused),
+        clicks: status?.clicks || 0,
         totalClicks,
         sessionClicks,
         lastClickText,

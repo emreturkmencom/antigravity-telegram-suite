@@ -338,10 +338,8 @@ bot.command('autoaccept', async (ctx) => {
             // Enable auto-accept
             ctx.reply(t('autoaccept.enabling'));
             const result = await autoaccept.enable(CDP_PORT);
-            if (result.extensionActive) {
-                ctx.reply(t('autoaccept.enabled_ext'));
-            } else if (result.injected > 0) {
-                ctx.reply(t('autoaccept.enabled_bot', { injected: result.injected }));
+            if (result.injected > 0) {
+                ctx.reply(t('autoaccept.enabled', { injected: result.injected }));
             } else {
                 ctx.reply(t('autoaccept.enabled_none'));
             }
@@ -356,23 +354,11 @@ bot.command('autoaccept', async (ctx) => {
             let msg = t('autoaccept.status_title');
             msg += (status.enabled ? t('autoaccept.status_enabled') : t('autoaccept.status_disabled')) + '\n';
 
-            // Extension status
-            if (status.extensionActive) {
-                msg += t('autoaccept.status_ext_active') + '\n';
-                if (status.extensionClicks > 0) {
-                    msg += t('autoaccept.status_ext_clicks', { clicks: status.extensionClicks }) + '\n';
-                }
-            } else if (status.extensionPaused) {
-                msg += t('autoaccept.status_ext_paused') + '\n';
+            // Observer status
+            if (status.active) {
+                msg += t('autoaccept.status_active', { targets: status.injectedTargets }) + '\n';
             } else {
-                msg += t('autoaccept.status_ext_none') + '\n';
-            }
-
-            // Bot observer status
-            if (status.botActive) {
-                msg += t('autoaccept.status_bot_active', { targets: status.injectedTargets }) + '\n';
-            } else {
-                msg += t('autoaccept.status_bot_inactive') + '\n';
+                msg += t('autoaccept.status_inactive') + '\n';
             }
 
             // Click stats
@@ -412,10 +398,8 @@ bot.action('aa_on', async (ctx) => {
     try {
         ctx.answerCbQuery('Enabling...');
         const result = await autoaccept.enable(CDP_PORT);
-        if (result.extensionActive) {
-            ctx.reply(t('autoaccept.enabled_ext'));
-        } else if (result.injected > 0) {
-            ctx.reply(t('autoaccept.enabled_bot', { injected: result.injected }));
+        if (result.injected > 0) {
+            ctx.reply(t('autoaccept.enabled', { injected: result.injected }));
         } else {
             ctx.reply(t('autoaccept.enabled_none'));
         }
@@ -440,11 +424,8 @@ bot.action('aa_status', async (ctx) => {
         const status = await autoaccept.getStatus(CDP_PORT);
         let msg = t('autoaccept.status_title');
         msg += (status.enabled ? t('autoaccept.status_enabled') : t('autoaccept.status_disabled')) + '\n';
-        if (status.extensionActive) msg += t('autoaccept.status_ext_active') + '\n';
-        else if (status.extensionPaused) msg += t('autoaccept.status_ext_paused') + '\n';
-        else msg += t('autoaccept.status_ext_none') + '\n';
-        if (status.botActive) msg += t('autoaccept.status_bot_active', { targets: status.injectedTargets }) + '\n';
-        else msg += t('autoaccept.status_bot_inactive') + '\n';
+        if (status.active) msg += t('autoaccept.status_active', { targets: status.injectedTargets }) + '\n';
+        else msg += t('autoaccept.status_inactive') + '\n';
         msg += t('autoaccept.status_clicks', { total: status.totalClicks, session: status.sessionClicks }) + '\n';
         if (status.lastClickText && status.lastClickTimeSec !== null) {
             msg += t('autoaccept.status_last_click', { text: status.lastClickText, sec: status.lastClickTimeSec }) + '\n';
