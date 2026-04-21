@@ -589,6 +589,7 @@ bot.command('menu', async (ctx) => {
         { command: 'model', description: t('menu.model_desc') },
         { command: 'workspace', description: t('menu.workspace_desc') },
         { command: 'lang', description: t('menu.lang_desc') },
+        { command: 'cmd', description: t('menu.cmd_desc') }
     ]);
     ctx.reply(t('menu.updated'));
 });
