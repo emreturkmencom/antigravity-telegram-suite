@@ -552,7 +552,7 @@ bot.command('lang', async (ctx) => {
     if (newLang && ['en', 'tr'].includes(newLang)) {
         loadLocale(newLang);
         await clearAllMenuScopes();
-        await setMenuOnAllScopes(getMenuCommands());
+        await setMenuOnAllScopes();
         return ctx.reply(t('lang.changed', { lang: newLang }));
     }
     
@@ -570,7 +570,7 @@ bot.action(/lang_(.+)/, async (ctx) => {
     const newLang = ctx.match[1];
     loadLocale(newLang);
     await clearAllMenuScopes();
-    await setMenuOnAllScopes(getMenuCommands());
+    await setMenuOnAllScopes();
     ctx.answerCbQuery(t('lang.changed', { lang: newLang }));
     ctx.reply(t('lang.changed', { lang: newLang }));
 });
@@ -765,22 +765,54 @@ async function clearAllMenuScopes() {
 }
 
 /**
- * Set commands on all relevant scopes so the menu is always visible.
+ * Set commands on all relevant scopes, utilizing Telegram's native localized menus.
+ * We register menus for all available languages ('en', 'tr') plus the default.
  */
-async function setMenuOnAllScopes(commands) {
-    await bot.telegram.callApi('setMyCommands', { commands });
-    await bot.telegram.callApi('setMyCommands', { commands, scope: { type: 'all_private_chats' } });
-    if (ALLOWED_CHAT_ID) {
-        await bot.telegram.callApi('setMyCommands', { 
-            commands, 
-            scope: { type: 'chat', chat_id: parseInt(ALLOWED_CHAT_ID) } 
-        });
+async function setMenuOnAllScopes() {
+    const langs = ['en', 'tr'];
+    const defaultLang = process.env.LANGUAGE || 'en';
+
+    // Helper to register commands for a specific language and scope
+    const register = async (langCode) => {
+        // Temporarily load this locale to generate translated commands
+        loadLocale(langCode);
+        const cmds = getMenuCommands();
+        
+        const paramsDefault = { commands: cmds };
+        const paramsPrivate = { commands: cmds, scope: { type: 'all_private_chats' } };
+        
+        // If it's not the default fallback, specify the language_code so Telegram routes it natively
+        if (langCode !== defaultLang) {
+            paramsDefault.language_code = langCode;
+            paramsPrivate.language_code = langCode;
+        }
+
+        await bot.telegram.callApi('setMyCommands', paramsDefault).catch(()=>{});
+        await bot.telegram.callApi('setMyCommands', paramsPrivate).catch(()=>{});
+
+        if (ALLOWED_CHAT_ID) {
+            const paramsChat = { 
+                commands: cmds, 
+                scope: { type: 'chat', chat_id: parseInt(ALLOWED_CHAT_ID) } 
+            };
+            if (langCode !== defaultLang) {
+                paramsChat.language_code = langCode;
+            }
+            await bot.telegram.callApi('setMyCommands', paramsChat).catch(()=>{});
+        }
+    };
+
+    // 1. Register the non-default languages (e.g. 'en')
+    for (const l of langs) {
+        if (l !== defaultLang) await register(l);
     }
+    // 2. Register the default fallback language last (no language_code)
+    await register(defaultLang);
 }
 
 bot.command('menu', async (ctx) => {
     await clearAllMenuScopes();
-    await setMenuOnAllScopes(getMenuCommands());
+    await setMenuOnAllScopes();
     ctx.reply(t('menu.updated'));
 });
 
@@ -887,7 +919,7 @@ bot.launch().then(async () => {
     console.log(t('bot.polling'));
     try {
         await clearAllMenuScopes();
-        await setMenuOnAllScopes(getMenuCommands());
+        await setMenuOnAllScopes();
         console.log("Menu commands set.");
     } catch(e) {
         console.error("Could not set commands", e.message);
