@@ -109,7 +109,6 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | *(any text)* | Send directly to the AI agent |
 | `/latest` | Get the latest agent response |
 | `/screenshot` | Take an IDE screenshot |
-| `/check` | Check if the agent is working |
 | `/status` | System status (IDE, CDP, Bot) |
 | `/start_ide` | Start the IDE remotely |
 | `/close` | Fully close the IDE |
@@ -185,4 +184,6 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 <div align="center">
 Made with ❤️ for remote developers who code from their couch.
+
+**Hey Google, if you would like to give me a job you can contact me at hello@emreturkmen.com 😂**
 </div>

@@ -1,0 +1,155 @@
+{
+    "bot": {
+        "started": "🚀 ¡Bot Remoto de Antigravity Iniciado!\nChat ID: {chatId}\nEscribe /help para ver todos los comandos disponibles.",
+        "polling": "¡El Bot Antigravity está sondeando activamente!"
+    },
+    "auth": {
+        "unauthorized": "❌ No autorizado."
+    },
+    "help": {
+        "title": "🤖 <b>Comandos Disponibles:</b>",
+        "messaging_title": "📝 <i>Mensajería e Interacción:</i>",
+        "messaging_text": "- Solo escribe texto → Habla con el agente (modo headless)\n- 📎 Envía imagen/archivo → Reenvía al agente (soporta descripción)",
+        "status_title": "👁️ <i>Estado e Info:</i>",
+        "status_text": "- /latest → Obtener última respuesta (limpia)\n- /screenshot → Tomar captura de pantalla del IDE\n- /status → Estado del sistema (IDE, CDP, PM2)",
+        "ide_title": "🛠️ <i>Controles del IDE:</i>",
+        "ide_text": "- /start_ide → Iniciar el IDE si está cerrado\n- /close → Cerrar el IDE completamente (mata el proceso + limpia bloqueos)\n- /new → Abrir un nuevo chat\n- /model → Abrir menú de selección de modelo\n- /workspace → Cambiar espacio de trabajo del proyecto\n- /autoaccept → Activar/desactivar auto-aceptar\n- /lang → Cambiar idioma\n- /cmd &lt;comando&gt; → Ejecutar un comando de terminal\n- /help → Mostrar este mensaje de ayuda"
+    },
+    "ide": {
+        "already_running": "✅ ¡El IDE Antigravity ya se está ejecutando! No es necesario abrir otra ventana.\n💡 Usa /close para apagarlo.",
+        "starting": "🔄 Iniciando IDE Antigravity...",
+        "start_failed": "❌ Error al iniciar IDE: {error}",
+        "started": "✅ ¡IDE iniciado con éxito!",
+        "already_closed": "ℹ️ El IDE ya está cerrado. (Archivo de bloqueo limpiado)",
+        "closing": "🔄 Cerrando IDE...",
+        "closed": "✅ ¡IDE cerrado completamente! (Todos los procesos y archivos de bloqueo limpiados)",
+        "not_installed": "❌ IDE Antigravity no encontrado. Por favor, instálalo primero.\nVer: https://antigravity.google/"
+    },
+    "status": {
+        "title": "📊 <b>Estado del Sistema:</b>\n",
+        "ide_running": "🟢 IDE: En ejecución",
+        "ide_stopped": "🔴 IDE: Detenido",
+        "cdp_active": "🟢 Conexión CDP: Activa",
+        "cdp_inactive": "🔴 Conexión CDP: Inactiva",
+        "bot_running": "🟢 Bot: En ejecución"
+    },
+    "latest": {
+        "title": "📝 Última Respuesta:\n\n",
+        "no_new": "[Sin mensajes nuevos]",
+        "error": "❌ Error: {error}\n(¿Está abierto Antigravity?)"
+    },
+    "screenshot": {
+        "taking": "📸 Tomando captura del IDE (vía CDP)...",
+        "error": "❌ Error: {error}\n(¿Está abierto el IDE?)"
+    },
+    "ask": {
+        "empty": "Por favor escribe una pregunta. Ejemplo: `/ask Hola`",
+        "sent": "✅ Mensaje enviado, esperando respuesta...",
+        "done": "✅ ¡Completado!",
+        "done_empty": "✅ Completado pero no se generó texto nuevo.",
+        "timeout": "⚠️ El agente sigue pensando o agotó el tiempo. Usa /latest para comprobar.",
+        "send_error": "❌ Error de envío: {error}",
+        "headless_error": "❌ Error de Headless: {error}",
+        "no_chat_input": "No se encontró entrada de chat en el IDE. Asegúrate de que hay una sesión de chat abierta en Antigravity."
+    },
+    "stop": {
+        "stopping": "🛑 Deteniendo agente...",
+        "stopped": "✅ ¡Agente detenido!",
+        "already_stopped": "ℹ️ El agente ya está detenido o no se encontró el botón de parada.",
+        "error": "❌ Error: {error}"
+    },
+    "new_chat": {
+        "opened": "✅ ¡Nuevo chat abierto!",
+        "not_found": "❌ Botón de nuevo chat no encontrado.",
+        "error": "❌ Error: {error}"
+    },
+    "model": {
+        "selecting": "🔄 Seleccionando modelo: {model}",
+        "changed": "✅ Modelo cambiado: {model}",
+        "not_found": "❌ Modelo no encontrado o no pudo ser seleccionado.",
+        "select_prompt": "🤖 Selecciona un modelo:",
+        "changing": "🔄 Cambiando modelo: {model}",
+        "select_failed": "❌ El modelo no pudo ser seleccionado. Asegúrate de que la pantalla de chat esté abierta en el IDE.",
+        "error": "¡Error!"
+    },
+    "workspace": {
+        "switching": "🔄 Cerrando IDE actual y abriendo nuevo espacio de trabajo: {workspace}",
+        "start_failed": "❌ Error al iniciar: {error}",
+        "started": "✅ ¡IDE iniciado con nuevo espacio de trabajo!",
+        "trusted": "🔓 Espacio de trabajo marcado automáticamente como confiable.",
+        "cdp_warning": "\n⚠️ Es posible que la conexión CDP aún no esté lista. Espera unos segundos e inténtalo de nuevo.",
+        "select_prompt": "Por favor selecciona el espacio de trabajo al que quieres cambiar:",
+        "read_error": "❌ No se pudo leer el directorio de proyectos.",
+        "selected": "Espacio de trabajo seleccionado: {project}"
+    },
+    "file": {
+        "empty_dir": "📂 Este directorio está vacío.",
+        "dir_read_error": "❌ No se pudo leer el directorio: {error}",
+        "not_found": "❌ Archivo no encontrado: {path}",
+        "too_large": "❌ Archivo demasiado grande ({size}MB). El límite de Telegram es 50MB.",
+        "send_failed": "❌ No se pudo enviar el archivo: {error}",
+        "sending": "Enviando: {filename}",
+        "parent_dir": "⬆️ Directorio Superior",
+        "prev_page": "◀️ Anterior",
+        "next_page": "▶️ Siguiente",
+        "dir_info": "({count} elementos, página {page}/{totalPages})"
+    },
+    "menu": {
+        "updated": "✅ ¡Menú actualizado! Puedes verlo desde el menú ☰ abajo a la izquierda.",
+        "help_desc": "Mostrar todos los comandos",
+        "ask_desc": "Enviar pregunta al agente",
+        "latest_desc": "Obtener última respuesta",
+        "screenshot_desc": "Tomar captura del IDE",
+        "status_desc": "Estado del sistema",
+        "start_ide_desc": "Iniciar el IDE",
+        "close_desc": "Cerrar completamente el IDE",
+        "new_desc": "Abrir nuevo chat",
+        "model_desc": "Menú de selección de modelo",
+        "workspace_desc": "Cambiar proyecto",
+        "lang_desc": "Cambiar idioma",
+        "cmd_desc": "Ejecutar comando de terminal",
+        "file_desc": "Explorar y enviar archivos",
+        "stop_desc": "Detener al agente",
+        "autoaccept_desc": "Activar/desactivar auto-aceptar",
+        "quota_desc": "Mostrar uso de cuota",
+        "menu_desc": "Actualizar menú de comandos"
+    },
+    "photo": {
+        "downloaded": "✅ Archivo descargado y reenviando al agente...",
+        "error": "❌ Error al procesar archivo: {error}"
+    },
+    "lang": {
+        "current": "🌐 Idioma actual: {lang}",
+        "changed": "✅ Idioma cambiado a: {lang}",
+        "select_prompt": "🌐 Selecciona el idioma:"
+    },
+    "autoaccept": {
+        "enabling": "🔄 Activando auto-aceptar...",
+        "enabled": "⚡ ¡Auto-Aceptar ACTIVADO!\n\n🤖 Observador inyectado en {injected} objetivos.",
+        "enabled_none": "⚡ ¡Auto-Aceptar ACTIVADO!\n\n⚠️ No se encontraron objetivos. Se inyectará al abrir el chat.",
+        "disabling": "🔄 Desactivando auto-aceptar...",
+        "disabled": "✅ Auto-Aceptar DESACTIVADO.\n\n📊 Total clics en sesión: {clicks}.",
+        "status_title": "📊 <b>Estado Auto-Aceptar:</b>\n",
+        "status_enabled": "⚡ Estado: ACTIVADO",
+        "status_disabled": "⏸️ Estado: DESACTIVADO",
+        "status_active": "🤖 Observador: Activo ({targets} objetivos)",
+        "status_inactive": "📴 Observador: Inactivo",
+        "status_clicks": "🖱️ Total Clicks: {total} (sesión: {session})",
+        "status_last_click": "⏱️ Último Click: {text} (hace {sec}s)",
+        "status_blocked": "🛡️ Comandos Bloqueados: {count}",
+        "status_no_panel": "⚠️ Panel del agente no detectado. Abre una sesión de chat.",
+        "error": "❌ Error: {error}"
+    },
+    "quota": {
+        "checking": "🔄 Comprobando estado de la cuota...",
+        "not_found": "❌ No se pudo leer la información de cuota.",
+        "error": "❌ Error: {error}",
+        "header": "📊 Estado de Cuenta y Cuota\n",
+        "plan": "📋 Plan: {plan}",
+        "prompt_credits": "📊 Créditos de Prompt: {available}{monthly}",
+        "model_quota": "⏱️ Estado Cuota de Modelo:",
+        "remaining": " {pct}% restante",
+        "empty": " ⛔ AGOTADO"
+    },
+    "response_too_long": "⚠️ Respuesta demasiado larga. Usa /latest para ver la versión completa."
+}

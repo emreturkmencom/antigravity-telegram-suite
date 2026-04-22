@@ -1,0 +1,155 @@
+{
+    "bot": {
+        "started": "🚀 Bot à distance Antigravity démarré !\nChat ID: {chatId}\nTapez /help pour voir les commandes disponibles.",
+        "polling": "Le bot Antigravity est actif !"
+    },
+    "auth": {
+        "unauthorized": "❌ Non autorisé."
+    },
+    "help": {
+        "title": "🤖 <b>Commandes disponibles :</b>",
+        "messaging_title": "📝 <i>Messagerie et interaction :</i>",
+        "messaging_text": "- Tapez simplement du texte → Parler à l'agent (mode headless)\n- 📎 Envoyer une image/fichier → Transférer à l'agent",
+        "status_title": "👁️ <i>Statut et infos :</i>",
+        "status_text": "- /latest → Obtenir la dernière réponse (nettoyée)\n- /screenshot → Prendre une capture d'écran de l'IDE\n- /status → Statut du système (IDE, CDP, PM2)",
+        "ide_title": "🛠️ <i>Contrôles de l'IDE :</i>",
+        "ide_text": "- /start_ide → Démarrer l'IDE s'il est fermé\n- /close → Fermer complètement l'IDE\n- /new → Ouvrir un nouveau chat\n- /model → Ouvrir le menu de sélection de modèle\n- /workspace → Changer l'espace de travail du projet\n- /autoaccept → Activer/désactiver l'auto-acceptation\n- /lang → Changer de langue\n- /cmd &lt;commande&gt; → Exécuter une commande terminal\n- /help → Afficher ce message d'aide"
+    },
+    "ide": {
+        "already_running": "✅ L'IDE Antigravity est déjà en cours d'exécution !\n💡 Utilisez /close pour le fermer.",
+        "starting": "🔄 Démarrage de l'IDE Antigravity...",
+        "start_failed": "❌ Échec du démarrage de l'IDE : {error}",
+        "started": "✅ IDE démarré avec succès !",
+        "already_closed": "ℹ️ L'IDE est déjà fermé.",
+        "closing": "🔄 Fermeture de l'IDE...",
+        "closed": "✅ IDE complètement fermé !",
+        "not_installed": "❌ IDE Antigravity introuvable. Veuillez l'installer d'abord."
+    },
+    "status": {
+        "title": "📊 <b>Statut du système :</b>\n",
+        "ide_running": "🟢 IDE : En cours d'exécution",
+        "ide_stopped": "🔴 IDE : Arrêté",
+        "cdp_active": "🟢 Connexion CDP : Active",
+        "cdp_inactive": "🔴 Connexion CDP : Inactive",
+        "bot_running": "🟢 Bot : En cours d'exécution"
+    },
+    "latest": {
+        "title": "📝 Dernière réponse :\n\n",
+        "no_new": "[Aucun nouveau message]",
+        "error": "❌ Erreur : {error}\n(L'IDE Antigravity est-il ouvert ?)"
+    },
+    "screenshot": {
+        "taking": "📸 Prise d'une capture d'écran de l'IDE...",
+        "error": "❌ Erreur : {error}\n(L'IDE est-il ouvert ?)"
+    },
+    "ask": {
+        "empty": "Veuillez taper une question.",
+        "sent": "✅ Message envoyé, en attente de réponse...",
+        "done": "✅ Terminé !",
+        "done_empty": "✅ Terminé mais aucun texte n'a été généré.",
+        "timeout": "⚠️ L'agent réfléchit toujours ou a expiré.",
+        "send_error": "❌ Erreur d'envoi : {error}",
+        "headless_error": "❌ Erreur Headless : {error}",
+        "no_chat_input": "Aucune zone de texte trouvée. Veuillez ouvrir une session de chat."
+    },
+    "stop": {
+        "stopping": "🛑 Arrêt de l'agent...",
+        "stopped": "✅ Agent arrêté !",
+        "already_stopped": "ℹ️ L'agent est déjà arrêté.",
+        "error": "❌ Erreur : {error}"
+    },
+    "new_chat": {
+        "opened": "✅ Nouveau chat ouvert !",
+        "not_found": "❌ Bouton de nouveau chat introuvable.",
+        "error": "❌ Erreur : {error}"
+    },
+    "model": {
+        "selecting": "🔄 Sélection du modèle : {model}",
+        "changed": "✅ Modèle changé : {model}",
+        "not_found": "❌ Modèle introuvable.",
+        "select_prompt": "🤖 Sélectionnez un modèle :",
+        "changing": "🔄 Changement de modèle : {model}",
+        "select_failed": "❌ Échec de la sélection du modèle.",
+        "error": "Erreur !"
+    },
+    "workspace": {
+        "switching": "🔄 Changement d'espace de travail : {workspace}",
+        "start_failed": "❌ Échec du démarrage : {error}",
+        "started": "✅ IDE démarré avec le nouvel espace de travail !",
+        "trusted": "🔓 Espace de travail marqué comme de confiance.",
+        "cdp_warning": "\n⚠️ La connexion CDP n'est peut-être pas prête.",
+        "select_prompt": "Veuillez sélectionner l'espace de travail :",
+        "read_error": "❌ Impossible de lire le répertoire des projets.",
+        "selected": "Espace de travail sélectionné : {project}"
+    },
+    "file": {
+        "empty_dir": "📂 Ce répertoire est vide.",
+        "dir_read_error": "❌ Impossible de lire le répertoire : {error}",
+        "not_found": "❌ Fichier introuvable : {path}",
+        "too_large": "❌ Fichier trop volumineux ({size}MB). Limite : 50MB.",
+        "send_failed": "❌ Impossible d'envoyer le fichier : {error}",
+        "sending": "Envoi : {filename}",
+        "parent_dir": "⬆️ Répertoire parent",
+        "prev_page": "◀️ Précédent",
+        "next_page": "▶️ Suivant",
+        "dir_info": "({count} éléments, page {page}/{totalPages})"
+    },
+    "menu": {
+        "updated": "✅ Menu mis à jour !",
+        "help_desc": "Afficher toutes les commandes",
+        "ask_desc": "Envoyer une question à l'agent",
+        "latest_desc": "Obtenir la dernière réponse",
+        "screenshot_desc": "Prendre une capture d'écran",
+        "status_desc": "Statut du système",
+        "start_ide_desc": "Démarrer l'IDE",
+        "close_desc": "Fermer l'IDE",
+        "new_desc": "Ouvrir un nouveau chat",
+        "model_desc": "Sélection du modèle",
+        "workspace_desc": "Changer de projet",
+        "lang_desc": "Changer de langue",
+        "cmd_desc": "Exécuter une commande",
+        "file_desc": "Parcourir les fichiers",
+        "stop_desc": "Arrêter l'agent",
+        "autoaccept_desc": "Basculer l'auto-acceptation",
+        "quota_desc": "Afficher l'utilisation du quota",
+        "menu_desc": "Mettre à jour le menu"
+    },
+    "photo": {
+        "downloaded": "✅ Fichier téléchargé et transféré...",
+        "error": "❌ Erreur de traitement : {error}"
+    },
+    "lang": {
+        "current": "🌐 Langue actuelle : {lang}",
+        "changed": "✅ Langue changée pour : {lang}",
+        "select_prompt": "🌐 Sélectionnez la langue :"
+    },
+    "autoaccept": {
+        "enabling": "🔄 Activation de l'auto-acceptation...",
+        "enabled": "⚡ Auto-acceptation ACTIVÉE !\n\n🤖 Observateur injecté dans {injected} cibles.",
+        "enabled_none": "⚡ Auto-acceptation ACTIVÉE !\n\n⚠️ Aucune cible trouvée pour le moment.",
+        "disabling": "🔄 Désactivation de l'auto-acceptation...",
+        "disabled": "✅ Auto-acceptation DÉSACTIVÉE.\n\n📊 Total de clics : {clicks}.",
+        "status_title": "📊 <b>Statut Auto-Acceptation :</b>\n",
+        "status_enabled": "⚡ Statut : ACTIVÉ",
+        "status_disabled": "⏸️ Statut : DÉSACTIVÉ",
+        "status_active": "🤖 Observateur : Actif ({targets} cibles)",
+        "status_inactive": "📴 Observateur : Inactif",
+        "status_clicks": "🖱️ Total Clics : {total} (session: {session})",
+        "status_last_click": "⏱️ Dernier Clic : {text} (il y a {sec}s)",
+        "status_blocked": "🛡️ Commandes bloquées : {count}",
+        "status_no_panel": "⚠️ Panel de l'agent non détecté.",
+        "error": "❌ Erreur : {error}"
+    },
+    "quota": {
+        "checking": "🔄 Vérification du quota...",
+        "not_found": "❌ Informations de quota introuvables.",
+        "error": "❌ Erreur : {error}",
+        "header": "📊 Statut du Compte et Quota\n",
+        "plan": "📋 Plan : {plan}",
+        "prompt_credits": "📊 Crédits : {available}{monthly}",
+        "model_quota": "⏱️ Quota du modèle :",
+        "remaining": " {pct}% restant",
+        "empty": " ⛔ ÉPUISÉ"
+    },
+    "response_too_long": "⚠️ Réponse trop longue. Utilisez /latest."
+}
