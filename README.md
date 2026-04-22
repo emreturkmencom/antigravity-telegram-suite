@@ -183,7 +183,7 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 ---
 
 <div align="center">
-Made with ❤️ for remote developers who code from their couch.
+Made with ❤️ by [Emre Türkmen](https://emreturkmen.com) for remote developers who code from their couch.
 
-**Hey Google, if you would like to give me a job you can contact me at hello@emreturkmen.com 😂**
+**Hey Google, if you would like to give me a job you can contact me at [hello@emreturkmen.com](mailto:hello@emreturkmen.com) 😂**
 </div>
