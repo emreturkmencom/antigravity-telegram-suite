@@ -6,6 +6,49 @@ let globalLastChatState = "";
 // Store the last successful extracted agent message
 let globalLastValidResponse = "";
 
+// DOM extraction expression (shared between snapshot and getLatest)
+const CHAT_EXTRACT_EXPR = `
+    (function() {
+        let extractedText = "";
+        try {
+            const container = document.querySelector('.flex.w-full.grow.flex-col.overflow-hidden, #conversation, #chat, .interactive-session');
+            if (container) {
+                const buttons = Array.from(container.querySelectorAll('button')).filter(btn => btn.innerText && btn.innerText.includes('Thought for'));
+                const hiddenEls = [];
+                buttons.forEach(btn => {
+                    if (btn.parentElement) {
+                        hiddenEls.push({ el: btn.parentElement, display: btn.parentElement.style.display });
+                        btn.parentElement.style.setProperty('display', 'none', 'important');
+                    }
+                });
+                extractedText = container.innerText || container.textContent || "";
+                hiddenEls.forEach(item => { item.el.style.display = item.display; });
+            }
+            extractedText = extractedText.replace(/Ask anything, @ to mention, \\/ for workflows/g, '');
+            extractedText = extractedText.replace(/0 Files With Changes/g, '');
+            extractedText = extractedText.replace(/Review Changes/g, '');
+            extractedText = extractedText.replace(/Gemini 3\\.1 Pro \\(High\\)/g, '');
+            extractedText = extractedText.replace(/Send\\s*mic/g, '');
+            extractedText = extractedText.replace(/Files Modified[\\s\\n]*(\\d+)[\\s\\n]*([a-zA-Z0-9_\\-\\.]+)[\\s\\n]*\\+([0-9]+)[\\s\\n]*\\-([0-9]+)/gi, "\\n[📦 Files Modified: $2 (+$3, -$4)]\\n");
+            extractedText = extractedText.replace(/chevron_left/g, '');
+            extractedText = extractedText.replace(/chevron_right/g, '');
+            extractedText = extractedText.replace(/content_copy/g, '');
+            extractedText = extractedText.replace(/thumb_up/g, '');
+            extractedText = extractedText.replace(/thumb_down/g, '');
+            extractedText = extractedText.replace(/undo/g, '');
+            extractedText = extractedText.replace(/Worked for \\d+s/gi, '');
+            extractedText = extractedText.replace(/\\d{1,2}:\\d{2}\\s*(?:AM|PM)/ig, '');
+            extractedText = extractedText.replace(/Thinking.../g, "").replace(/Gelişim App Dev/g, "");
+            extractedText = extractedText.replace(/Thought for \\d+s\\s*Prioritizing Tool Usage[\\s\\S]*?(?=\\n\\n|$)/gi, "");
+            extractedText = extractedText.replace(/Prioritizing Tool Usage[\\s\\S]*?(?=\\n\\n|$)/gi, "");
+            extractedText = extractedText.replace(/I'm now focusing on tool selection[\\s\\S]*?(?=\\n\\n|$)/gi, "");
+            extractedText = extractedText.replace(/Thought for \\d+s/gi, "");
+            extractedText = extractedText.trim();
+        } catch(e) {}
+        return String(extractedText);
+    })()
+`;
+
 function httpGet(url) {
     return new Promise((resolve, reject) => {
         http.get(url, (res) => {
@@ -14,6 +57,37 @@ function httpGet(url) {
             res.on('end', () => resolve(data));
         }).on('error', err => reject(err));
     });
+}
+
+/**
+ * Snapshot the current chat state so subsequent getLatestAgentResponse
+ * calls only return text that appeared AFTER this snapshot.
+ */
+async function snapshotChatState(port) {
+    const raw = await httpGet(`http://127.0.0.1:${port}/json`);
+    const targets = JSON.parse(raw);
+    const candidates = targets.filter(t => (t.type === 'page' || t.type === 'iframe' || t.type === 'webview') &&
+        t.webSocketDebuggerUrl && !t.url.includes('devtools://'));
+    candidates.sort((a, b) => {
+        const aMatch = a.title.toLowerCase().includes('antigravity') ? 1 : 0;
+        const bMatch = b.title.toLowerCase().includes('antigravity') ? 1 : 0;
+        return bMatch - aMatch;
+    });
+    for (const target of candidates) {
+        try {
+            const client = await CDP({ target: target.webSocketDebuggerUrl });
+            const { Runtime } = client;
+            await Runtime.enable();
+            const boxResult = await Runtime.evaluate({ expression: CHAT_EXTRACT_EXPR, awaitPromise: true, returnByValue: true });
+            const val = boxResult?.result?.value;
+            await client.close();
+            if (val && val.length > 0) {
+                globalLastChatState = val;
+                console.log(`[snapshot] Chat state anchored (${val.length} chars)`);
+                return;
+            }
+        } catch (_) {}
+    }
 }
 
 async function getLatestAgentResponse(port) {
@@ -37,64 +111,7 @@ async function getLatestAgentResponse(port) {
             await Runtime.enable();
 
             const boxResult = await Runtime.evaluate({
-                expression: `
-                    (function() {
-                        let extractedText = "";
-                        try {
-                            const container = document.querySelector('.flex.w-full.grow.flex-col.overflow-hidden, #conversation, #chat, .interactive-session');
-                            if (container) {
-                                // Temporarily hide 'Thought' blocks on the live DOM to prevent CSS class leakage from detached clone innerText
-                                const buttons = Array.from(container.querySelectorAll('button')).filter(btn => btn.innerText && btn.innerText.includes('Thought for'));
-                                const hiddenEls = [];
-                                buttons.forEach(btn => {
-                                    if (btn.parentElement) {
-                                        hiddenEls.push({ el: btn.parentElement, display: btn.parentElement.style.display });
-                                        btn.parentElement.style.setProperty('display', 'none', 'important');
-                                    }
-                                });
-                                
-                                extractedText = container.innerText || container.textContent || "";
-                                
-                                // Restore visibility
-                                hiddenEls.forEach(item => {
-                                    item.el.style.display = item.display;
-                                });
-                            }
-
-                            // Clean up specific OpenCode/Antigravity React UI clutter safely without wildcard swallows
-                            extractedText = extractedText.replace(/Ask anything, @ to mention, \\/ for workflows/g, '');
-                            extractedText = extractedText.replace(/0 Files With Changes/g, '');
-                            extractedText = extractedText.replace(/Review Changes/g, '');
-                            extractedText = extractedText.replace(/Gemini 3\\.1 Pro \\(High\\)/g, '');
-                            extractedText = extractedText.replace(/Send\\s*mic/g, '');
-                            
-                            // Reformat "Files Modified" precisely without risking matching to end of string
-                            extractedText = extractedText.replace(/Files Modified[\\s\\n]*(\\d+)[\\s\\n]*([a-zA-Z0-9_\\-\\.]+)[\\s\\n]*\\+([0-9]+)[\\s\\n]*\\-([0-9]+)/gi, "\\n[📦 Files Modified: $2 (+$3, -$4)]\\n");
-
-                            // Strip icon names, times, and action texts
-                            extractedText = extractedText.replace(/chevron_left/g, '');
-                            extractedText = extractedText.replace(/chevron_right/g, '');
-                            extractedText = extractedText.replace(/content_copy/g, '');
-                            extractedText = extractedText.replace(/thumb_up/g, '');
-                            extractedText = extractedText.replace(/thumb_down/g, '');
-                            extractedText = extractedText.replace(/undo/g, '');
-                            extractedText = extractedText.replace(/Worked for \\d+s/gi, '');
-                            extractedText = extractedText.replace(/\\d{1,2}:\\d{2}\\s*(?:AM|PM)/ig, ''); // e.g. 4:24 PM
-                            
-                            // Strip typical system logs and agent thoughts
-                            extractedText = extractedText.replace(/Thinking.../g, "").replace(/Gelişim App Dev/g, "");
-                            // Robust regex for LLM thoughts: matches "Thought for X s" and "Prioritizing Tool Usage" blocks regardless of how the sentence ends
-                            extractedText = extractedText.replace(/Thought for \\d+s\\s*Prioritizing Tool Usage[\\s\\S]*?(?=\\n\\n|$)/gi, "");
-                            extractedText = extractedText.replace(/Prioritizing Tool Usage[\\s\\S]*?(?=\\n\\n|$)/gi, "");
-                            extractedText = extractedText.replace(/I'm now focusing on tool selection[\\s\\S]*?(?=\\n\\n|$)/gi, "");
-                            extractedText = extractedText.replace(/Thought for \\d+s/gi, "");
-                            extractedText = extractedText.trim();
-
-                        } catch(e) {}
-                        
-                        return String(extractedText);
-                    })()
-                `,
+                expression: CHAT_EXTRACT_EXPR,
                 awaitPromise: true,
                 returnByValue: true
             });
@@ -502,6 +519,7 @@ async function triggerModelMenu(port) {
 module.exports = {
     getLatestAgentResponse,
     getFullLatestResponse,
+    snapshotChatState,
     captureAgentScreenshot,
     captureFullIDEScreenshot,
     waitForAgentResponse,

@@ -6,7 +6,7 @@ const os = require('os');
 const { exec } = require('child_process');
 const { loadLocale, t, getLang } = require('./i18n');
 const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, trustWorkspaceViaCDP, PLATFORM } = require('./platform');
-const { getLatestAgentResponse, getFullLatestResponse, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, stopAgent, getQuota } = require('./cdp_controller');
+const { getLatestAgentResponse, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, stopAgent, getQuota } = require('./cdp_controller');
 const autoaccept = require('./autoaccept');
 
 // Load configured language
@@ -215,6 +215,9 @@ bot.command('ask', (ctx) => {
         try {
             await sendViaCDP(query, CDP_PORT);
             await ctx.reply(t('ask.sent'));
+
+            // Anchor chat state so getLatestAgentResponse only returns NEW text
+            await snapshotChatState(CDP_PORT).catch(() => {});
             
             const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx));
             if (isDone) {
@@ -818,6 +821,9 @@ bot.on('text', (ctx) => {
         try {
             await sendViaCDP(query, CDP_PORT);
             await ctx.reply(t('ask.sent'));
+
+            // Anchor chat state so getLatestAgentResponse only returns NEW text
+            await snapshotChatState(CDP_PORT).catch(() => {});
             
             const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx));
             if (isDone) {
@@ -879,6 +885,9 @@ bot.on(['photo', 'document'], (ctx) => {
             
             await ctx.reply(t('photo.downloaded'));
             await sendViaCDP(query, CDP_PORT);
+
+            // Anchor chat state so getLatestAgentResponse only returns NEW text
+            await snapshotChatState(CDP_PORT).catch(() => {});
             
             const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx));
             if (isDone) {
