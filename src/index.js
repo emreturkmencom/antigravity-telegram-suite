@@ -918,7 +918,12 @@ bot.launch().then(async () => {
     }
     
     if (process.env.AUTOACCEPT_DEFAULT !== 'false') {
-        autoaccept.enable(CDP_PORT).catch(() => {});
+        console.log('[autoaccept] Auto-starting...');
+        autoaccept.enable(CDP_PORT).then(r => {
+            console.log(`[autoaccept] Auto-start result: injected=${r.injected}`);
+        }).catch(e => {
+            console.log(`[autoaccept] Auto-start failed: ${e.message} (will retry via heartbeat)`);
+        });
     }
 });
 

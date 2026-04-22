@@ -73,9 +73,9 @@ async function getWebviewTargets(port) {
 // ─── Build DOM Observer Script ────────────────────────────────────────
 function buildObserverScript() {
     const buttonTexts = [
-        'run', 'accept', 'always allow', 'allow this conversation',
+        'run', 'accept all', 'accept changes', 'accept', 'always allow', 'allow this conversation',
         'allow', 'retry', 'continue',
-        'çalıştır', 'kabul et', 'her zaman izin ver', 'izin ver', 'yeniden dene', 'devam et'
+        'çalıştır', 'tümünü kabul et', 'değişiklikleri kabul et', 'kabul et', 'her zaman izin ver', 'izin ver', 'yeniden dene', 'devam et'
     ];
 
     return `
@@ -86,7 +86,8 @@ function buildObserverScript() {
     function isAgentPanel() {
         return !!(document.querySelector('.react-app-container') ||
             document.querySelector('[class*="agent"]') ||
-            document.querySelector('[data-vscode-context]'));
+            document.querySelector('[data-vscode-context]') ||
+            document.querySelector('.monaco-workbench'));
     }
 
     var AMBIGUOUS_TEXTS = { 'run': true, 'accept': true, 'allow': true, 'retry': true, 'continue': true, 'çalıştır': true, 'kabul et': true, 'izin ver': true, 'yeniden dene': true, 'devam et': true };
@@ -478,14 +479,18 @@ async function heartbeat(port) {
  * @returns {Promise<{success: boolean, injected: number}>}
  */
 async function enable(port) {
-    if (isEnabled) return { success: true, injected: injectedTargets.size };
-
+    const wasEnabled = isEnabled;
     isEnabled = true;
-    sessionClicks = 0;
 
-    // Inject our observer into all webview targets
+    if (!wasEnabled) {
+        sessionClicks = 0;
+    }
+
+    // Clear stale target cache and inject fresh
+    injectedTargets.clear();
+    let injected = 0;
     try {
-        const injected = await injectObserver(port);
+        injected = await injectObserver(port);
         console.log(`[autoaccept] Enabled — injected into ${injected} targets`);
     } catch (e) {
         if (!e.message.includes('ECONNREFUSED')) {
