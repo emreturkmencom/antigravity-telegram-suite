@@ -11,7 +11,7 @@
         "messaging_title": "📝 <i>Messaging &amp; Interaction:</i>",
         "messaging_text": "- Just type text → Talk to the agent (headless mode)\n- 📎 Send image/file → Forward to agent (caption supported)",
         "status_title": "👁️ <i>Status &amp; Info:</i>",
-        "status_text": "- /latest → Get latest response (cleaned)\n- /screenshot → Take IDE screenshot\n- /check → Check if agent is working\n- /status → System status (IDE, CDP, PM2)",
+        "status_text": "- /latest → Get latest response (cleaned)\n- /screenshot → Take IDE screenshot\n- /status → System status (IDE, CDP, PM2)",
         "ide_title": "🛠️ <i>IDE Controls:</i>",
         "ide_text": "- /start_ide → Start the IDE if closed\n- /close → Fully close the IDE (kill process + clean locks)\n- /new → Open a new chat\n- /model → Open model selection menu\n- /workspace → Switch project workspace\n- /autoaccept → Toggle auto-accept on/off\n- /lang → Switch language\n- /cmd &lt;command&gt; → Run a terminal command\n- /help → Show this help message"
     },
@@ -51,11 +51,6 @@
         "send_error": "❌ Send Error: {error}",
         "headless_error": "❌ Headless Error: {error}",
         "no_chat_input": "No chat input found in the IDE. Please make sure a chat session is open in Antigravity."
-    },
-    "check": {
-        "done": "✅ Agent has already finished!",
-        "working": "⏳ Agent is currently working in the background...",
-        "connection_error": "❌ Connection failed. (Port {port})"
     },
     "stop": {
         "stopping": "🛑 Stopping agent...",
@@ -105,7 +100,6 @@
         "ask_desc": "Send a question to the agent",
         "latest_desc": "Get the latest response",
         "screenshot_desc": "Take an IDE screenshot",
-        "check_desc": "Check agent status",
         "status_desc": "System status (IDE, CDP, PM2)",
         "start_ide_desc": "Start the IDE",
         "close_desc": "Fully close the IDE",

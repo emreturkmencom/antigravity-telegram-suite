@@ -11,7 +11,7 @@
         "messaging_title": "📝 <i>Mesajlaşma &amp; Etkileşim:</i>",
         "messaging_text": "- Sadece yazı yazarak → Ajanla konuşur (Headless mod)\n- 📎 Resim/Dosya göndererek → Ajana dosya iletir (caption desteklenir)",
         "status_title": "👁️ <i>Durum &amp; Bilgi:</i>",
-        "status_text": "- /latest → Son yanıtı getirir (temizlenmiş)\n- /screenshot → IDE ekran görüntüsü alır\n- /check → Ajanın çalışma durumunu kontrol eder\n- /status → Sistem durumu (IDE, CDP, PM2)",
+        "status_text": "- /latest → Son yanıtı getirir (temizlenmiş)\n- /screenshot → IDE ekran görüntüsü alır\n- /status → Sistem durumu (IDE, CDP, PM2)",
         "ide_title": "🛠️ <i>IDE Kontrolleri:</i>",
         "ide_text": "- /start_ide → IDE kapalıysa başlatır\n- /close → IDE'yi tamamen kapatır (tüm process + lock temizler)\n- /new → Yeni sohbet açar\n- /model → Model seçimi menüsünü açar\n- /workspace → Projeyi değiştirir\n- /autoaccept → Otomatik kabul aç/kapat\n- /lang → Dil değiştirir\n- /cmd &lt;komut&gt; → Terminalde komut çalıştırır\n- /help → Bu yardım mesajını gösterir"
     },
@@ -51,11 +51,6 @@
         "send_error": "❌ Gönderme Hatası: {error}",
         "headless_error": "❌ Headless İletim Hatası: {error}",
         "no_chat_input": "IDE'de sohbet kutusu bulunamadı. Lütfen Antigravity'de bir chat penceresi açık olduğundan emin olun."
-    },
-    "check": {
-        "done": "✅ Agent işlemini çoktan tamamlamış!",
-        "working": "⏳ Agent şu an arka planda aktif olarak çalışıyor...",
-        "connection_error": "❌ Bağlantı kurulamadı. (Port {port})"
     },
     "stop": {
         "stopping": "🛑 Agent durduruluyor...",
@@ -105,7 +100,6 @@
         "ask_desc": "Sorunuzu ajana iletir",
         "latest_desc": "Son yanıtı getirir",
         "screenshot_desc": "IDE ekran görüntüsü alır",
-        "check_desc": "Ajan durumunu kontrol eder",
         "status_desc": "Sistem durumu (IDE, CDP, PM2)",
         "start_ide_desc": "IDE başlatır",
         "close_desc": "IDE tamamen kapatır",

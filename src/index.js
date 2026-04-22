@@ -166,6 +166,8 @@ bot.command('status', async (ctx) => {
     }
     
     msg += t('status.bot_running') + '\n';
+    msg += '\n<b>Auto-Accept:</b> ' + (autoaccept.isEnabled ? '✅ ON' : '❌ OFF') + '\n';
+
     ctx.reply(msg, { parse_mode: 'HTML' });
 });
 
@@ -234,18 +236,6 @@ bot.command('ask', (ctx) => {
     })();
 });
 
-bot.command('check', async (ctx) => {
-    try {
-        const isDone = await waitForAgentResponse(CDP_PORT, 5000);
-        if (isDone) {
-            ctx.reply(t('check.done'));
-        } else {
-            ctx.reply(t('check.working'));
-        }
-    } catch (e) {
-        ctx.reply(t('check.connection_error', { port: CDP_PORT }));
-    }
-});
 
 bot.command('cmd', async (ctx) => {
     const cmdStr = ctx.message.text.split(' ').slice(1).join(' ');
@@ -711,7 +701,6 @@ function getMenuCommands() {
         { command: 'help', description: t('menu.help_desc') },
         { command: 'latest', description: t('menu.latest_desc') },
         { command: 'screenshot', description: t('menu.screenshot_desc') },
-        { command: 'check', description: t('menu.check_desc') },
         { command: 'status', description: t('menu.status_desc') },
         { command: 'start_ide', description: t('menu.start_ide_desc') },
         { command: 'close', description: t('menu.close_desc') },
@@ -926,6 +915,10 @@ bot.launch().then(async () => {
         console.log("Menu commands set.");
     } catch(e) {
         console.error("Could not set commands", e.message);
+    }
+    
+    if (process.env.AUTOACCEPT_DEFAULT !== 'false') {
+        autoaccept.enable(CDP_PORT).catch(() => {});
     }
 });
 

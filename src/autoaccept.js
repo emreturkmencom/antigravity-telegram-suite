@@ -14,7 +14,7 @@
 const http = require('http');
 
 // ─── State ────────────────────────────────────────────────────────────
-let isEnabled = false;
+let isEnabled = true;
 let heartbeatTimer = null;
 let injectedTargets = new Set();
 let totalClicks = 0;
@@ -74,7 +74,8 @@ async function getWebviewTargets(port) {
 function buildObserverScript() {
     const buttonTexts = [
         'run', 'accept', 'always allow', 'allow this conversation',
-        'allow', 'retry', 'continue'
+        'allow', 'retry', 'continue',
+        'çalıştır', 'kabul et', 'her zaman izin ver', 'izin ver', 'yeniden dene', 'devam et'
     ];
 
     return `
@@ -88,7 +89,7 @@ function buildObserverScript() {
             document.querySelector('[data-vscode-context]'));
     }
 
-    var AMBIGUOUS_TEXTS = { 'run': true, 'accept': true, 'allow': true, 'retry': true, 'continue': true };
+    var AMBIGUOUS_TEXTS = { 'run': true, 'accept': true, 'allow': true, 'retry': true, 'continue': true, 'çalıştır': true, 'kabul et': true, 'izin ver': true, 'yeniden dene': true, 'devam et': true };
     var SIDEBAR_SELECTORS = '[role="tree"], [role="treeitem"], [role="listbox"], [role="option"], .monaco-list, .conversation-list, .chat-list, .sidebar-list';
 
     function isSidebarElement(el) {
@@ -168,10 +169,10 @@ function buildObserverScript() {
                 if (best !== null && t >= best.priority) break;
                 var text = texts[t];
                 var isMatch = nodeText === text ||
-                    (text.length >= 3 && nodeText.startsWith(text) && isWordBoundary(nodeText, text.length) && nodeText.length <= text.length * 3) ||
+                    (text.length >= 3 && nodeText.startsWith(text) && isWordBoundary(nodeText, text.length) && nodeText.length <= text.length * 5) ||
                     (nodeText.startsWith(text + ' ') && nodeText.length <= text.length * 5) ||
                     (text.length >= 3 && nodeText.startsWith(text) && nodeText.length <= text.length * 5 &&
-                        /^(alt|ctrl|shift|cmd|meta|\\u2318|\\u2325|\\u21E7|\\u2303)/.test(nodeText.substring(text.length)));
+                        /^[\s\u00A0\n\r]*(alt|ctrl|shift|cmd|meta|\\u2318|\\u2325|\\u21E7|\\u2303|enter|return|\\u23CE|\\n)/i.test(nodeText.substring(text.length)));
                 if (!isMatch) continue;
 
                 var clickable = closestClickable(wNode);
@@ -463,7 +464,9 @@ async function heartbeat(port) {
             }
         }
     } catch (e) {
-        console.log(`[autoaccept] Heartbeat error: ${e.message}`);
+        if (!e.message.includes('ECONNREFUSED')) {
+            console.log(`[autoaccept] Heartbeat error: ${e.message}`);
+        }
     }
 }
 
@@ -481,8 +484,14 @@ async function enable(port) {
     sessionClicks = 0;
 
     // Inject our observer into all webview targets
-    const injected = await injectObserver(port);
-    console.log(`[autoaccept] Enabled — injected into ${injected} targets`);
+    try {
+        const injected = await injectObserver(port);
+        console.log(`[autoaccept] Enabled — injected into ${injected} targets`);
+    } catch (e) {
+        if (!e.message.includes('ECONNREFUSED')) {
+            console.log(`[autoaccept] Initial inject failed: ${e.message}`);
+        }
+    }
 
     // Start heartbeat (monitor health + inject new targets every 10s)
     if (heartbeatTimer) clearInterval(heartbeatTimer);

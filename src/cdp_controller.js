@@ -278,9 +278,25 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null)
                             const isGenerating = !!stopIcon;
                             const editor = document.querySelector('[contenteditable="true"], textarea');
                             const isInputDisabled = editor ? (editor.getAttribute('contenteditable') === 'false' || editor.disabled) : false;
-                            const isIdle = !isGenerating && !isInputDisabled;
+                            
+                            // Check for visible loading spinners (indicates terminal command or tool running)
+                            const isSpinning = Array.from(document.querySelectorAll('.codicon-loading, .loading, [class*="animate-spin"], [class*="spinner"], [class*="loader"]')).some(el => el.offsetParent !== null);
+                            
+                            // Check if AutoAccept is active and there is a button waiting to be clicked
+                            const aaActive = !!window.__AA_BOT_OBSERVER_ACTIVE && !window.__AA_BOT_PAUSED;
+                            let hasPendingButton = false;
+                            if (aaActive) {
+                                const texts = ['run', 'accept', 'allow', 'continue', 'retry', 'çalıştır', 'kabul et', 'izin ver', 'devam et', 'yeniden dene'];
+                                const btns = Array.from(document.querySelectorAll('button')).filter(b => b.offsetParent !== null);
+                                hasPendingButton = btns.some(b => {
+                                    const t = (b.textContent||'').trim().toLowerCase();
+                                    return texts.some(x => t === x || t.startsWith(x + ' ') || (t.startsWith(x) && t.length <= x.length + 8));
+                                });
+                            }
+                            
+                            const isIdle = !isGenerating && !isInputDisabled && !isSpinning && !hasPendingButton;
                             const hasChat = !!document.querySelector('#conversation, #chat, #cascade, .chat-input, .interactive-input-editor');
-                            return { hasChat, isGenerating, isIdle };
+                            return { hasChat, isGenerating, isIdle, isSpinning, hasPendingButton };
                         })()
                     `,
                     returnByValue: true
@@ -378,13 +394,15 @@ async function sendViaCDP(text, port) {
 
                             const submit = document.querySelector("svg.lucide-arrow-right, svg[class*='arrow-right'], svg[class*='send']")?.closest("button");
                             if (submit && !submit.disabled) {
-                                submit.click();
+                                setTimeout(() => submit.click(), 10);
                                 return { found: true, method: 'button' };
                             }
 
-                            ['keydown', 'keypress', 'keyup'].forEach(type => {
-                                editor.dispatchEvent(new KeyboardEvent(type, { bubbles: true, key: "Enter", code: "Enter", keyCode: 13, which: 13 }));
-                            });
+                            setTimeout(() => {
+                                ['keydown', 'keypress', 'keyup'].forEach(type => {
+                                    editor.dispatchEvent(new KeyboardEvent(type, { bubbles: true, key: "Enter", code: "Enter", keyCode: 13, which: 13 }));
+                                });
+                            }, 10);
                             return { found: true, method: 'keyboard' };
                         } catch(err) {
                             return { found: false, reason: err.message };
@@ -411,6 +429,11 @@ async function sendViaCDP(text, port) {
             if (val) errors.push(`${target.title?.substring(0, 25)}: ${val.reason || 'no_editor'}`);
             await client.close();
         } catch(e) {
+            if (e.message.includes('Promise was collected')) {
+                console.log(`[sendViaCDP] Ignoring Promise was collected for ${target.title}, assuming success!`);
+                try { if (client) await client.close(); } catch(_) {}
+                return;
+            }
             errors.push(`${target.title?.substring(0, 25)}: ${e.message}`);
             try { if (client) await client.close(); } catch(_) {}
         }
