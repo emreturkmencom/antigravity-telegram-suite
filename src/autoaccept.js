@@ -87,7 +87,9 @@ function buildObserverScript() {
         return !!(document.querySelector('.react-app-container') ||
             document.querySelector('[class*="agent"]') ||
             document.querySelector('[data-vscode-context]') ||
-            document.querySelector('.monaco-workbench'));
+            document.querySelector('.monaco-workbench') ||
+            document.querySelector('script[src*="agent" i]') ||
+            window.location.href.includes('agent'));
     }
 
     var AMBIGUOUS_TEXTS = { 'run': true, 'accept': true, 'allow': true, 'retry': true, 'continue': true, 'çalıştır': true, 'kabul et': true, 'izin ver': true, 'yeniden dene': true, 'devam et': true };
@@ -173,7 +175,7 @@ function buildObserverScript() {
                     (text.length >= 3 && nodeText.startsWith(text) && isWordBoundary(nodeText, text.length) && nodeText.length <= text.length * 5) ||
                     (nodeText.startsWith(text + ' ') && nodeText.length <= text.length * 5) ||
                     (text.length >= 3 && nodeText.startsWith(text) && nodeText.length <= text.length * 5 &&
-                        /^[\s\u00A0\n\r]*(alt|ctrl|shift|cmd|meta|\\u2318|\\u2325|\\u21E7|\\u2303|enter|return|\\u23CE|\\n)/i.test(nodeText.substring(text.length)));
+                        /^[\\s\\u00A0\\n\\r]*(alt|ctrl|shift|cmd|meta|\\\\u2318|\\\\u2325|\\\\u21E7|\\\\u2303|enter|return|\\\\u23CE|\\\\n)/i.test(nodeText.substring(text.length)));
                 if (!isMatch) continue;
 
                 var clickable = closestClickable(wNode);
@@ -590,7 +592,7 @@ function getBlockedCommands() {
     return [...blockedCommands];
 }
 
-module.exports = {
+module.exports = { buildObserverScript,
     enable,
     disable,
     getStatus,
