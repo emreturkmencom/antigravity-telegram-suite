@@ -13,7 +13,7 @@ const autoaccept = require('./autoaccept');
 const lang = process.env.LANGUAGE || 'en';
 loadLocale(lang);
 
-const bot = new Telegraf(process.env.BOT_TOKEN);
+const bot = new Telegraf(process.env.BOT_TOKEN, { handlerTimeout: 900000 }); // 15 minutes timeout to allow long /ask requests
 const ALLOWED_CHAT_ID = process.env.ALLOWED_CHAT_ID;
 const CDP_PORT = process.env.DEBUGGING_PORT || 9333;
 
