@@ -92,7 +92,8 @@
         "parent_dir": "⬆️ Parent Directory",
         "prev_page": "◀️ Previous",
         "next_page": "▶️ Next",
-        "dir_info": "({count} items, page {page}/{totalPages})"
+        "dir_info": "({count} items, page {page}/{totalPages})",
+        "expired": "❌ Session expired, type /file to start again."
     },
     "menu": {
         "updated": "✅ Menu updated! You can see it from the ☰ menu at the bottom left.",

@@ -92,7 +92,8 @@
         "parent_dir": "⬆️ Üst Dizin",
         "prev_page": "◀️ Önceki",
         "next_page": "▶️ Sonraki",
-        "dir_info": "({count} öğe, sayfa {page}/{totalPages})"
+        "dir_info": "({count} öğe, sayfa {page}/{totalPages})",
+        "expired": "❌ Oturum süresi doldu, /file yazarak tekrar başlatın."
     },
     "menu": {
         "updated": "✅ Menü güncellendi! Sol alttaki ☰ menüsünden görebilirsiniz.",

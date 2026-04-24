@@ -572,6 +572,21 @@ bot.action(/lang_(.+)/, async (ctx) => {
 
 let currentWorkspaceDir = config.projectsDir;
 
+const pathCache = new Map();
+let pathIdCounter = 0;
+function getPathId(fullPath) {
+    for (const [id, p] of pathCache.entries()) {
+        if (p === fullPath) return id;
+    }
+    const id = (++pathIdCounter).toString(36);
+    pathCache.set(id, fullPath);
+    if (pathCache.size > 2000) {
+        const firstKey = pathCache.keys().next().value;
+        pathCache.delete(firstKey);
+    }
+    return id;
+}
+
 function listDirectory(ctx, dirPath, page = 0) {
     const PAGE_SIZE = 8;
     fs.readdir(dirPath, { withFileTypes: true }, (err, entries) => {
@@ -595,24 +610,24 @@ function listDirectory(ctx, dirPath, page = 0) {
         const buttons = pageEntries.map(e => {
             const icon = e.isDirectory() ? '📂' : '📄';
             const fullPath = path.join(dirPath, e.name);
-            const encodedPath = Buffer.from(fullPath).toString('base64').slice(0, 60);
+            const pathId = getPathId(fullPath);
             const action = e.isDirectory() ? 'fd_' : 'ff_';
-            return [{ text: `${icon} ${e.name}`, callback_data: `${action}${encodedPath}` }];
+            return [{ text: `${icon} ${e.name}`, callback_data: `${action}${pathId}` }];
         });
         
         const navRow = [];
         const parentDir = path.dirname(dirPath);
         if (parentDir !== dirPath && dirPath !== config.projectsDir) {
-            const parentEncoded = Buffer.from(parentDir).toString('base64').slice(0, 60);
-            navRow.push({ text: t('file.parent_dir'), callback_data: `fd_${parentEncoded}` });
+            const parentId = getPathId(parentDir);
+            navRow.push({ text: t('file.parent_dir'), callback_data: `fd_${parentId}` });
         }
+        
+        const dirPathId = getPathId(dirPath);
         if (page > 0) {
-            const prevData = Buffer.from(`${dirPath}|${page - 1}`).toString('base64').slice(0, 60);
-            navRow.push({ text: t('file.prev_page'), callback_data: `fp_${prevData}` });
+            navRow.push({ text: t('file.prev_page'), callback_data: `fp_${dirPathId}|${page - 1}` });
         }
         if (page < totalPages - 1) {
-            const nextData = Buffer.from(`${dirPath}|${page + 1}`).toString('base64').slice(0, 60);
-            navRow.push({ text: t('file.next_page'), callback_data: `fp_${nextData}` });
+            navRow.push({ text: t('file.next_page'), callback_data: `fp_${dirPathId}|${page + 1}` });
         }
         if (navRow.length > 0) buttons.push(navRow);
         
@@ -658,9 +673,11 @@ bot.command('file', (ctx) => {
 
 bot.action(/fd_(.+)/, (ctx) => {
     try {
-        const decoded = Buffer.from(ctx.match[1], 'base64').toString('utf-8');
+        const pathId = ctx.match[1];
+        const dirPath = pathCache.get(pathId);
+        if (!dirPath) return ctx.answerCbQuery(t('file.expired'));
         ctx.answerCbQuery();
-        listDirectory(ctx, decoded);
+        listDirectory(ctx, dirPath);
     } catch(e) {
         ctx.answerCbQuery(t('model.error'));
     }
@@ -668,15 +685,18 @@ bot.action(/fd_(.+)/, (ctx) => {
 
 bot.action(/ff_(.+)/, (ctx) => {
     try {
-        const decoded = Buffer.from(ctx.match[1], 'base64').toString('utf-8');
-        ctx.answerCbQuery(t('file.sending', { filename: path.basename(decoded) }));
+        const pathId = ctx.match[1];
+        const filePath = pathCache.get(pathId);
+        if (!filePath) return ctx.answerCbQuery(t('file.expired'));
         
-        const stat = fs.statSync(decoded);
+        ctx.answerCbQuery(t('file.sending', { filename: path.basename(filePath) }));
+        
+        const stat = fs.statSync(filePath);
         if (stat.size > 50 * 1024 * 1024) {
             return ctx.reply(t('file.too_large', { size: (stat.size / 1024 / 1024).toFixed(1) }));
         }
         
-        ctx.replyWithDocument({ source: decoded, filename: path.basename(decoded) })
+        ctx.replyWithDocument({ source: filePath, filename: path.basename(filePath) })
             .catch(e => ctx.reply(t('file.send_failed', { error: e.message })));
     } catch(e) {
         ctx.answerCbQuery(t('model.error'));
@@ -685,8 +705,11 @@ bot.action(/ff_(.+)/, (ctx) => {
 
 bot.action(/fp_(.+)/, (ctx) => {
     try {
-        const decoded = Buffer.from(ctx.match[1], 'base64').toString('utf-8');
-        const [dirPath, pageStr] = decoded.split('|');
+        const matchData = ctx.match[1];
+        const [pathId, pageStr] = matchData.split('|');
+        const dirPath = pathCache.get(pathId);
+        if (!dirPath) return ctx.answerCbQuery(t('file.expired'));
+        
         ctx.answerCbQuery();
         listDirectory(ctx, dirPath, parseInt(pageStr) || 0);
     } catch(e) {
