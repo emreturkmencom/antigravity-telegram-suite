@@ -92,7 +92,8 @@
         "parent_dir": "⬆️ Répertoire parent",
         "prev_page": "◀️ Précédent",
         "next_page": "▶️ Suivant",
-        "dir_info": "({count} éléments, page {page}/{totalPages})"
+        "dir_info": "({count} éléments, page {page}/{totalPages})",
+        "expired": "❌ Session expirée, tapez /file pour recommencer."
     },
     "menu": {
         "updated": "✅ Menu mis à jour !",

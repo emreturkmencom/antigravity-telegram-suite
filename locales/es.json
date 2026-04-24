@@ -92,7 +92,8 @@
         "parent_dir": "⬆️ Directorio Superior",
         "prev_page": "◀️ Anterior",
         "next_page": "▶️ Siguiente",
-        "dir_info": "({count} elementos, página {page}/{totalPages})"
+        "dir_info": "({count} elementos, página {page}/{totalPages})",
+        "expired": "❌ Sesión expirada, escribe /file para empezar de nuevo."
     },
     "menu": {
         "updated": "✅ ¡Menú actualizado! Puedes verlo desde el menú ☰ abajo a la izquierda.",
