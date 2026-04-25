@@ -6,15 +6,23 @@ const os = require('os');
 const { exec } = require('child_process');
 const { loadLocale, t, getLang } = require('./i18n');
 const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, trustWorkspaceViaCDP, PLATFORM } = require('./platform');
-const { getLatestAgentResponse, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, stopAgent, getQuota } = require('./cdp_controller');
+const { getLatestAgentResponse, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getCachedWindows, closeWindow } = require('./cdp_controller');
 const autoaccept = require('./autoaccept');
 
 // Load configured language
 const lang = process.env.LANGUAGE || 'en';
 loadLocale(lang);
 
-const bot = new Telegraf(process.env.BOT_TOKEN, { handlerTimeout: 900000 }); // 15 minutes timeout to allow long /ask requests
+// ===== SECURITY: ALLOWED_CHAT_ID is mandatory =====
 const ALLOWED_CHAT_ID = process.env.ALLOWED_CHAT_ID;
+if (!ALLOWED_CHAT_ID) {
+    console.error('\n❌ SECURITY ERROR: ALLOWED_CHAT_ID is required.\n');
+    console.error('Set ALLOWED_CHAT_ID in your .env file to your Telegram chat ID.');
+    console.error('Send /start to your bot to discover your chat ID.\n');
+    process.exit(1);
+}
+
+const bot = new Telegraf(process.env.BOT_TOKEN, { handlerTimeout: 900000 }); // 15 minutes timeout to allow long /ask requests
 const CDP_PORT = process.env.DEBUGGING_PORT || 9333;
 
 // Helper: Send long messages safely within Telegram's 4096 char limit
@@ -92,7 +100,7 @@ function createProgressHandler(ctx) {
 }
 
 function checkAuth(ctx, next) {
-    if (ALLOWED_CHAT_ID && ctx.chat.id.toString() !== ALLOWED_CHAT_ID) {
+    if (ctx.chat.id.toString() !== ALLOWED_CHAT_ID) {
         return ctx.reply(t('auth.unauthorized'));
     }
     return next();
@@ -150,6 +158,16 @@ bot.command('close', async (ctx) => {
     ctx.reply(t('ide.closing'));
     await killIDE();
     ctx.reply(t('ide.closed'));
+});
+
+bot.command('close_window', async (ctx) => {
+    ctx.reply(t('ide.closing_window') || '🪟 Pencere kapatılıyor...');
+    const success = await closeWindow(CDP_PORT);
+    if (success) {
+        ctx.reply(t('ide.window_closed') || '✅ Pencere başarıyla kapatıldı.');
+    } else {
+        ctx.reply(t('ide.window_close_failed') || '❌ Pencere kapatılamadı. Açık pencere yok mu?');
+    }
 });
 
 bot.command('status', async (ctx) => {
@@ -448,17 +466,8 @@ bot.action('aa_status', async (ctx) => {
 function doLaunchWorkspace(ctx, workspace) {
     ctx.reply(t('workspace.switching', { workspace }));
     (async () => {
-        await killIDE();
-        // Wait for IDE processes to fully terminate (includes port cleanup)
-        await new Promise(r => setTimeout(r, 5000));
-        
-        // Verify all processes are dead before relaunching
-        const stillRunning = await isIDERunning();
-        if (stillRunning) {
-            console.log('[workspace] IDE still running after kill, waiting extra...');
-            await killIDE();
-            await new Promise(r => setTimeout(r, 3000));
-        }
+        // Multi-window support: DO NOT kill existing IDE instances!
+        // We just launch the new workspace.
         
         try {
             await launchIDE(workspace, CDP_PORT);
@@ -493,6 +502,9 @@ function doLaunchWorkspace(ctx, workspace) {
                         ctx.reply(t('workspace.trusted'));
                     }
                 }).catch(() => {});
+                
+                // Clear preferred window when workspace changes
+                setPreferredWindow(null);
             } else {
                 ctx.reply(t('workspace.started') + t('workspace.cdp_warning'));
             }
@@ -566,6 +578,71 @@ bot.action(/lang_(.+)/, async (ctx) => {
     await setMenuOnAllScopes();
     ctx.answerCbQuery(t('lang.changed', { lang: newLang }));
     ctx.reply(t('lang.changed', { lang: newLang }));
+});
+
+
+// ===== WINDOW SELECTION =====
+
+bot.command('window', async (ctx) => {
+    try {
+        const windows = await listWindows(CDP_PORT);
+        if (windows.length === 0) {
+            return ctx.reply(t('window.not_found') || 'No IDE windows found. Send /start_ide first.');
+        }
+        
+        const current = getPreferredWindow();
+        let msg = t('window.title') || '<b>🔳 IDE Windows</b>\n';
+        if (current) {
+            const currentLabel = current.length > 40 ? current.substring(0, 40) + '...' : current;
+            msg += (t('window.current', { current: currentLabel }) || `Current target: <i>${currentLabel}</i>`) + '\n';
+        } else {
+            msg += (t('window.auto') || 'Target: <i>auto (first available)</i>') + '\n';
+        }
+        msg += '\n' + (t('window.found', { count: windows.length }) || `Found ${windows.length} window(s). Tap to select:`);
+        
+        const buttons = windows.map((w, i) => {
+            const icon = w.isPreferred ? '✅' : '🔳';
+            // Extract meaningful part of title (usually "folder - Antigravity")
+            const label = w.title.length > 40 ? w.title.substring(0, 40) + '...' : w.title;
+            return [{ text: `${icon} ${label}`, callback_data: `wn_${w.id.substring(0,8)}` }];
+        });
+        
+        // Add "auto" button to clear preference
+        if (current) {
+            buttons.push([{ text: t('window.clear_btn') || '🔄 Auto (clear preference)', callback_data: 'wn_auto' }]);
+        }
+        
+        ctx.reply(msg, {
+            parse_mode: 'HTML',
+            reply_markup: { inline_keyboard: buttons }
+        });
+    } catch (e) {
+        ctx.reply((t('window.error', { error: e.message }) || `Window list error: ${e.message}`));
+    }
+});
+
+bot.action('wn_auto', (ctx) => {
+    setPreferredWindow(null);
+    ctx.answerCbQuery(t('window.cleared_toast') || 'Cleared — using auto-detect');
+    ctx.reply(t('window.cleared_msg') || '🔄 Window preference cleared. Bot will auto-detect the active IDE window.');
+});
+
+bot.action(/wn_(.+)/, (ctx) => {
+    const idPrefix = ctx.match[1];
+    const windows = getCachedWindows();
+    if (!windows || windows.length === 0) {
+        return ctx.answerCbQuery(t('window.expired') || 'Window list expired. Send /window again.');
+    }
+    const selected = windows.find(w => w.id.startsWith(idPrefix));
+    if (!selected) {
+        return ctx.answerCbQuery(t('window.expired') || 'Window list expired. Send /window again.');
+    }
+    
+    // Save preference by ID
+    setPreferredWindow(selected.id);
+    const shortTitle = selected.title.substring(0, 30);
+    ctx.answerCbQuery(t('window.selected_toast', { title: shortTitle }) || `Selected: ${shortTitle}`);
+    ctx.reply(t('window.selected_msg', { title: selected.title }) || `✅ Now targeting: <b>${selected.title}</b>\n\nAll commands will route to this window.`, { parse_mode: 'HTML' });
 });
 
 // ===== FILE EXPLORER =====
@@ -719,9 +796,6 @@ bot.action(/fp_(.+)/, (ctx) => {
 
 // ===== MENU REGISTRATION =====
 
-/**
- * Build the full command list for Telegram menu.
- */
 function getMenuCommands() {
     return [
         { command: 'help', description: t('menu.help_desc') },
@@ -733,6 +807,8 @@ function getMenuCommands() {
         { command: 'new', description: t('menu.new_desc') },
         { command: 'model', description: t('menu.model_desc') },
         { command: 'workspace', description: t('menu.workspace_desc') },
+        { command: 'window', description: t('menu.window_desc') || 'Select IDE window' },
+        { command: 'close_window', description: t('menu.close_window_desc') || 'Close current window' },
         { command: 'lang', description: t('menu.lang_desc') },
         { command: 'cmd', description: t('menu.cmd_desc') },
         { command: 'file', description: t('menu.file_desc') },
@@ -949,13 +1025,16 @@ bot.launch().then(async () => {
         console.error("Could not set commands", e.message);
     }
     
-    if (process.env.AUTOACCEPT_DEFAULT !== 'false') {
-        console.log('[autoaccept] Auto-starting...');
+    // Auto-accept defaults to false, unless explicitly enabled by env
+    if (process.env.AUTOACCEPT_DEFAULT === 'true') {
+        console.log('[autoaccept] Auto-starting (AUTOACCEPT_DEFAULT=true)...');
         autoaccept.enable(CDP_PORT).then(r => {
             console.log(`[autoaccept] Auto-start result: injected=${r.injected}`);
         }).catch(e => {
             console.log(`[autoaccept] Auto-start failed: ${e.message} (will retry via heartbeat)`);
         });
+    } else {
+        console.log('[autoaccept] Disabled by default. Use /autoaccept on to enable.');
     }
 });
 

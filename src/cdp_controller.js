@@ -6,6 +6,73 @@ let globalLastChatState = "";
 // Store the last successful extracted agent message
 let globalLastValidResponse = "";
 
+
+// ===== MULTI-WINDOW SUPPORT =====
+let preferredTargetId = null;
+let windowCache = [];
+
+/**
+ * Shared target resolver — fetches CDP targets, filters, and sorts.
+ * If a preferred window is set, that window is prioritised.
+ * @param {number} port - CDP debugging port
+ * @param {boolean} includeIframe - whether to include iframe/webview types
+ * @returns {Promise<Array>} sorted array of CDP target objects
+ */
+async function resolveTargets(port, includeIframe = true) {
+    const raw = await httpGet(`http://127.0.0.1:${port}/json`);
+    const targets = JSON.parse(raw);
+    const typeFilter = includeIframe
+        ? t => (t.type === 'page' || t.type === 'iframe' || t.type === 'webview')
+        : t => (t.type === 'page' || t.type === 'webview');
+    const candidates = targets.filter(t => typeFilter(t) &&
+        t.webSocketDebuggerUrl &&
+        !t.url.includes('devtools://') &&
+        !(t.title && t.title.includes('Launchpad')));
+
+    candidates.sort((a, b) => {
+        // Preferred target by ID always wins
+        if (preferredTargetId) {
+            if (a.id === preferredTargetId) return -1;
+            if (b.id === preferredTargetId) return 1;
+        }
+        // Fallback: prefer 'antigravity' in title
+        const aMatch = a.title.toLowerCase().includes('antigravity') ? 1 : 0;
+        const bMatch = b.title.toLowerCase().includes('antigravity') ? 1 : 0;
+        return bMatch - aMatch;
+    });
+
+    return candidates;
+}
+
+/**
+ * List all available IDE windows for the /window command.
+ */
+async function listWindows(port) {
+    const targets = await resolveTargets(port, false);
+    windowCache = targets.map(t => ({
+        id: t.id,
+        title: t.title || 'Untitled',
+        url: t.url,
+        isPreferred: preferredTargetId ? t.id === preferredTargetId : false
+    }));
+    return windowCache;
+}
+
+function setPreferredWindow(id) {
+    preferredTargetId = id;
+}
+
+function getPreferredWindow() {
+    if (!preferredTargetId) return null;
+    const match = windowCache.find(w => w.id === preferredTargetId);
+    return match ? match.title : preferredTargetId;
+}
+
+function getCachedWindows() {
+    return windowCache;
+}
+
+
 // DOM extraction expression (shared between snapshot and getLatest)
 const CHAT_EXTRACT_EXPR = `
     (function() {
@@ -64,15 +131,7 @@ function httpGet(url) {
  * calls only return text that appeared AFTER this snapshot.
  */
 async function snapshotChatState(port) {
-    const raw = await httpGet(`http://127.0.0.1:${port}/json`);
-    const targets = JSON.parse(raw);
-    const candidates = targets.filter(t => (t.type === 'page' || t.type === 'iframe' || t.type === 'webview') &&
-        t.webSocketDebuggerUrl && !t.url.includes('devtools://'));
-    candidates.sort((a, b) => {
-        const aMatch = a.title.toLowerCase().includes('antigravity') ? 1 : 0;
-        const bMatch = b.title.toLowerCase().includes('antigravity') ? 1 : 0;
-        return bMatch - aMatch;
-    });
+    const candidates = await resolveTargets(port);
     for (const target of candidates) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
@@ -91,17 +150,7 @@ async function snapshotChatState(port) {
 }
 
 async function getLatestAgentResponse(port) {
-    const raw = await httpGet(`http://127.0.0.1:${port}/json`);
-    const targets = JSON.parse(raw);
-    const candidates = targets.filter(t => (t.type === 'page' || t.type === 'iframe' || t.type === 'webview') &&
-        t.webSocketDebuggerUrl &&
-        !t.url.includes('devtools://'));
-
-    candidates.sort((a, b) => {
-        const aMatch = a.title.toLowerCase().includes('antigravity') ? 1 : 0;
-        const bMatch = b.title.toLowerCase().includes('antigravity') ? 1 : 0;
-        return bMatch - aMatch;
-    });
+    const candidates = await resolveTargets(port);
 
     const logs = [];
     for (const target of candidates) {
@@ -173,17 +222,7 @@ async function getFullLatestResponse(port) {
 }
 
 async function captureAgentScreenshot(port) {
-    const raw = await httpGet(`http://127.0.0.1:${port}/json`);
-    const targets = JSON.parse(raw);
-    const candidates = targets.filter(t => (t.type === 'page' || t.type === 'iframe' || t.type === 'webview') &&
-        t.webSocketDebuggerUrl &&
-        !t.url.includes('devtools://'));
-
-    candidates.sort((a, b) => {
-        const aMatch = a.title.toLowerCase().includes('antigravity') ? 1 : 0;
-        const bMatch = b.title.toLowerCase().includes('antigravity') ? 1 : 0;
-        return bMatch - aMatch;
-    });
+    const candidates = await resolveTargets(port);
 
     for (const target of candidates) {
         try {
@@ -264,16 +303,7 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null)
         // Re-fetch targets on each iteration to avoid stale WebSocket connections
         let candidates;
         try {
-            const raw = await httpGet(`http://127.0.0.1:${port}/json`);
-            const targets = JSON.parse(raw);
-            candidates = targets.filter(t => (t.type === 'page' || t.type === 'iframe' || t.type === 'webview') &&
-                t.webSocketDebuggerUrl &&
-                !t.url.includes('devtools://'));
-            candidates.sort((a, b) => {
-                const aMatch = a.title.toLowerCase().includes('antigravity') ? 1 : 0;
-                const bMatch = b.title.toLowerCase().includes('antigravity') ? 1 : 0;
-                return bMatch - aMatch;
-            });
+            candidates = await resolveTargets(port);
         } catch(e) {
             await new Promise(r => setTimeout(r, 3000));
             continue;
@@ -291,13 +321,22 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null)
                 const check = await Runtime.evaluate({
                     expression: `
                         (function() {
-                            const stopIcon = document.querySelector("svg.lucide-square, [data-tooltip-id*='cancel'], [aria-label*='Stop'], [title*='Stop'], [aria-label*='Cancel']");
+                            // Only treat stop icons inside the chat area as generation indicators
+                            const chatArea = document.querySelector('#conversation, #chat, #cascade');
+                            const stopIcon = chatArea ? chatArea.querySelector("svg.lucide-square, [data-tooltip-id*='cancel']") : null;
                             const isGenerating = !!stopIcon;
                             const editor = document.querySelector('[contenteditable="true"], textarea');
                             const isInputDisabled = editor ? (editor.getAttribute('contenteditable') === 'false' || editor.disabled) : false;
                             
-                            // Check for visible loading spinners (indicates terminal command or tool running)
-                            const isSpinning = Array.from(document.querySelectorAll('.codicon-loading, .loading, [class*="animate-spin"], [class*="spinner"], [class*="loader"]')).some(el => el.offsetParent !== null);
+                            // Check for visible loading spinners, but exclude tiny persistent status spinners (h-3 w-3)
+                            const isSpinning = Array.from(document.querySelectorAll('.codicon-loading, .loading, [class*="animate-spin"], [class*="spinner"], [class*="loader"]')).some(el => {
+                                if (el.offsetParent === null) return false;
+                                // Exclude tiny status spinners (h-3 w-3) and opacity-reduced parents
+                                if (el.className.includes('h-3') && el.className.includes('w-3')) return false;
+                                const parent = el.parentElement;
+                                if (parent && (parent.className.includes('opacity-') || parent.className.includes('hidden'))) return false;
+                                return true;
+                            });
                             
                             // Check if AutoAccept is active and there is a button waiting to be clicked
                             const aaActive = !!window.__AA_BOT_OBSERVER_ACTIVE && !window.__AA_BOT_PAUSED;
@@ -352,18 +391,7 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null)
 }
 
 async function sendViaCDP(text, port) {
-    const raw = await httpGet(`http://127.0.0.1:${port}/json`);
-    const targets = JSON.parse(raw);
-    const candidates = targets.filter(t => (t.type === 'page' || t.type === 'iframe' || t.type === 'webview') &&
-        t.webSocketDebuggerUrl &&
-        !t.url.includes('devtools://'));
-
-    // Sort: prefer pages with 'antigravity' in title (main IDE window)
-    candidates.sort((a, b) => {
-        const aMatch = a.title.toLowerCase().includes('antigravity') ? 1 : 0;
-        const bMatch = b.title.toLowerCase().includes('antigravity') ? 1 : 0;
-        return bMatch - aMatch;
-    });
+    const candidates = await resolveTargets(port);
 
     const errors = [];
     for (const target of candidates) {
@@ -460,9 +488,7 @@ async function sendViaCDP(text, port) {
 }
 
 async function triggerNewChat(port) {
-    const raw = await httpGet(`http://127.0.0.1:${port}/json`);
-    const targets = JSON.parse(raw);
-    const candidates = targets.filter(t => (t.type === 'page' || t.type === 'webview') && t.webSocketDebuggerUrl && !t.url.includes('devtools://'));
+    const candidates = await resolveTargets(port, false);
 
     for (const target of candidates) {
         try {
@@ -491,9 +517,7 @@ async function triggerNewChat(port) {
 }
 
 async function triggerModelMenu(port) {
-    const raw = await httpGet(`http://127.0.0.1:${port}/json`);
-    const targets = JSON.parse(raw);
-    const candidates = targets.filter(t => (t.type === 'page' || t.type === 'webview') && t.webSocketDebuggerUrl && !t.url.includes('devtools://'));
+    const candidates = await resolveTargets(port, false);
 
     for (const target of candidates) {
         try {
@@ -529,21 +553,17 @@ module.exports = {
     getAvailableModels,
     selectModel,
     stopAgent,
-    getQuota
+    getQuota,
+    resolveTargets,
+    listWindows,
+    setPreferredWindow,
+    getPreferredWindow,
+    getCachedWindows,
+    closeWindow
 };
 
 async function captureFullIDEScreenshot(port) {
-    const raw = await httpGet(`http://127.0.0.1:${port}/json`);
-    const targets = JSON.parse(raw);
-    const candidates = targets.filter(t => (t.type === 'page' || t.type === 'iframe' || t.type === 'webview') &&
-        t.webSocketDebuggerUrl &&
-        !t.url.includes('devtools://'));
-
-    candidates.sort((a, b) => {
-        const aMatch = a.title.toLowerCase().includes('antigravity') ? 1 : 0;
-        const bMatch = b.title.toLowerCase().includes('antigravity') ? 1 : 0;
-        return bMatch - aMatch;
-    });
+    const candidates = await resolveTargets(port);
 
     for (const target of candidates) {
         try {
@@ -565,9 +585,7 @@ async function captureFullIDEScreenshot(port) {
 }
 
 async function getAvailableModels(port) {
-    const raw = await httpGet(`http://127.0.0.1:${port}/json`);
-    const targets = JSON.parse(raw);
-    const candidates = targets.filter(t => (t.type === 'page' || t.type === 'webview') && t.webSocketDebuggerUrl && !t.url.includes('devtools://'));
+    const candidates = await resolveTargets(port, false);
 
     for (const target of candidates) {
         try {
@@ -629,9 +647,7 @@ async function getAvailableModels(port) {
 }
 
 async function selectModel(port, modelName) {
-    const raw = await httpGet(`http://127.0.0.1:${port}/json`);
-    const targets = JSON.parse(raw);
-    const candidates = targets.filter(t => (t.type === 'page' || t.type === 'webview') && t.webSocketDebuggerUrl && !t.url.includes('devtools://'));
+    const candidates = await resolveTargets(port, false);
 
     for (const target of candidates) {
         try {
@@ -740,9 +756,7 @@ async function selectModel(port, modelName) {
 }
 
 async function stopAgent(port) {
-    const raw = await httpGet(`http://127.0.0.1:${port}/json`);
-    const targets = JSON.parse(raw);
-    const candidates = targets.filter(t => (t.type === 'page' || t.type === 'webview') && t.webSocketDebuggerUrl && !t.url.includes('devtools://'));
+    const candidates = await resolveTargets(port, false);
 
     for (const target of candidates) {
         try {
@@ -965,3 +979,35 @@ async function getQuota(_port, t) {
     }
 }
 
+async function closeWindow(port) {
+    const candidates = await resolveTargets(port, false);
+    if (candidates.length === 0) return false;
+
+    const target = candidates[0]; // first candidate is the preferred window if set
+    try {
+        const client = await CDP({ port });
+        const { Target } = client;
+        await Target.closeTarget({ targetId: target.id });
+        await client.close();
+        
+        if (preferredTargetId === target.id) {
+            preferredTargetId = null;
+        }
+        return true;
+    } catch(e) {
+        try {
+            const client = await CDP({ target: target.webSocketDebuggerUrl });
+            const { Runtime } = client;
+            await Runtime.enable();
+            await Runtime.evaluate({ expression: 'window.close()' });
+            await client.close();
+            
+            if (preferredTargetId === target.id) {
+                preferredTargetId = null;
+            }
+            return true;
+        } catch(e2) {
+            return false;
+        }
+    }
+}

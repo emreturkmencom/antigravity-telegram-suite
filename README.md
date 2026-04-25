@@ -115,6 +115,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/new` | Open a new chat session |
 | `/model` | Switch AI model |
 | `/workspace` | Switch project workspace |
+| `/window` | Select specific IDE window (multi-window support) |
 | `/file` | Browse & download project files |
 | `/quota` | Check AI credits and model usage limits |
 | `/autoaccept` | Toggle auto-accept (on/off/status) |
@@ -173,6 +174,7 @@ antigravity-telegram-suite/
 
 ## 🙏 Acknowledgments
 
+- **[yvg](https://github.com/yvg/antigravity-telegram-suite)** — For the excellent Multi-Window Support feature that added the ability to route commands to specific IDE windows!
 - **[acmavirus/antigravity-telegram-control](https://github.com/acmavirus/antigravity-telegram-control)** — A clean, open-source Telegram integration for Antigravity that served as the foundation for this project.
 - **[yazanbaker94/AntiGravity-AutoAccept](https://github.com/yazanbaker94/AntiGravity-AutoAccept)** — The DOM observer pattern used in the Auto-Accept module was inspired by this project's approach to automated button clicking.
 

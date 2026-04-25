@@ -56,19 +56,7 @@ function httpGet(url) {
     });
 }
 
-// ─── CDP Target Discovery ─────────────────────────────────────────────
-async function getWebviewTargets(port) {
-    const raw = await httpGet(`http://127.0.0.1:${port}/json`);
-    const targets = JSON.parse(raw);
-    return targets.filter(t =>
-        (t.type === 'page' || t.type === 'iframe' || t.type === 'webview') &&
-        t.webSocketDebuggerUrl &&
-        !t.url.includes('devtools://') &&
-        !t.url.startsWith('http://') &&
-        !t.url.startsWith('https://') &&
-        t.url !== 'about:blank'
-    );
-}
+const { resolveTargets } = require('./cdp_controller');
 
 // ─── Build DOM Observer Script ────────────────────────────────────────
 function buildObserverScript() {
@@ -347,7 +335,7 @@ async function cdpEval(wsUrl, expression, timeoutMs = 5000) {
 
 // ─── Check Observer Status ───────────────────────────────────────────
 async function checkObserverStatus(port) {
-    const targets = await getWebviewTargets(port);
+    const targets = await resolveTargets(port, true);
     for (const target of targets) {
         try {
             const result = await cdpEval(target.webSocketDebuggerUrl, `
@@ -369,7 +357,7 @@ async function checkObserverStatus(port) {
 
 // ─── Inject Observer ──────────────────────────────────────────────────
 async function injectObserver(port) {
-    const targets = await getWebviewTargets(port);
+    const targets = await resolveTargets(port, true);
     const script = buildObserverScript();
     let injectedCount = 0;
 
@@ -394,7 +382,7 @@ async function heartbeat(port) {
     if (!isEnabled) return;
 
     try {
-        const targets = await getWebviewTargets(port);
+        const targets = await resolveTargets(port, true);
         const activeIds = new Set(targets.map(t => t.id));
 
         // Prune dead targets
@@ -524,7 +512,7 @@ async function disable(port) {
     }
 
     // Kill our observer in all targets
-    const targets = await getWebviewTargets(port).catch(() => []);
+    const targets = await resolveTargets(port, true).catch(() => []);
     for (const target of targets) {
         try {
             await cdpEval(target.webSocketDebuggerUrl, `

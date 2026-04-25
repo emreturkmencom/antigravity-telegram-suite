@@ -1,156 +1,175 @@
 {
-    "bot": {
-        "started": "🚀 Antigravity Remote Bot Started!\nChat ID: {chatId}\nType /help to see all available commands.",
-        "polling": "Antigravity Bot is actively polling!"
-    },
-    "auth": {
-        "unauthorized": "❌ Unauthorized."
-    },
-    "help": {
-        "title": "🤖 <b>Available Commands:</b>",
-        "messaging_title": "📝 <i>Messaging &amp; Interaction:</i>",
-        "messaging_text": "- Just type text → Talk to the agent (headless mode)\n- 📎 Send image/file → Forward to agent (caption supported)",
-        "status_title": "👁️ <i>Status &amp; Info:</i>",
-        "status_text": "- /latest → Get latest response (cleaned)\n- /screenshot → Take IDE screenshot\n- /status → System status (IDE, CDP, PM2)",
-        "ide_title": "🛠️ <i>IDE Controls:</i>",
-        "ide_text": "- /start_ide → Start the IDE if closed\n- /close → Fully close the IDE (kill process + clean locks)\n- /new → Open a new chat\n- /model → Open model selection menu\n- /workspace → Switch project workspace\n- /autoaccept → Toggle auto-accept on/off\n- /lang → Switch language\n- /cmd &lt;command&gt; → Run a terminal command\n- /help → Show this help message"
-    },
-    "ide": {
-        "already_running": "✅ Antigravity IDE is already running! No need to open another window.\n💡 Use /close to shut it down.",
-        "starting": "🔄 Starting Antigravity IDE...",
-        "start_failed": "❌ Failed to start IDE: {error}",
-        "started": "✅ IDE started successfully!",
-        "already_closed": "ℹ️ IDE is already closed. (Lock file cleaned)",
-        "closing": "🔄 Closing IDE...",
-        "closed": "✅ IDE fully closed! (All processes and lock files cleaned)",
-        "not_installed": "❌ Antigravity IDE not found. Please install it first.\nSee: https://antigravity.google/"
-    },
-    "status": {
-        "title": "📊 <b>System Status:</b>\n",
-        "ide_running": "🟢 IDE: Running",
-        "ide_stopped": "🔴 IDE: Stopped",
-        "cdp_active": "🟢 CDP Connection: Active",
-        "cdp_inactive": "🔴 CDP Connection: Inactive",
-        "bot_running": "🟢 Bot: Running"
-    },
-    "latest": {
-        "title": "📝 Latest Response:\n\n",
-        "no_new": "[No new messages]",
-        "error": "❌ Error: {error}\n(Is Antigravity open?)"
-    },
-    "screenshot": {
-        "taking": "📸 Taking IDE screenshot (via CDP)...",
-        "error": "❌ Error: {error}\n(Is the IDE open?)"
-    },
-    "ask": {
-        "empty": "Please type a question. Example: `/ask Hello`",
-        "sent": "✅ Message Sent, waiting for response...",
-        "done": "✅ Completed!",
-        "done_empty": "✅ Completed but no new text was generated.",
-        "timeout": "⚠️ Agent is still thinking or timed out. Use /latest to check.",
-        "send_error": "❌ Send Error: {error}",
-        "headless_error": "❌ Headless Error: {error}",
-        "no_chat_input": "No chat input found in the IDE. Please make sure a chat session is open in Antigravity."
-    },
-    "stop": {
-        "stopping": "🛑 Stopping agent...",
-        "stopped": "✅ Agent stopped!",
-        "already_stopped": "ℹ️ Agent is already stopped or stop button not found.",
-        "error": "❌ Error: {error}"
-    },
-    "new_chat": {
-        "opened": "✅ New chat opened!",
-        "not_found": "❌ New chat button not found.",
-        "error": "❌ Error: {error}"
-    },
-    "model": {
-        "selecting": "🔄 Selecting model: {model}",
-        "changed": "✅ Model changed: {model}",
-        "not_found": "❌ Model not found or could not be selected.",
-        "select_prompt": "🤖 Select a model:",
-        "changing": "🔄 Changing model: {model}",
-        "select_failed": "❌ Model could not be selected. Make sure the chat screen is open in the IDE.",
-        "error": "Error!"
-    },
-    "workspace": {
-        "switching": "🔄 Closing current IDE and opening new workspace: {workspace}",
-        "start_failed": "❌ Failed to start: {error}",
-        "started": "✅ IDE started with new workspace!",
-        "trusted": "🔓 Workspace automatically marked as trusted.",
-        "cdp_warning": "\n⚠️ CDP connection may not be ready yet. Wait a few seconds and try again.",
-        "select_prompt": "Please select the workspace you want to switch to:",
-        "read_error": "❌ Could not read projects directory.",
-        "selected": "Workspace selected: {project}"
-    },
-    "file": {
-        "empty_dir": "📂 This directory is empty.",
-        "dir_read_error": "❌ Could not read directory: {error}",
-        "not_found": "❌ File not found: {path}",
-        "too_large": "❌ File too large ({size}MB). Telegram limit is 50MB.",
-        "send_failed": "❌ Could not send file: {error}",
-        "sending": "Sending: {filename}",
-        "parent_dir": "⬆️ Parent Directory",
-        "prev_page": "◀️ Previous",
-        "next_page": "▶️ Next",
-        "dir_info": "({count} items, page {page}/{totalPages})",
-        "expired": "❌ Session expired, type /file to start again."
-    },
-    "menu": {
-        "updated": "✅ Menu updated! You can see it from the ☰ menu at the bottom left.",
-        "help_desc": "Show all available commands",
-        "ask_desc": "Send a question to the agent",
-        "latest_desc": "Get the latest response",
-        "screenshot_desc": "Take an IDE screenshot",
-        "status_desc": "System status (IDE, CDP, PM2)",
-        "start_ide_desc": "Start the IDE",
-        "close_desc": "Fully close the IDE",
-        "new_desc": "Open a new chat",
-        "model_desc": "Open model selection menu",
-        "workspace_desc": "Switch project",
-        "lang_desc": "Switch language",
-        "cmd_desc": "Run a terminal command",
-        "file_desc": "Browse and send files",
-        "stop_desc": "Stop the agent",
-        "autoaccept_desc": "Toggle auto-accept on/off",
-        "quota_desc": "Shows Antigravity quota usage",
-        "menu_desc": "Update the command menu"
-    },
-    "photo": {
-        "downloaded": "✅ File downloaded and forwarding to agent...",
-        "error": "❌ File Processing Error: {error}"
-    },
-    "lang": {
-        "current": "🌐 Current language: {lang}",
-        "changed": "✅ Language changed to: {lang}",
-        "select_prompt": "🌐 Select language:"
-    },
-    "autoaccept": {
-        "enabling": "🔄 Enabling auto-accept...",
-        "enabled": "⚡ Auto-Accept ENABLED!\n\n🤖 Observer injected into {injected} targets.\nRun, Accept, Allow, and Continue buttons will be auto-clicked.",
-        "enabled_none": "⚡ Auto-Accept ENABLED!\n\n⚠️ No targets found yet. Will auto-inject when the agent panel opens.",
-        "disabling": "🔄 Disabling auto-accept...",
-        "disabled": "✅ Auto-Accept DISABLED.\n\n📊 Total clicks this session: {clicks}.",
-        "status_title": "📊 <b>Auto-Accept Status:</b>\n",
-        "status_enabled": "⚡ Status: ENABLED",
-        "status_disabled": "⏸️ Status: DISABLED",
-        "status_active": "🤖 Observer: Active ({targets} targets)",
-        "status_inactive": "📴 Observer: Inactive",
-        "status_clicks": "🖱️ Total Clicks: {total} (session: {session})",
-        "status_last_click": "⏱️ Last Click: {text} ({sec}s ago)",
-        "status_blocked": "🛡️ Blocked Commands: {count}",
-        "status_no_panel": "⚠️ Agent panel not detected. Please open a chat session.",
-        "error": "❌ Error: {error}"
-    },
-    "quota": {
-        "checking": "🔄 Checking quota status...",
-        "not_found": "❌ Quota information could not be read. It might not be visible in Settings > Customisation.",
-        "error": "❌ Error: {error}",
-        "header": "📊 Account and Quota Status\n",
-        "plan": "📋 Plan: {plan}",
-        "prompt_credits": "📊 Prompt Credits: {available}{monthly}",
-        "model_quota": "⏱️ Model Quota Status:",
-        "remaining": " {pct}% remaining",
-        "empty": " ⛔ EXHAUSTED"
-    },
-    "response_too_long": "⚠️ Response too long. Use /latest to see the full version."
+  "bot": {
+    "started": "🚀 Antigravity Remote Bot Started!\nChat ID: {chatId}\nType /help to see all available commands.",
+    "polling": "Antigravity Bot is actively polling!"
+  },
+  "auth": {
+    "unauthorized": "❌ Unauthorized."
+  },
+  "help": {
+    "title": "🤖 <b>Available Commands:</b>",
+    "messaging_title": "📝 <i>Messaging &amp; Interaction:</i>",
+    "messaging_text": "- Just type text → Talk to the agent (headless mode)\n- 📎 Send image/file → Forward to agent (caption supported)",
+    "status_title": "👁️ <i>Status &amp; Info:</i>",
+    "status_text": "- /latest → Get latest response (cleaned)\n- /screenshot → Take IDE screenshot\n- /status → System status (IDE, CDP, PM2)",
+    "ide_title": "🛠️ <i>IDE Controls:</i>",
+    "ide_text": "- /start_ide → Start the IDE if closed\n- /close → Fully close the IDE (kill process + clean locks)\n- /new → Open a new chat\n- /model → Open model selection menu\n- /workspace → Switch project workspace\n- /window → Select active IDE window\n- /autoaccept → Toggle auto-accept on/off\n- /lang → Switch language\n- /cmd &lt;command&gt; → Run a terminal command\n- /help → Show this help message"
+  },
+  "ide": {
+    "already_running": "✅ Antigravity IDE is already running! No need to open another window.\n💡 Use /close to shut it down.",
+    "starting": "🔄 Starting Antigravity IDE...",
+    "start_failed": "❌ Failed to start IDE: {error}",
+    "started": "✅ IDE started successfully!",
+    "already_closed": "ℹ️ IDE is already closed. (Lock file cleaned)",
+    "closing": "🔄 Closing IDE...",
+    "closing_window": "🪟 Closing window...",
+    "window_closed": "✅ Window closed successfully.",
+    "window_close_failed": "❌ Failed to close window. Is there an open window?",
+    "closed": "✅ IDE fully closed! (All processes and lock files cleaned)",
+    "not_installed": "❌ Antigravity IDE not found. Please install it first.\nSee: https://antigravity.google/"
+  },
+  "status": {
+    "title": "📊 <b>System Status:</b>\n",
+    "ide_running": "🟢 IDE: Running",
+    "ide_stopped": "🔴 IDE: Stopped",
+    "cdp_active": "🟢 CDP Connection: Active",
+    "cdp_inactive": "🔴 CDP Connection: Inactive",
+    "bot_running": "🟢 Bot: Running"
+  },
+  "latest": {
+    "title": "📝 Latest Response:\n\n",
+    "no_new": "[No new messages]",
+    "error": "❌ Error: {error}\n(Is Antigravity open?)"
+  },
+  "screenshot": {
+    "taking": "📸 Taking IDE screenshot (via CDP)...",
+    "error": "❌ Error: {error}\n(Is the IDE open?)"
+  },
+  "ask": {
+    "empty": "Please type a question. Example: `/ask Hello`",
+    "sent": "✅ Message Sent, waiting for response...",
+    "done": "✅ Completed!",
+    "done_empty": "✅ Completed but no new text was generated.",
+    "timeout": "⚠️ Agent is still thinking or timed out. Use /latest to check.",
+    "send_error": "❌ Send Error: {error}",
+    "headless_error": "❌ Headless Error: {error}",
+    "no_chat_input": "No chat input found in the IDE. Please make sure a chat session is open in Antigravity."
+  },
+  "stop": {
+    "stopping": "🛑 Stopping agent...",
+    "stopped": "✅ Agent stopped!",
+    "already_stopped": "ℹ️ Agent is already stopped or stop button not found.",
+    "error": "❌ Error: {error}"
+  },
+  "new_chat": {
+    "opened": "✅ New chat opened!",
+    "not_found": "❌ New chat button not found.",
+    "error": "❌ Error: {error}"
+  },
+  "model": {
+    "selecting": "🔄 Selecting model: {model}",
+    "changed": "✅ Model changed: {model}",
+    "not_found": "❌ Model not found or could not be selected.",
+    "select_prompt": "🤖 Select a model:",
+    "changing": "🔄 Changing model: {model}",
+    "select_failed": "❌ Model could not be selected. Make sure the chat screen is open in the IDE.",
+    "error": "Error!"
+  },
+  "workspace": {
+    "switching": "🔄 Closing current IDE and opening new workspace: {workspace}",
+    "start_failed": "❌ Failed to start: {error}",
+    "started": "✅ IDE started with new workspace!",
+    "trusted": "🔓 Workspace automatically marked as trusted.",
+    "cdp_warning": "\n⚠️ CDP connection may not be ready yet. Wait a few seconds and try again.",
+    "select_prompt": "Please select the workspace you want to switch to:",
+    "read_error": "❌ Could not read projects directory.",
+    "selected": "Workspace selected: {project}"
+  },
+  "file": {
+    "empty_dir": "📂 This directory is empty.",
+    "dir_read_error": "❌ Could not read directory: {error}",
+    "not_found": "❌ File not found: {path}",
+    "too_large": "❌ File too large ({size}MB). Telegram limit is 50MB.",
+    "send_failed": "❌ Could not send file: {error}",
+    "sending": "Sending: {filename}",
+    "parent_dir": "⬆️ Parent Directory",
+    "prev_page": "◀️ Previous",
+    "next_page": "▶️ Next",
+    "dir_info": "({count} items, page {page}/{totalPages})",
+    "expired": "❌ Session expired, type /file to start again."
+  },
+  "menu": {
+    "updated": "✅ Menu updated! You can see it from the ☰ menu at the bottom left.",
+    "help_desc": "Show all available commands",
+    "ask_desc": "Send a question to the agent",
+    "latest_desc": "Get the latest response",
+    "screenshot_desc": "Take an IDE screenshot",
+    "status_desc": "System status (IDE, CDP, PM2)",
+    "start_ide_desc": "Start IDE",
+    "close_desc": "Close entire IDE",
+    "close_window_desc": "Close current window",
+    "new_desc": "Open new chat",
+    "model_desc": "Open model selection menu",
+    "workspace_desc": "Switch project",
+    "lang_desc": "Switch language",
+    "cmd_desc": "Run a terminal command",
+    "file_desc": "Browse and send files",
+    "stop_desc": "Stop the agent",
+    "autoaccept_desc": "Toggle auto-accept on/off",
+    "quota_desc": "Shows Antigravity quota usage",
+    "menu_desc": "Update the command menu",
+    "window_desc": "Select IDE window"
+  },
+  "photo": {
+    "downloaded": "✅ File downloaded and forwarding to agent...",
+    "error": "❌ File Processing Error: {error}"
+  },
+  "lang": {
+    "current": "🌐 Current language: {lang}",
+    "changed": "✅ Language changed to: {lang}",
+    "select_prompt": "🌐 Select language:"
+  },
+  "autoaccept": {
+    "enabling": "🔄 Enabling auto-accept...",
+    "enabled": "⚡ Auto-Accept ENABLED!\n\n🤖 Observer injected into {injected} targets.\nRun, Accept, Allow, and Continue buttons will be auto-clicked.",
+    "enabled_none": "⚡ Auto-Accept ENABLED!\n\n⚠️ No targets found yet. Will auto-inject when the agent panel opens.",
+    "disabling": "🔄 Disabling auto-accept...",
+    "disabled": "✅ Auto-Accept DISABLED.\n\n📊 Total clicks this session: {clicks}.",
+    "status_title": "📊 <b>Auto-Accept Status:</b>\n",
+    "status_enabled": "⚡ Status: ENABLED",
+    "status_disabled": "⏸️ Status: DISABLED",
+    "status_active": "🤖 Observer: Active ({targets} targets)",
+    "status_inactive": "📴 Observer: Inactive",
+    "status_clicks": "🖱️ Total Clicks: {total} (session: {session})",
+    "status_last_click": "⏱️ Last Click: {text} ({sec}s ago)",
+    "status_blocked": "🛡️ Blocked Commands: {count}",
+    "status_no_panel": "⚠️ Agent panel not detected. Please open a chat session.",
+    "error": "❌ Error: {error}"
+  },
+  "quota": {
+    "checking": "🔄 Checking quota status...",
+    "not_found": "❌ Quota information could not be read. It might not be visible in Settings > Customisation.",
+    "error": "❌ Error: {error}",
+    "header": "📊 Account and Quota Status\n",
+    "plan": "📋 Plan: {plan}",
+    "prompt_credits": "📊 Prompt Credits: {available}{monthly}",
+    "model_quota": "⏱️ Model Quota Status:",
+    "remaining": " {pct}% remaining",
+    "empty": " ⛔ EXHAUSTED"
+  },
+  "response_too_long": "⚠️ Response too long. Use /latest to see the full version.",
+  "window": {
+    "not_found": "No IDE windows found. Send /start_ide first.",
+    "title": "<b>🔳 IDE Windows</b>\n",
+    "current": "Current target: <i>{{current}}</i>",
+    "auto": "Target: <i>auto (first available)</i>",
+    "found": "Found {{count}} window(s). Tap to select:",
+    "clear_btn": "🔄 Auto (clear preference)",
+    "error": "Window list error: {{error}}",
+    "cleared_toast": "Cleared — using auto-detect",
+    "cleared_msg": "🔄 Window preference cleared. Bot will auto-detect the active IDE window.",
+    "expired": "Window list expired. Send /window again.",
+    "selected_toast": "Selected: {{title}}",
+    "selected_msg": "✅ Now targeting: <b>{{title}}</b>\n\nAll commands will route to this window."
+  }
 }
