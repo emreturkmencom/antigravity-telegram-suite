@@ -76,7 +76,7 @@
     "error": "Error!"
   },
   "workspace": {
-    "switching": "🔄 Closing current IDE and opening new workspace: {workspace}",
+    "switching": "🔄 Opening new workspace IDE window: {workspace}",
     "start_failed": "❌ Failed to start: {error}",
     "started": "✅ IDE started with new workspace!",
     "trusted": "🔓 Workspace automatically marked as trusted.",

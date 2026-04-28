@@ -488,9 +488,9 @@ async function enable(port) {
         }
     }
 
-    // Start heartbeat (monitor health + inject new targets every 10s)
+    // Start heartbeat (monitor health + inject new targets every 3s)
     if (heartbeatTimer) clearInterval(heartbeatTimer);
-    heartbeatTimer = setInterval(() => heartbeat(port), 10000);
+    heartbeatTimer = setInterval(() => heartbeat(port), 3000);
 
     return { success: true, injected };
 }

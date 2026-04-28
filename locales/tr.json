@@ -76,7 +76,7 @@
     "error": "Hata!"
   },
   "workspace": {
-    "switching": "🔄 Mevcut IDE kapatılıp yeni workspace açılıyor: {workspace}",
+    "switching": "🔄 Yeni workspace ile IDE penceresi açılıyor: {workspace}",
     "start_failed": "❌ Başlatılamadı: {error}",
     "started": "✅ Yeni workspace ile IDE başlatıldı!",
     "trusted": "🔓 Workspace otomatik olarak güvenilir olarak işaretlendi.",

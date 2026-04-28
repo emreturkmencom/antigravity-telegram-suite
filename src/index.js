@@ -140,6 +140,9 @@ bot.command('start_ide', async (ctx) => {
     try {
         await launchIDE(null, CDP_PORT);
         ctx.reply(t('ide.started'));
+        setTimeout(() => {
+            if (autoaccept.isEnabled) autoaccept.enable(CDP_PORT).catch(()=>{});
+        }, 3000);
     } catch (err) {
         if (err.message === 'IDE_NOT_INSTALLED') {
             ctx.reply(t('ide.not_installed'));
@@ -505,6 +508,11 @@ function doLaunchWorkspace(ctx, workspace) {
                 
                 // Clear preferred window when workspace changes
                 setPreferredWindow(null);
+                
+                // Re-inject autoaccept into the new window immediately
+                if (autoaccept.isEnabled) {
+                    autoaccept.enable(CDP_PORT).catch(() => {});
+                }
             } else {
                 ctx.reply(t('workspace.started') + t('workspace.cdp_warning'));
             }
@@ -643,6 +651,11 @@ bot.action(/wn_(.+)/, (ctx) => {
     const shortTitle = selected.title.substring(0, 30);
     ctx.answerCbQuery(t('window.selected_toast', { title: shortTitle }) || `Selected: ${shortTitle}`);
     ctx.reply(t('window.selected_msg', { title: selected.title }) || `✅ Now targeting: <b>${selected.title}</b>\n\nAll commands will route to this window.`, { parse_mode: 'HTML' });
+    
+    // Explicitly re-inject autoaccept into the selected window to ensure it tracks
+    if (autoaccept.isEnabled) {
+        autoaccept.enable(CDP_PORT).catch(() => {});
+    }
 });
 
 // ===== FILE EXPLORER =====
