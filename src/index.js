@@ -296,11 +296,14 @@ bot.command('stop', async (ctx) => {
 });
 
 bot.command('new', async (ctx) => {
+    console.log('[/new] Command triggered');
     try {
         const success = await triggerNewChat(CDP_PORT);
+        console.log('[/new] triggerNewChat result:', success);
         if (success) ctx.reply(t('new_chat.opened'));
         else ctx.reply(t('new_chat.not_found'));
     } catch(e) {
+        console.log('[/new] Error:', e.message);
         ctx.reply(t('new_chat.error', { error: e.message }));
     }
 });

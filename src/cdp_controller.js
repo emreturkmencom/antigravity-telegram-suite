@@ -498,23 +498,42 @@ async function triggerNewChat(port) {
             const res = await Runtime.evaluate({
                 expression: `
                     (() => {
-                        const btn = document.querySelector('[aria-label*="New Chat" i], [title*="New Chat" i], [aria-label*="Yeni Sohbet" i], [class*="new-chat"]');
-                        if (btn) { btn.click(); return true; }
+                        // 1. Exact SVG Path match for the + icon (New Chat button)
+                        const svgPath = document.querySelector('path[d="M12 4.5v15m7.5-7.5h-15"]');
+                        if (svgPath) {
+                            // Walk up to find the clickable parent (a, button, or div)
+                            let clickTarget = svgPath.closest('a, button, [role="button"]') || svgPath.closest('svg')?.parentElement;
+                            if (clickTarget && typeof clickTarget.click === 'function') {
+                                clickTarget.click();
+                                return { clicked: true, method: 'svg_path', tag: clickTarget.tagName, aria: clickTarget.getAttribute('aria-label') || '' };
+                            }
+                        }
                         
-                        // Fallback to finding a plus button
-                        const allBtns = Array.from(document.querySelectorAll('button'));
-                        const plusBtn = allBtns.find(b => b.innerText.includes('+') || (b.querySelector('svg') && b.innerHTML.includes('plus')));
-                        if (plusBtn) { plusBtn.click(); return true; }
-                        return false;
+                        // 2. aria-label based selectors
+                        const btn = document.querySelector('[aria-label*="New Chat" i], [title*="New Chat" i], [aria-label*="Yeni Sohbet" i], [class*="new-chat"], [aria-label*="New Task" i], [title*="New Task" i]');
+                        if (btn && typeof btn.click === 'function') {
+                            btn.click();
+                            return { clicked: true, method: 'aria_label', tag: btn.tagName, aria: btn.getAttribute('aria-label') || '' };
+                        }
+                        
+                        return { clicked: false };
                     })()
                 `, returnByValue: true
             });
             await client.close();
-            if (res.result?.value) return true;
-        } catch(e) {}
+            const val = res.result?.value;
+            if (val) {
+                console.log('[triggerNewChat] Result:', JSON.stringify(val));
+                if (val.clicked) return true;
+            }
+        } catch(e) {
+            console.log('[triggerNewChat] Error on target:', e.message);
+        }
     }
     return false;
 }
+
+
 
 async function triggerModelMenu(port) {
     const candidates = await resolveTargets(port, false);
