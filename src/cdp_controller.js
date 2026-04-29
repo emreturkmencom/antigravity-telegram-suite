@@ -91,11 +91,14 @@ const CHAT_EXTRACT_EXPR = `
                 extractedText = container.innerText || container.textContent || "";
                 hiddenEls.forEach(item => { item.el.style.display = item.display; });
             }
-            extractedText = extractedText.replace(/Ask anything, @ to mention, \\/ for workflows/g, '');
+            extractedText = extractedText.replace(/Ask anything.*?for workflows/gi, '');
             extractedText = extractedText.replace(/0 Files With Changes/g, '');
             extractedText = extractedText.replace(/Review Changes/g, '');
-            extractedText = extractedText.replace(/Gemini 3\\.1 Pro \\(High\\)/g, '');
-            extractedText = extractedText.replace(/Send\\s*mic/g, '');
+            extractedText = extractedText.replace(/Gemini[\\s\\d\\.]+Pro[\\s]*\\([^)]*\\)/gi, '');
+            extractedText = extractedText.replace(/Claude[\\s\\w\\.]+\\([^)]*\\)/gi, '');
+            extractedText = extractedText.replace(/GPT[\\s\\w\\.]+\\([^)]*\\)/gi, '');
+            extractedText = extractedText.replace(/\\bSend\\b\\s*\\b(mic)?\\b/gi, '');
+            extractedText = extractedText.replace(/\\bmic\\b/gi, '');
             extractedText = extractedText.replace(/Files Modified[\\s\\n]*(\\d+)[\\s\\n]*([a-zA-Z0-9_\\-\\.]+)[\\s\\n]*\\+([0-9]+)[\\s\\n]*\\-([0-9]+)/gi, "\\n[📦 Files Modified: $2 (+$3, -$4)]\\n");
             extractedText = extractedText.replace(/chevron_left/g, '');
             extractedText = extractedText.replace(/chevron_right/g, '');
@@ -298,6 +301,7 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null)
     const startTime = Date.now();
     let consecutiveIdleCount = 0;
     let lastProgressTime = 0;
+    const GRACE_PERIOD_MS = 6000; // Wait at least 6s before accepting idle — gives IDE time to start generating
 
     while (Date.now() - startTime < timeoutMs) {
         // Re-fetch targets on each iteration to avoid stale WebSocket connections
@@ -370,9 +374,13 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null)
         }
         
         if (foundChat) {
+            const elapsed = Date.now() - startTime;
             if (isIdle && !isGenerating) {
-                consecutiveIdleCount++;
-                if (consecutiveIdleCount >= 4) return true;
+                // Only count idle after grace period — prevents false "done" before IDE starts
+                if (elapsed > GRACE_PERIOD_MS) {
+                    consecutiveIdleCount++;
+                    if (consecutiveIdleCount >= 4) return true;
+                }
             } else {
                 consecutiveIdleCount = 0;
             }

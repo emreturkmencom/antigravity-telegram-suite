@@ -237,7 +237,8 @@ bot.command('ask', (ctx) => {
             await sendViaCDP(query, CDP_PORT);
             await ctx.reply(t('ask.sent'));
 
-            // Anchor chat state so getLatestAgentResponse only returns NEW text
+            // Wait briefly for message to render in DOM before anchoring state
+            await new Promise(r => setTimeout(r, 1500));
             await snapshotChatState(CDP_PORT).catch(() => {});
             
             const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx));
@@ -937,7 +938,8 @@ bot.on('text', (ctx) => {
             await sendViaCDP(query, CDP_PORT);
             await ctx.reply(t('ask.sent'));
 
-            // Anchor chat state so getLatestAgentResponse only returns NEW text
+            // Wait briefly for message to render in DOM before anchoring state
+            await new Promise(r => setTimeout(r, 1500));
             await snapshotChatState(CDP_PORT).catch(() => {});
             
             const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx));
@@ -1001,7 +1003,8 @@ bot.on(['photo', 'document'], (ctx) => {
             await ctx.reply(t('photo.downloaded'));
             await sendViaCDP(query, CDP_PORT);
 
-            // Anchor chat state so getLatestAgentResponse only returns NEW text
+            // Wait briefly for message to render in DOM before anchoring state
+            await new Promise(r => setTimeout(r, 1500));
             await snapshotChatState(CDP_PORT).catch(() => {});
             
             const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx));
