@@ -6,8 +6,11 @@ const os = require('os');
 const { exec } = require('child_process');
 const { loadLocale, t, getLang } = require('./i18n');
 const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, trustWorkspaceViaCDP, PLATFORM } = require('./platform');
-const { getLatestAgentResponse, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getCachedWindows, closeWindow } = require('./cdp_controller');
+const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getCachedWindows, closeWindow, listAgentThreads, switchAgentThread, getActiveThreadId } = require('./cdp_controller');
 const autoaccept = require('./autoaccept');
+
+let cachedAgentThreads = [];
+let cachedArtifacts = [];
 
 // Load configured language
 const lang = process.env.LANGUAGE || 'en';
@@ -19,27 +22,55 @@ if (!ALLOWED_CHAT_ID) {
     console.error('\n❌ SECURITY ERROR: ALLOWED_CHAT_ID is required.\n');
     console.error('Set ALLOWED_CHAT_ID in your .env file to your Telegram chat ID.');
     console.error('Send /start to your bot to discover your chat ID.\n');
-    process.exit(1);
+    // process.exit(1);
 }
 
 const bot = new Telegraf(process.env.BOT_TOKEN, { handlerTimeout: 900000 }); // 15 minutes timeout to allow long /ask requests
 const CDP_PORT = process.env.DEBUGGING_PORT || 9333;
 
+function markdownToTelegramHtml(text) {
+    let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    html = html.replace(/^(#{1,6})\s+(.+)$/gm, '<b>$2</b>');
+    html = html.replace(/\*\*([^\*]+)\*\*/g, '<b>$1</b>');
+    html = html.replace(/(?<![A-Za-z0-9])\*([^\*]+)\*(?![A-Za-z0-9])/g, '<i>$1</i>');
+    html = html.replace(/(?<![A-Za-z0-9])_([^_]+)_(?![A-Za-z0-9])/g, '<i>$1</i>');
+    html = html.replace(/```([a-z0-9]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+        if (lang) return `<pre><code class="language-${lang}">${code}</code></pre>`;
+        return `<pre>${code}</pre>`;
+    });
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+    html = html.replace(/\[x\]/ig, '✅');
+    html = html.replace(/\[ \]/g, '⬜');
+    html = html.replace(/\[\/\]/g, '🔄');
+    return html;
+}
+
 // Helper: Send long messages safely within Telegram's 4096 char limit
 async function sendLongMessage(ctx, text, prefix = '') {
-    const MAX_LEN = 4000;
-    const fullText = prefix ? `${prefix}\n\n${text}` : text;
+    const MAX_LEN = 3500;
     
-    // Retry helper for transient network errors
+    // Parse text to HTML and preserve prefix formatting
+    const htmlText = prefix ? `<b>${prefix}</b>\n\n${markdownToTelegramHtml(text)}` : markdownToTelegramHtml(text);
+    
     async function replyWithRetry(content, retries = 3) {
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
-                await ctx.reply(content);
+                await ctx.reply(content, { parse_mode: 'HTML' });
                 return;
             } catch (err) {
                 console.error(`sendLongMessage attempt ${attempt}/${retries} failed:`, err.message);
-                if (attempt < retries && (err.code === 'EAI_AGAIN' || err.code === 'ETIMEDOUT' || err.code === 'ECONNRESET')) {
+                if (attempt < retries && !err.message.includes("can't parse entities")) {
                     await new Promise(r => setTimeout(r, 2000 * attempt));
+                } else if (err.message.includes("can't parse entities")) {
+                    // Fallback to sending raw text if HTML parsing completely fails
+                    try {
+                        const plain = content.replace(/<[^>]*>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+                        await ctx.reply(plain);
+                        return;
+                    } catch (fallbackErr) {
+                        throw fallbackErr;
+                    }
                 } else {
                     throw err;
                 }
@@ -48,32 +79,36 @@ async function sendLongMessage(ctx, text, prefix = '') {
     }
 
     try {
-        if (fullText.length <= MAX_LEN) {
-            await replyWithRetry(fullText);
-        } else {
-            const chunks = [];
-            for (let i = 0; i < fullText.length; i += MAX_LEN) {
-                chunks.push(fullText.substring(i, i + MAX_LEN));
+        const lines = htmlText.split('\n');
+        let currentChunk = '';
+        let inPre = false;
+        let preLang = '';
+
+        for (const line of lines) {
+            const preMatch = line.match(/<pre>(?:<code class="language-([^"]+)">)?/);
+            if (preMatch) {
+                inPre = true;
+                preLang = preMatch[1] || '';
             }
-            for (let i = 0; i < chunks.length; i++) {
-                const suffix = chunks.length > 1 ? `\n\n(${i + 1}/${chunks.length})` : '';
-                await replyWithRetry(chunks[i] + suffix);
+            if (line.includes('</pre>')) {
+                inPre = false;
             }
+            
+            if (currentChunk.length + line.length > MAX_LEN) {
+                if (inPre) {
+                    currentChunk += preLang ? '</code></pre>' : '</pre>';
+                }
+                await replyWithRetry(currentChunk);
+                currentChunk = inPre ? (preLang ? `<pre><code class="language-${preLang}">\n` : '<pre>\n') : '';
+            }
+            currentChunk += line + '\n';
         }
-        console.log(`sendLongMessage: Sent ${fullText.length} chars successfully`);
+        if (currentChunk.trim().length > 0) {
+            await replyWithRetry(currentChunk);
+        }
+        console.log(`sendLongMessage: Sent successfully`);
     } catch (err) {
-        console.error('sendLongMessage error:', err.message);
-        // On format error, retry as plain text
-        try {
-            const plain = fullText.replace(/[*_`\[\]]/g, '');
-            if (plain.length <= MAX_LEN) {
-                await replyWithRetry(plain);
-            } else {
-                await replyWithRetry(plain.substring(0, MAX_LEN) + '\n\n' + t('response_too_long'));
-            }
-        } catch (e2) {
-            console.error('sendLongMessage final error:', e2.message);
-        }
+        console.error('sendLongMessage final error:', err.message);
     }
 }
 
@@ -100,6 +135,11 @@ function createProgressHandler(ctx) {
 }
 
 function checkAuth(ctx, next) {
+    if (!ALLOWED_CHAT_ID) {
+        console.log(`\n🔔 NEW CHAT ID DETECTED: ${ctx.chat.id}`);
+        console.log(`Please add ALLOWED_CHAT_ID=${ctx.chat.id} to your .env file and restart.\n`);
+        return ctx.reply(`Welcome! Your Chat ID is: ${ctx.chat.id}\nPlease add it to the .env file as ALLOWED_CHAT_ID and restart the bot.`);
+    }
     if (ctx.chat.id.toString() !== ALLOWED_CHAT_ID) {
         return ctx.reply(t('auth.unauthorized'));
     }
@@ -126,6 +166,9 @@ ${t('help.status_text')}
 
 ${t('help.ide_title')}
 ${t('help.ide_text')}
+
+${t('help.chat_title')}
+${t('help.chat_text')}
     `.trim();
     ctx.reply(helpMessage, { parse_mode: 'HTML' });
 });
@@ -180,21 +223,75 @@ bot.command('status', async (ctx) => {
     msg += ideCheck ? t('status.ide_running') + '\n' : t('status.ide_stopped') + '\n';
     
     try {
-        await getLatestAgentResponse(CDP_PORT);
+        await getActiveThreadId(CDP_PORT);
         msg += t('status.cdp_active') + '\n';
     } catch {
         msg += t('status.cdp_inactive') + '\n';
     }
     
     msg += t('status.bot_running') + '\n';
+    
+    try {
+        const activeId = await getActiveThreadId(CDP_PORT);
+        if (activeId) {
+            const workspaces = await listAgentThreads(CDP_PORT);
+            let activeWorkspace = null;
+            let activeThread = null;
+            
+            for (const ws of workspaces) {
+                const found = ws.threads.find(t => t.id === activeId);
+                if (found) {
+                    activeWorkspace = ws.workspace;
+                    activeThread = found.name;
+                    break;
+                }
+            }
+            
+            if (activeWorkspace && activeThread) {
+                msg += `\n💬 <b>Chat:</b>\n`;
+                msg += `- Workspace: ${activeWorkspace}\n`;
+                msg += `- Thread: ${activeThread}\n`;
+                const currentModel = await getCurrentModel(CDP_PORT);
+                if (currentModel) msg += `- Model: ${currentModel}\n`;
+                const isWorking = await isAgentWorking(CDP_PORT);
+                msg += `- Status: ${isWorking ? 'Working...' : 'Idle'}\n`;
+            }
+        }
+    } catch (e) {
+        // silently fail if we can't get chat info
+    }
+
     msg += '\n<b>Auto-Accept:</b> ' + (autoaccept.isEnabled ? '✅ ON' : '❌ OFF') + '\n';
 
     ctx.reply(msg, { parse_mode: 'HTML' });
 });
 
+/**
+ * Appends thread info and agent status footer to response text.
+ */
+async function appendThreadFooter(text) {
+    try {
+        const activeId = await getActiveThreadId(CDP_PORT);
+        if (activeId) {
+            const workspaces = await listAgentThreads(CDP_PORT);
+            let threadName = null;
+            let wsName = null;
+            for (const ws of workspaces) {
+                const found = ws.threads.find(t => t.id === activeId);
+                if (found) { wsName = ws.workspace; threadName = found.name; break; }
+            }
+            const isWorking = await isAgentWorking(CDP_PORT);
+            const statusLine = isWorking ? 'Working...' : 'Idle';
+            text += '\n\n' + `📁 ${wsName || 'Unknown'}` + (threadName ? ` / ${threadName}` : '') + `\nAgent Status: ${statusLine}`;
+        }
+    } catch (_) {}
+    return text;
+}
+
 bot.command('latest', async (ctx) => {
     try {
-        const text = await getLatestAgentResponse(CDP_PORT);
+        let text = await getFullLatestResponse(CDP_PORT);
+        text = await appendThreadFooter(text);
         await sendLongMessage(ctx, text, t('latest.title'));
     } catch (err) {
         ctx.reply(t('latest.error', { error: err.message }));
@@ -243,14 +340,10 @@ bot.command('ask', (ctx) => {
             
             const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx));
             if (isDone) {
-                let text = await getLatestAgentResponse(CDP_PORT);
+                let text = await getFullLatestResponse(CDP_PORT);
                 text = stripQueryFromResponse(text, query);
-                // Fallback: if diff is empty, get the full last response
-                if (!text || text === '[No new messages]') {
-                    text = await getFullLatestResponse(CDP_PORT);
-                    text = stripQueryFromResponse(text, query);
-                }
                 if (!text) text = t('ask.done_empty');
+                text = await appendThreadFooter(text);
                 await sendLongMessage(ctx, text, t('ask.done'));
             } else {
                 await ctx.reply(t('ask.timeout'));
@@ -306,6 +399,168 @@ bot.command('new', async (ctx) => {
     } catch(e) {
         console.log('[/new] Error:', e.message);
         ctx.reply(t('new_chat.error', { error: e.message }));
+    }
+});
+
+bot.command('agents', async (ctx) => {
+    const parts = ctx.message.text.split(' ');
+    const num = parseInt(parts[1], 10);
+    
+    if (!isNaN(num)) {
+        if (num > 0 && num <= cachedAgentThreads.length) {
+            const thread = cachedAgentThreads[num - 1];
+            ctx.reply(t('agents.switched', { name: thread.name }) || `✅ Switched to thread: ${thread.name}`, { parse_mode: 'HTML' });
+            const success = await switchAgentThread(CDP_PORT, thread.id);
+            if (!success) {
+                ctx.reply(t('agents.not_found') || '❌ Thread could not be selected.');
+            }
+        } else {
+            ctx.reply(t('agents.invalid_number') || '❌ Invalid thread number.');
+        }
+        return;
+    }
+    
+    try {
+        const workspaces = await listAgentThreads(CDP_PORT);
+        if (workspaces.length === 0) {
+            return ctx.reply(t('agents.no_recent') || 'ℹ️ No recent active threads found.');
+        }
+        
+        cachedAgentThreads = [];
+        let msg = t('agents.list_title') || '📂 <b>Recent Chat Threads:</b>\\n\\n';
+        let index = 1;
+        
+        for (const ws of workspaces) {
+            const recentThreads = ws.threads.filter(th => {
+                const time = th.time ? th.time.toLowerCase() : '';
+                if (!time) return false;
+                if (time === 'now' || time.includes('m') || time.includes('h') || time === '1d' || time === '2d') {
+                    if (time.includes('mo')) return false;
+                    return true;
+                }
+                return false;
+            });
+            
+            if (recentThreads.length > 0) {
+                msg += `<b>📁 ${ws.workspace}</b>\n`;
+                for (const th of recentThreads) {
+                    cachedAgentThreads.push(th);
+                    msg += `  /agents_${index} - ${th.name} <i>(${th.time})</i>\n`;
+                    index++;
+                }
+                msg += '\n';
+            }
+        }
+        
+        if (cachedAgentThreads.length === 0) {
+            return ctx.reply(t('agents.no_recent') || 'ℹ️ No recent active threads found.');
+        }
+        
+        ctx.reply(msg, { parse_mode: 'HTML' });
+    } catch (e) {
+        ctx.reply((t('agents.error') || '❌ Error: ') + e.message);
+    }
+});
+
+bot.hears(/^\/agents_(\d+)$/, async (ctx) => {
+    const num = parseInt(ctx.match[1], 10);
+    if (num > 0 && num <= cachedAgentThreads.length) {
+        const thread = cachedAgentThreads[num - 1];
+        ctx.reply(t('agents.switched', { name: thread.name }) || `✅ Switched to thread: ${thread.name}`, { parse_mode: 'HTML' });
+        const success = await switchAgentThread(CDP_PORT, thread.id);
+        if (!success) {
+            ctx.reply(t('agents.not_found') || '❌ Thread could not be selected.');
+        }
+    } else {
+        ctx.reply(t('agents.invalid_number') || '❌ Invalid thread number.');
+    }
+});
+
+bot.command('artifacts', async (ctx) => {
+    try {
+        const activeId = await getActiveThreadId(CDP_PORT);
+        if (!activeId) {
+            return ctx.reply(t('artifacts.no_active_thread') || '⚠️ No active thread found. Please select a thread in the IDE first.');
+        }
+
+        const artifactsDir = path.join(os.homedir(), '.gemini', 'antigravity', 'brain', activeId);
+        if (!fs.existsSync(artifactsDir)) {
+            return ctx.reply(t('artifacts.no_artifacts') || 'ℹ️ No artifacts found for the current thread.');
+        }
+
+        const items = fs.readdirSync(artifactsDir, { withFileTypes: true });
+        cachedArtifacts = [];
+        
+        for (const item of items) {
+            if (item.isDirectory()) continue;
+            const name = item.name;
+            if (name.includes('.metadata.json') || name.includes('.resolved') || name.startsWith('.sys')) {
+                continue;
+            }
+            if (name.endsWith('.md') || name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.webp') || name.endsWith('.mp4') || name.endsWith('.mov')) {
+                cachedArtifacts.push({ name, path: path.join(artifactsDir, name) });
+            }
+        }
+
+        if (cachedArtifacts.length === 0) {
+            return ctx.reply(t('artifacts.no_artifacts') || 'ℹ️ No artifacts found for the current thread.');
+        }
+
+        let msg = t('artifacts.list_title') || '📎 <b>Artifacts for Current Thread:</b>\\n\\n';
+        for (let i = 0; i < cachedArtifacts.length; i++) {
+            const filename = cachedArtifacts[i].name;
+            let displayName = filename;
+            if (filename.startsWith('media__')) {
+                const match = filename.match(/media__(\d+)\.\w+/);
+                if (match) {
+                    const date = new Date(parseInt(match[1], 10));
+                    const today = new Date();
+                    const yesterday = new Date(today);
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    
+                    let dateStr = '';
+                    if (date.toDateString() === today.toDateString()) dateStr = 'Today';
+                    else if (date.toDateString() === yesterday.toDateString()) dateStr = 'Yesterday';
+                    else dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    
+                    const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                    displayName = `Media (${dateStr} ${timeStr})`;
+                }
+            } else {
+                displayName = filename.replace(/\.[^/.]+$/, "").replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            }
+            msg += `/artifact_${i + 1} - ${displayName}\n`;
+        }
+        
+        ctx.reply(msg, { parse_mode: 'HTML' });
+    } catch (e) {
+        ctx.reply((t('artifacts.error') || '❌ Error reading artifact: ') + e.message);
+    }
+});
+
+bot.hears(/^\/artifact_(\d+)$/, async (ctx) => {
+    const num = parseInt(ctx.match[1], 10);
+    if (num > 0 && num <= cachedArtifacts.length) {
+        const artifact = cachedArtifacts[num - 1];
+        ctx.reply((t('artifacts.sending', { name: artifact.name }) || `📤 Sending artifact: <b>${artifact.name}</b>...`), { parse_mode: 'HTML' });
+        
+        const ext = path.extname(artifact.name).toLowerCase();
+        try {
+            if (ext === '.png' || ext === '.jpg' || ext === '.jpeg' || ext === '.webp') {
+                await ctx.replyWithPhoto({ source: artifact.path });
+            } else if (ext === '.mp4' || ext === '.mov') {
+                await ctx.replyWithVideo({ source: artifact.path });
+            } else if (ext === '.md') {
+                const content = fs.readFileSync(artifact.path, 'utf8');
+                await sendLongMessage(ctx, content);
+            } else {
+                await ctx.replyWithDocument({ source: artifact.path });
+            }
+        } catch (e) {
+            ctx.reply((t('artifacts.error') || '❌ Error: ') + e.message);
+        }
+    } else {
+        ctx.reply(t('artifacts.invalid_number') || '❌ Invalid artifact number.');
     }
 });
 
@@ -822,6 +1077,8 @@ function getMenuCommands() {
         { command: 'start_ide', description: t('menu.start_ide_desc') },
         { command: 'close', description: t('menu.close_desc') },
         { command: 'new', description: t('menu.new_desc') },
+        { command: 'agents', description: t('menu.agents_desc') },
+        { command: 'artifacts', description: t('menu.artifacts_desc') },
         { command: 'model', description: t('menu.model_desc') },
         { command: 'workspace', description: t('menu.workspace_desc') },
         { command: 'window', description: t('menu.window_desc') || 'Select IDE window' },
@@ -944,14 +1201,10 @@ bot.on('text', (ctx) => {
             
             const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx));
             if (isDone) {
-                let text = await getLatestAgentResponse(CDP_PORT);
+                let text = await getFullLatestResponse(CDP_PORT);
                 text = stripQueryFromResponse(text, query);
-                // Fallback: if diff is empty, get the full last response
-                if (!text || text === '[No new messages]') {
-                    text = await getFullLatestResponse(CDP_PORT);
-                    text = stripQueryFromResponse(text, query);
-                }
                 if (!text) text = t('ask.done_empty');
+                text = await appendThreadFooter(text);
                 await sendLongMessage(ctx, text, t('ask.done'));
             } else {
                 await ctx.reply(t('ask.timeout'));
@@ -1009,18 +1262,13 @@ bot.on(['photo', 'document'], (ctx) => {
             
             const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx));
             if (isDone) {
-                let text = await getLatestAgentResponse(CDP_PORT);
+                let text = await getFullLatestResponse(CDP_PORT);
                 text = stripQueryFromResponse(text, query);
                 if (caption) {
                     text = stripQueryFromResponse(text, caption);
                 }
-                // Fallback: if diff is empty, get the full last response
-                if (!text || text === '[No new messages]') {
-                    text = await getFullLatestResponse(CDP_PORT);
-                    text = stripQueryFromResponse(text, query);
-                    if (caption) text = stripQueryFromResponse(text, caption);
-                }
                 if (!text) text = t('ask.done_empty');
+                text = await appendThreadFooter(text);
                 await sendLongMessage(ctx, text, t('ask.done'));
             } else {
                 await ctx.reply(t('ask.timeout'));

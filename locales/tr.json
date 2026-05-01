@@ -13,7 +13,9 @@
     "status_title": "👁️ <i>Durum &amp; Bilgi:</i>",
     "status_text": "- /latest → Son yanıtı getirir (temizlenmiş)\n- /screenshot → IDE ekran görüntüsü alır\n- /status → Sistem durumu (IDE, CDP, PM2)",
     "ide_title": "🛠️ <i>IDE Kontrolleri:</i>",
-    "ide_text": "- /start_ide → IDE kapalıysa başlatır\n- /close → IDE'yi tamamen kapatır (tüm process + lock temizler)\n- /new → Yeni sohbet açar\n- /model → Model seçimi menüsünü açar\n- /workspace → Projeyi değiştirir\n- /window → Aktif IDE penceresini seçer\n- /autoaccept → Otomatik kabul aç/kapat\n- /lang → Dil değiştirir\n- /cmd &lt;komut&gt; → Terminalde komut çalıştırır\n- /help → Bu yardım mesajını gösterir"
+    "ide_text": "- /start_ide → IDE kapalıysa başlatır\n- /close → IDE'yi tamamen kapatır (tüm process + lock temizler)\n- /workspace → Projeyi değiştirir\n- /window → Aktif IDE penceresini seçer\n- /lang → Dil değiştirir\n- /cmd &lt;komut&gt; → Terminalde komut çalıştırır\n- /help → Bu yardım mesajını gösterir",
+    "chat_title": "💬 <i>Sohbet Kontrolleri:</i>",
+    "chat_text": "- /new → Yeni sohbet açar\n- /agents → Son sohbetleri listeler ve değiştirir\n- /artifacts → Mevcut sohbetin artifact'lerini listeler\n- /model → Model seçimi menüsünü açar\n- /autoaccept → Otomatik kabul aç/kapat"
   },
   "ide": {
     "already_running": "✅ Antigravity IDE zaten çalışıyor! Ekstra pencere açmaya gerek yok.\n💡 Kapatmak için /close yazabilirsiniz.",
@@ -109,6 +111,8 @@
     "close_desc": "IDE tamamen kapatır",
     "close_window_desc": "Mevcut pencereyi kapatır",
     "new_desc": "Yeni sohbet açar",
+    "agents_desc": "Son sohbetleri listeler ve değiştirir",
+    "artifacts_desc": "Mevcut sohbetin artifact'lerini listeler",
     "model_desc": "Model seçimi menüsünü açar",
     "workspace_desc": "Projeyi değiştirir",
     "lang_desc": "Dil değiştirir",
@@ -169,7 +173,22 @@
     "cleared_toast": "Temizlendi — otomatik seçim devrede",
     "cleared_msg": "🔄 Pencere tercihi temizlendi. Bot aktif IDE penceresini otomatik algılayacak.",
     "expired": "Pencere listesi süresi doldu. Tekrar /window gönderin.",
-    "selected_toast": "Seçildi: {{title}}",
     "selected_msg": "✅ Yeni hedef: <b>{{title}}</b>\n\nTüm komutlar artık bu pencereye gönderilecek."
+  },
+  "agents": {
+    "list_title": "📂 <b>Son Sohbetler:</b>\n\n",
+    "switched": "✅ Sohbet değiştirildi: <b>{name}</b>",
+    "not_found": "❌ Sohbet seçilemedi.",
+    "invalid_number": "❌ Geçersiz sohbet numarası.",
+    "no_recent": "ℹ️ Son aktif sohbet bulunamadı.",
+    "error": "❌ Hata: {error}"
+  },
+  "artifacts": {
+    "list_title": "📎 <b>Mevcut Sohbetin Artifact'leri:</b>\n\n",
+    "no_active_thread": "⚠️ Aktif sohbet bulunamadı. Lütfen IDE'den bir sohbet seçin.",
+    "no_artifacts": "ℹ️ Mevcut sohbet için artifact bulunamadı.",
+    "invalid_number": "❌ Geçersiz artifact numarası.",
+    "sending": "📤 Gönderiliyor: <b>{name}</b>...",
+    "error": "❌ Artifact okuma hatası: {error}"
   }
 }
