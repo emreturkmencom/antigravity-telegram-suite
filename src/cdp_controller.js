@@ -35,48 +35,10 @@ async function resolveTargets(port, includeIframe = true) {
     const candidates = targets.filter(t => typeFilter(t) &&
         t.webSocketDebuggerUrl &&
         !t.url.includes('devtools://') &&
-        !(t.title && t.title.includes('Launchpad')));
+        !(t.title && t.title.includes('Launchpad')) &&
+        t.title !== 'Manager');
 
-    // Query the Manager target's top bar for the active workspace name.
-    // The Manager renders a breadcrumb like "workspace-name / Thread Title"
-    // in the header bar, making it trivial to extract the active workspace.
-    try {
-        const manager = candidates.find(t => t.title === 'Manager');
-        if (manager) {
-            const client = await CDP({ target: manager.webSocketDebuggerUrl });
-            const { Runtime } = client;
-            await Runtime.enable();
-            const res = await Runtime.evaluate({
-                expression: `
-                    (() => {
-                        // Find top-bar elements (y < 40px, narrow height, wide)
-                        const topEls = Array.from(document.querySelectorAll('div')).filter(el => {
-                            const r = el.getBoundingClientRect();
-                            return r.y >= 0 && r.y < 40 && r.height < 50 && r.height > 20 && r.width > 200;
-                        });
-                        for (const el of topEls) {
-                            const text = el.innerText.replace(/\\n/g, ' ').trim();
-                            // Match the breadcrumb format: "... workspace-name / Thread Title ..."
-                            // Strip leading icon text (arrow_back, arrow_forward, dock_to_right)
-                            const cleaned = text.replace(/^(arrow_back|arrow_forward|dock_to_right|\\s)+/g, '').trim();
-                            const slashIdx = cleaned.indexOf(' / ');
-                            if (slashIdx > 0) {
-                                return cleaned.substring(0, slashIdx).trim();
-                            }
-                        }
-                        return null;
-                    })()
-                `,
-                returnByValue: true
-            });
-            await client.close();
-            if (res.result?.value) {
-                activeWorkspaceName = res.result.value.toLowerCase();
-            }
-        }
-    } catch (_) {
-        // Non-critical — if we can't query the Manager, we just keep the last cached value
-    }
+
 
     candidates.sort((a, b) => {
         // Preferred target by ID always wins (set via /window command)
@@ -96,18 +58,7 @@ async function resolveTargets(port, includeIframe = true) {
     return candidates;
 }
 
-/**
- * Sort candidates so the Manager target comes first.
- * Manager holds the active conversation state, so it's the most reliable
- * target for model selection, chat input, and status checks.
- */
-function prioritizeManager(candidates) {
-    return [...candidates].sort((a, b) => {
-        if (a.title === 'Manager') return -1;
-        if (b.title === 'Manager') return 1;
-        return 0;
-    });
-}
+
 
 /**
  * List all available IDE windows for the /window command.
@@ -718,57 +669,7 @@ async function triggerModelMenu(port) {
 }
 
 async function listAgentThreads(port) {
-    // --- Strategy 1: Agent Manager convo-pill approach (achshar's design) ---
     const candidates = await resolveTargets(port, false);
-    const managerCandidates = prioritizeManager(candidates);
-    for (const target of managerCandidates) {
-        try {
-            const client = await CDP({ target: target.webSocketDebuggerUrl });
-            const { Runtime } = client;
-            await Runtime.enable();
-            const res = await Runtime.evaluate({
-                expression: `
-                    ${UI_LOCATORS_SCRIPT}
-                    (() => {
-                        const workspaces = [];
-                        const cards = AG_UI.getWorkspaceCards();
-                        cards.forEach(card => {
-                            const wsNameEl = card.querySelector('span.truncate');
-                            if (!wsNameEl) return;
-                            const wsName = wsNameEl.textContent.trim();
-                            const threads = [];
-                            const sibling = card.nextElementSibling;
-                            if (sibling) {
-                                const pills = AG_UI.getChatThreadPills(sibling);
-                                pills.forEach(pill => {
-                                    const name = pill.textContent.trim();
-                                    const id = pill.getAttribute('data-testid').replace('convo-pill-', '');
-                                    const row = pill.closest('[role="button"]');
-                                    let time = '';
-                                    if (row) {
-                                        const timeEl = row.querySelector('.text-xs.opacity-50');
-                                        if (timeEl) time = timeEl.textContent.trim();
-                                    }
-                                    threads.push({ name, id, time });
-                                });
-                            }
-                            if (threads.length > 0) {
-                                workspaces.push({ workspace: wsName, threads });
-                            }
-                        });
-                        return workspaces;
-                    })()
-                `,
-                returnByValue: true
-            });
-            await client.close();
-            if (res.result?.value && res.result.value.length > 0) {
-                return res.result.value;
-            }
-        } catch(e) { console.debug(`[listAgentThreads] manager error: ${e.message}`); }
-    }
-
-    // --- Strategy 2: History popup fallback (code editor) ---
     for (const target of candidates) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
@@ -857,47 +758,8 @@ function setActiveWorkspace(name) {
     activeWorkspaceName = name ? name.toLowerCase() : null;
 }
 
-async function switchAgentThread(port, threadIdOrName, workspaceName) {
+async function switchAgentThread(port, threadName) {
     const candidates = await resolveTargets(port, false);
-
-    // --- Strategy 1: Agent Manager convo-pill click ---
-    const managerCandidates = prioritizeManager(candidates);
-    for (const target of managerCandidates) {
-        try {
-            const client = await CDP({ target: target.webSocketDebuggerUrl });
-            const { Runtime } = client;
-            await Runtime.enable();
-            const res = await Runtime.evaluate({
-                expression: `
-                    (() => {
-                        // Try by convo-pill ID first
-                        let pill = document.querySelector('[data-testid="convo-pill-' + ${JSON.stringify(threadIdOrName)} + '"]');
-                        // If not found by ID, try by name
-                        if (!pill) {
-                            const allPills = Array.from(document.querySelectorAll('[data-testid^="convo-pill-"]'));
-                            pill = allPills.find(p => p.textContent.trim() === ${JSON.stringify(threadIdOrName)});
-                        }
-                        if (pill) {
-                            const btn = pill.closest('[role="button"]');
-                            if (btn && typeof btn.click === 'function') {
-                                btn.click();
-                                return true;
-                            }
-                        }
-                        return false;
-                    })()
-                `,
-                returnByValue: true
-            });
-            await client.close();
-            if (res.result?.value) {
-                if (workspaceName) activeWorkspaceName = workspaceName.toLowerCase();
-                return true;
-            }
-        } catch(e) { console.debug(`[switchAgentThread] manager error: ${e.message}`); }
-    }
-
-    // --- Strategy 2: History popup fallback ---
     for (const target of candidates) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
@@ -915,6 +777,7 @@ async function switchAgentThread(port, threadIdOrName, workspaceName) {
             });
             if (openRes.result?.value === 'no-icon') { await client.close(); continue; }
             await new Promise(r => setTimeout(r, openRes.result?.value === 'opened' ? 800 : 200));
+            const threadNameStr = JSON.stringify(threadName);
             const res = await Runtime.evaluate({
                 expression: `(() => {
                     const input = document.querySelector('input[placeholder="Select a conversation"]');
@@ -925,7 +788,7 @@ async function switchAgentThread(port, threadIdOrName, workspaceName) {
                     const target = rows.find(row => {
                         const nameEl = row.querySelector('span.truncate, span.text-sm span');
                         const name = nameEl ? nameEl.textContent.trim() : '';
-                        return name === ${JSON.stringify(threadIdOrName)};
+                        return name === ${threadNameStr};
                     });
                     if (target) { target.click(); return true; }
                     return false;
@@ -933,11 +796,8 @@ async function switchAgentThread(port, threadIdOrName, workspaceName) {
                 returnByValue: true
             });
             await client.close();
-            if (res.result?.value) {
-                if (workspaceName) activeWorkspaceName = workspaceName.toLowerCase();
-                return true;
-            }
-        } catch(e) { console.debug(`[switchAgentThread] popup error: ${e.message}`); }
+            if (res.result?.value) return true;
+        } catch(e) { console.debug(`[switchAgentThread] error: ${e.message}`); }
     }
     return false;
 }

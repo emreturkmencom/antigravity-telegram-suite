@@ -416,7 +416,7 @@ bot.command('agents', async (ctx) => {
         if (num > 0 && num <= cachedAgentThreads.length) {
             const thread = cachedAgentThreads[num - 1];
             ctx.reply(t('agents.switched', { name: thread.name }) || `✅ Switched to thread: ${thread.name}`, { parse_mode: 'HTML' });
-            const success = await switchAgentThread(CDP_PORT, thread.id || thread.name, thread.workspace);
+            const success = await switchAgentThread(CDP_PORT, thread.name);
             if (!success) {
                 ctx.reply(t('agents.not_found') || '❌ Thread could not be selected.');
             }
@@ -469,7 +469,7 @@ bot.hears(/^\/agents_(\d+)$/, async (ctx) => {
     if (num > 0 && num <= cachedAgentThreads.length) {
         const thread = cachedAgentThreads[num - 1];
         ctx.reply(t('agents.switched', { name: thread.name }) || `✅ Switched to thread: ${thread.name}`, { parse_mode: 'HTML' });
-        const success = await switchAgentThread(CDP_PORT, thread.id || thread.name, thread.workspace);
+        const success = await switchAgentThread(CDP_PORT, thread.name);
         if (!success) {
             ctx.reply(t('agents.not_found') || '❌ Thread could not be selected.');
         }
@@ -1295,8 +1295,8 @@ bot.on(['photo', 'document'], (ctx) => {
 
 // ===== LAUNCH =====
 
-bot.launch().then(async () => {
-    console.log(t('bot.polling'));
+async function init() {
+    console.log("Starting initialization...");
     try {
         await clearAllMenuScopes();
         await setMenuOnAllScopes();
@@ -1316,7 +1316,15 @@ bot.launch().then(async () => {
     } else {
         console.log('[autoaccept] Disabled by default. Use /autoaccept on to enable.');
     }
-});
 
+    console.log(t('bot.polling'));
+    bot.launch({ dropPendingUpdates: true }).catch(err => {
+        console.error("Bot launch failed:", err);
+    });
+}
+
+init();
+
+// Enable graceful stop
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
