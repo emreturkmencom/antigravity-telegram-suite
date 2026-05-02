@@ -13,7 +13,9 @@
         "status_title": "👁️ <i>Estado e Info:</i>",
         "status_text": "- /latest → Obtener última respuesta (limpia)\n- /screenshot → Tomar captura de pantalla del IDE\n- /status → Estado del sistema (IDE, CDP, PM2)",
         "ide_title": "🛠️ <i>Controles del IDE:</i>",
-        "ide_text": "- /start_ide → Iniciar el IDE si está cerrado\n- /close → Cerrar el IDE completamente (mata el proceso + limpia bloqueos)\n- /new → Abrir un nuevo chat\n- /model → Abrir menú de selección de modelo\n- /workspace → Cambiar espacio de trabajo del proyecto\n- /autoaccept → Activar/desactivar auto-aceptar\n- /lang → Cambiar idioma\n- /cmd &lt;comando&gt; → Ejecutar un comando de terminal\n- /help → Mostrar este mensaje de ayuda"
+        "ide_text": "- /start_ide → Iniciar el IDE si está cerrado\n- /close → Cerrar el IDE completamente (mata el proceso + limpia bloqueos)\n- /new → Abrir un nuevo chat\n- /model → Abrir menú de selección de modelo\n- /workspace → Cambiar espacio de trabajo del proyecto\n- /autoaccept → Activar/desactivar auto-aceptar\n- /lang → Cambiar idioma\n- /cmd &lt;comando&gt; → Ejecutar un comando de terminal\n- /help → Mostrar este mensaje de ayuda",
+        "chat_title": "💬 <i>Controles de Chat:</i>",
+        "chat_text": "- /new → Abrir nuevo chat\n- /agents → Listar y cambiar hilos de chat recientes\n- /artifacts → Listar artefactos del hilo actual\n- /model → Abrir menú de selección de modelo\n- /autoaccept → Activar/desactivar auto-aceptar"
     },
     "ide": {
         "already_running": "✅ ¡El IDE Antigravity ya se está ejecutando! No es necesario abrir otra ventana.\n💡 Usa /close para apagarlo.",
@@ -23,7 +25,10 @@
         "already_closed": "ℹ️ El IDE ya está cerrado. (Archivo de bloqueo limpiado)",
         "closing": "🔄 Cerrando IDE...",
         "closed": "✅ ¡IDE cerrado completamente! (Todos los procesos y archivos de bloqueo limpiados)",
-        "not_installed": "❌ IDE Antigravity no encontrado. Por favor, instálalo primero.\nVer: https://antigravity.google/"
+        "not_installed": "❌ IDE Antigravity no encontrado. Por favor, instálalo primero.\nVer: https://antigravity.google/",
+        "closing_window": "🪟 Cerrando ventana...",
+        "window_closed": "✅ Ventana cerrada exitosamente.",
+        "window_close_failed": "❌ No se pudo cerrar la ventana. ¿Hay alguna ventana abierta?"
     },
     "status": {
         "title": "📊 <b>Estado del Sistema:</b>\n",
@@ -113,7 +118,11 @@
         "stop_desc": "Detener al agente",
         "autoaccept_desc": "Activar/desactivar auto-aceptar",
         "quota_desc": "Mostrar uso de cuota",
-        "menu_desc": "Actualizar menú de comandos"
+        "menu_desc": "Actualizar menú de comandos",
+        "close_window_desc": "Cerrar ventana actual",
+        "agents_desc": "Listar y cambiar hilos de chat recientes",
+        "artifacts_desc": "Listar artefactos del hilo actual",
+        "window_desc": "Seleccionar ventana IDE"
     },
     "photo": {
         "downloaded": "✅ Archivo descargado y reenviando al agente...",
@@ -152,5 +161,34 @@
         "remaining": " {pct}% restante",
         "empty": " ⛔ AGOTADO"
     },
-    "response_too_long": "⚠️ Respuesta demasiado larga. Usa /latest para ver la versión completa."
+    "response_too_long": "⚠️ Respuesta demasiado larga. Usa /latest para ver la versión completa.",
+    "window": {
+        "not_found": "No se encontraron ventanas IDE. Envía /start_ide primero.",
+        "title": "<b>🔳 Ventanas IDE</b>\n",
+        "current": "Objetivo actual: <i>{{current}}</i>",
+        "auto": "Objetivo: <i>auto (primero disponible)</i>",
+        "found": "Se encontraron {{count}} ventana(s). Toca para seleccionar:",
+        "clear_btn": "🔄 Auto (borrar preferencia)",
+        "error": "Error en lista de ventanas: {{error}}",
+        "cleared_toast": "Borrado — usando auto-detectar",
+        "cleared_msg": "🔄 Preferencia de ventana borrada. El bot auto-detectará la ventana IDE activa.",
+        "expired": "La lista de ventanas ha expirado. Envía /window de nuevo.",
+        "selected_msg": "✅ Ahora apuntando a: <b>{{title}}</b>\n\nTodos los comandos se dirigirán a esta ventana."
+    },
+    "agents": {
+        "list_title": "📂 <b>Hilos de Chat Recientes:</b>\n\n",
+        "switched": "✅ Cambiado al hilo: <b>{name}</b>",
+        "not_found": "❌ No se pudo seleccionar el hilo.",
+        "invalid_number": "❌ Número de hilo inválido.",
+        "no_recent": "ℹ️ No se encontraron hilos activos recientes.",
+        "error": "❌ Error: {error}"
+    },
+    "artifacts": {
+        "list_title": "📎 <b>Artefactos para el Hilo Actual:</b>\n\n",
+        "no_active_thread": "⚠️ No se encontró hilo activo. Por favor, selecciona un hilo en el IDE primero.",
+        "no_artifacts": "ℹ️ No se encontraron artefactos para el hilo actual.",
+        "invalid_number": "❌ Número de artefacto inválido.",
+        "sending": "📤 Enviando artefacto: <b>{name}</b>...",
+        "error": "❌ Error leyendo artefacto: {error}"
+    }
 }

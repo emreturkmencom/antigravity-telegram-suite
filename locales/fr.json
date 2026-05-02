@@ -13,7 +13,9 @@
         "status_title": "👁️ <i>Statut et infos :</i>",
         "status_text": "- /latest → Obtenir la dernière réponse (nettoyée)\n- /screenshot → Prendre une capture d'écran de l'IDE\n- /status → Statut du système (IDE, CDP, PM2)",
         "ide_title": "🛠️ <i>Contrôles de l'IDE :</i>",
-        "ide_text": "- /start_ide → Démarrer l'IDE s'il est fermé\n- /close → Fermer complètement l'IDE\n- /new → Ouvrir un nouveau chat\n- /model → Ouvrir le menu de sélection de modèle\n- /workspace → Changer l'espace de travail du projet\n- /autoaccept → Activer/désactiver l'auto-acceptation\n- /lang → Changer de langue\n- /cmd &lt;commande&gt; → Exécuter une commande terminal\n- /help → Afficher ce message d'aide"
+        "ide_text": "- /start_ide → Démarrer l'IDE s'il est fermé\n- /close → Fermer complètement l'IDE\n- /new → Ouvrir un nouveau chat\n- /model → Ouvrir le menu de sélection de modèle\n- /workspace → Changer l'espace de travail du projet\n- /autoaccept → Activer/désactiver l'auto-acceptation\n- /lang → Changer de langue\n- /cmd &lt;commande&gt; → Exécuter une commande terminal\n- /help → Afficher ce message d'aide",
+        "chat_title": "💬 <i>Contrôles du Chat :</i>",
+        "chat_text": "- /new → Ouvrir une nouvelle discussion\n- /agents → Lister et basculer entre les fils récents\n- /artifacts → Lister les artefacts du fil actuel\n- /model → Ouvrir le menu de sélection de modèle\n- /autoaccept → Activer/désactiver l'auto-acceptation"
     },
     "ide": {
         "already_running": "✅ L'IDE Antigravity est déjà en cours d'exécution !\n💡 Utilisez /close pour le fermer.",
@@ -23,7 +25,10 @@
         "already_closed": "ℹ️ L'IDE est déjà fermé.",
         "closing": "🔄 Fermeture de l'IDE...",
         "closed": "✅ IDE complètement fermé !",
-        "not_installed": "❌ IDE Antigravity introuvable. Veuillez l'installer d'abord."
+        "not_installed": "❌ IDE Antigravity introuvable. Veuillez l'installer d'abord.",
+        "closing_window": "🪟 Fermeture de la fenêtre...",
+        "window_closed": "✅ Fenêtre fermée avec succès.",
+        "window_close_failed": "❌ Échec de la fermeture de la fenêtre. Y a-t-il une fenêtre ouverte ?"
     },
     "status": {
         "title": "📊 <b>Statut du système :</b>\n",
@@ -113,7 +118,11 @@
         "stop_desc": "Arrêter l'agent",
         "autoaccept_desc": "Basculer l'auto-acceptation",
         "quota_desc": "Afficher l'utilisation du quota",
-        "menu_desc": "Mettre à jour le menu"
+        "menu_desc": "Mettre à jour le menu",
+        "close_window_desc": "Fermer la fenêtre actuelle",
+        "agents_desc": "Lister et basculer entre les fils récents",
+        "artifacts_desc": "Lister les artefacts du fil actuel",
+        "window_desc": "Sélectionner une fenêtre IDE"
     },
     "photo": {
         "downloaded": "✅ Fichier téléchargé et transféré...",
@@ -152,5 +161,34 @@
         "remaining": " {pct}% restant",
         "empty": " ⛔ ÉPUISÉ"
     },
-    "response_too_long": "⚠️ Réponse trop longue. Utilisez /latest."
+    "response_too_long": "⚠️ Réponse trop longue. Utilisez /latest.",
+    "window": {
+        "not_found": "Aucune fenêtre IDE trouvée. Envoyez /start_ide d'abord.",
+        "title": "<b>🔳 Fenêtres IDE</b>\n",
+        "current": "Cible actuelle : <i>{{current}}</i>",
+        "auto": "Cible : <i>auto (première disponible)</i>",
+        "found": "{{count}} fenêtre(s) trouvée(s). Appuyez pour sélectionner :",
+        "clear_btn": "🔄 Auto (effacer la préférence)",
+        "error": "Erreur de liste de fenêtres : {{error}}",
+        "cleared_toast": "Effacé — détection automatique",
+        "cleared_msg": "🔄 Préférence de fenêtre effacée. Le bot détectera automatiquement la fenêtre active.",
+        "expired": "La liste des fenêtres a expiré. Envoyez /window à nouveau.",
+        "selected_msg": "✅ Cible actuelle : <b>{{title}}</b>\n\nToutes les commandes seront dirigées vers cette fenêtre."
+    },
+    "agents": {
+        "list_title": "📂 <b>Fils de Discussion Récents :</b>\n\n",
+        "switched": "✅ Basculé vers le fil : <b>{name}</b>",
+        "not_found": "❌ Impossible de sélectionner le fil.",
+        "invalid_number": "❌ Numéro de fil invalide.",
+        "no_recent": "ℹ️ Aucun fil actif récent trouvé.",
+        "error": "❌ Erreur : {error}"
+    },
+    "artifacts": {
+        "list_title": "📎 <b>Artefacts pour le Fil Actuel :</b>\n\n",
+        "no_active_thread": "⚠️ Aucun fil actif trouvé. Veuillez d'abord sélectionner un fil dans l'IDE.",
+        "no_artifacts": "ℹ️ Aucun artefact trouvé pour le fil actuel.",
+        "invalid_number": "❌ Numéro d'artefact invalide.",
+        "sending": "📤 Envoi de l'artefact : <b>{name}</b>...",
+        "error": "❌ Erreur lors de la lecture de l'artefact : {error}"
+    }
 }
