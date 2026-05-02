@@ -464,8 +464,8 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null)
         let candidates;
         try {
             const raw = await resolveTargets(port);
-            // Manager has the active conversation — check it first
-            candidates = prioritizeManager(raw);
+            // resolveTargets already sorts by activeWorkspaceName or preferredTargetId
+            candidates = raw;
         } catch(e) {
             await new Promise(r => setTimeout(r, 3000));
             continue;
@@ -548,10 +548,8 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null)
 async function sendViaCDP(text, port) {
     const candidates = await resolveTargets(port);
     
-    // Prioritize the Manager target — its #antigravity input always belongs
-    // to the active conversation. Workspace targets' side-panel inputs may
-    // be stale from previously-viewed threads.
-    const sortedCandidates = prioritizeManager(candidates);
+    // resolveTargets already sorts candidates properly based on activeWorkspaceName
+    const sortedCandidates = candidates;
 
     const errors = [];
     for (const target of sortedCandidates) {
@@ -695,7 +693,7 @@ async function triggerNewChat(port) {
 async function triggerModelMenu(port) {
     const raw = await resolveTargets(port, false);
     // Manager has the active conversation's model selector
-    const candidates = prioritizeManager(raw);
+    const candidates = raw;
 
     for (const target of candidates) {
         try {
@@ -1000,7 +998,7 @@ async function getActiveThreadId(port) {
 async function isAgentWorking(port) {
     const raw = await resolveTargets(port, false);
     // Manager has the active conversation — check it first
-    const candidates = prioritizeManager(raw);
+    const candidates = raw;
     for (const target of candidates) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
@@ -1118,7 +1116,7 @@ async function captureFullIDEScreenshot(port) {
 async function getAvailableModels(port) {
     const raw = await resolveTargets(port, false);
     // Manager has the active conversation's model selector
-    const candidates = prioritizeManager(raw);
+    const candidates = raw;
 
     for (const target of candidates) {
         try {
@@ -1169,7 +1167,7 @@ async function getAvailableModels(port) {
 async function selectModel(port, modelName) {
     const raw = await resolveTargets(port, false);
     // Manager has the active conversation's model selector
-    const candidates = prioritizeManager(raw);
+    const candidates = raw;
 
     for (const target of candidates) {
         try {
