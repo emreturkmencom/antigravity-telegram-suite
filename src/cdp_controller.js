@@ -742,33 +742,66 @@ async function listAgentThreads(port) {
                 continue;
             }
 
-            // Step 2: Wait for the popup to render, then read conversation items
+            // Step 2: Wait for the popup, then parse section headers + items
             await new Promise(r => setTimeout(r, 800));
             const res = await Runtime.evaluate({
-                expression: `(() => {
-                    const input = document.querySelector('input[placeholder="Select a conversation"]');
-                    if (!input) return JSON.stringify([]);
-                    let container = input;
-                    for (let i = 0; i < 15; i++) { if (container.parentElement) container = container.parentElement; }
-                    const rows = Array.from(container.querySelectorAll('div.cursor-pointer'));
-                    const threads = rows.filter(r => {
-                        return r.classList.contains('px-2.5') || (r.className.includes('px-2.5') && r.className.includes('cursor-pointer'));
-                    }).map(row => {
-                        const nameEl = row.querySelector('span.truncate, span.text-sm span');
-                        const timeEl = row.querySelector('span.opacity-50, span.text-xs');
-                        const name = nameEl ? nameEl.textContent.trim() : row.textContent.trim().replace(/\\d+ \\w+ ago$/, '').trim();
-                        const time = timeEl ? timeEl.textContent.trim() : '';
-                        return { name, time };
-                    }).filter(t => t.name.length > 0);
-                    return JSON.stringify(threads);
-                })()`,
+                expression: `
+                    (() => {
+                        const input = document.querySelector('input[placeholder="Select a conversation"]');
+                        if (!input) return JSON.stringify([]);
+                        let container = input;
+                        for (let i = 0; i < 15; i++) { if (container.parentElement) container = container.parentElement; }
+                        const allDivs = Array.from(container.querySelectorAll('div'));
+                        const sectionHeaders = allDivs.filter(d =>
+                            d.className.includes('opacity-50') &&
+                            d.className.includes('px-2.5') &&
+                            d.className.includes('pt-4') &&
+                            d.childNodes.length === 1 &&
+                            d.childNodes[0].nodeType === 3
+                        );
+                        const rows = allDivs.filter(d =>
+                            d.className.includes('px-2.5') &&
+                            d.className.includes('cursor-pointer') &&
+                            d.querySelector('span')
+                        );
+                        const workspaces = [];
+                        for (const row of rows) {
+                            const nameEl = row.querySelector('span.truncate, span.text-sm span');
+                            const timeEl = row.querySelector('span.text-xs.opacity-50.ml-4');
+                            const wsEl = row.querySelector('span.text-xs.min-w-0.opacity-50.truncate');
+                            const name = nameEl ? nameEl.textContent.trim() : '';
+                            const time = timeEl ? timeEl.textContent.trim() : '';
+                            if (!name || /^show\\s+\\d+\\s+more/i.test(name)) continue;
+                            let section = '';
+                            for (const h of sectionHeaders) {
+                                if (row.compareDocumentPosition(h) & Node.DOCUMENT_POSITION_PRECEDING) {
+                                    section = h.textContent.trim();
+                                }
+                            }
+                            let wsName;
+                            if (section.startsWith('Recent in ')) {
+                                wsName = section.replace('Recent in ', '');
+                            } else if (section === 'Other Conversations' && wsEl) {
+                                wsName = wsEl.textContent.trim();
+                            } else if (section === 'Current') {
+                                const recentHeader = sectionHeaders.find(h => h.textContent.trim().startsWith('Recent in '));
+                                wsName = recentHeader ? recentHeader.textContent.trim().replace('Recent in ', '') : 'Current';
+                            } else {
+                                wsName = 'IDE';
+                            }
+                            let group = workspaces.find(w => w.workspace === wsName);
+                            if (!group) { group = { workspace: wsName, threads: [] }; workspaces.push(group); }
+                            group.threads.push({ name, time });
+                        }
+                        return JSON.stringify(workspaces);
+                    })()
+                `,
                 returnByValue: true
             });
 
-            // Step 3: Close the popup with Escape
+            // Step 3: Close the popup by toggling the history icon
             await Runtime.evaluate({
                 expression: `(() => {
-                    // Close the popup by clicking the history icon again (toggle)
                     const icon = document.querySelector("svg.lucide-history");
                     if (icon) {
                         const btn = icon.closest("button") || icon.parentElement;
@@ -778,11 +811,8 @@ async function listAgentThreads(port) {
             });
 
             await client.close();
-            const threads = JSON.parse(res.result?.value || '[]');
-            if (threads.length > 0) {
-                // Wrap in workspace format for backward compat with index.js
-                return [{ workspace: target.title.split(' - ')[0] || 'IDE', threads }];
-            }
+            const workspaces = JSON.parse(res.result?.value || '[]');
+            if (workspaces.length > 0) return workspaces;
         } catch(e) { console.debug(`[listAgentThreads] target error: ${e.message}`); }
     }
     return [];
