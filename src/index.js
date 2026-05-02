@@ -438,19 +438,9 @@ bot.command('agents', async (ctx) => {
         
         for (const ws of workspaces) {
             const recentThreads = ws.threads.filter(th => {
-                const time = th.time ? th.time.toLowerCase().trim() : '';
-                if (!time) return true; // If no time info, include it
-                // Match short format: 'now', '5m', '2h', '1d', '2d'
-                if (time === 'now') return true;
-                if (/^\d+[mh]$/.test(time)) return true;
-                if (/^[12]d$/.test(time)) return true;
-                // Match popup format: '2 mins ago', '4 days ago', etc.
-                if (/^\d+\s*(min|hour|day)s?\s*ago$/.test(time)) {
-                    const days = time.match(/(\d+)\s*day/);
-                    if (days && parseInt(days[1]) > 2) return false;
-                    return true;
-                }
-                return false;
+                // Skip the "Show N more..." load-more button
+                if (/^show\s+\d+\s+more/i.test(th.name)) return false;
+                return true;
             });
             
             if (recentThreads.length > 0) {
