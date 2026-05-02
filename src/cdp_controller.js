@@ -796,7 +796,37 @@ async function switchAgentThread(port, threadName) {
                 returnByValue: true
             });
             await client.close();
-            if (res.result?.value) return true;
+            if (res.result?.value) {
+                // Step 4: Handle "Select where to open the conversation" popup
+                // When selecting a thread from a different workspace, the IDE shows
+                // a quickpick asking where to open it. We prefer "Open in workspace".
+                await new Promise(r => setTimeout(r, 500));
+                try {
+                    const client2 = await CDP({ target: target.webSocketDebuggerUrl });
+                    const { Runtime: Runtime2 } = client2;
+                    await Runtime2.enable();
+                    await Runtime2.evaluate({
+                        expression: `(() => {
+                            // Look for the quickpick popup with workspace options
+                            const items = Array.from(document.querySelectorAll('[role="option"], .quick-input-list-entry, .monaco-list-row'));
+                            const wsOption = items.find(el => {
+                                const text = (el.textContent || '').toLowerCase();
+                                return text.includes('open in workspace') || text.includes('workspace:');
+                            });
+                            if (wsOption) { wsOption.click(); return true; }
+                            // If no workspace option, try "Open in current window"
+                            const currentOption = items.find(el => {
+                                const text = (el.textContent || '').toLowerCase();
+                                return text.includes('open in current window') || text.includes('current window');
+                            });
+                            if (currentOption) { currentOption.click(); return true; }
+                            return false;
+                        })()`
+                    });
+                    await client2.close();
+                } catch(_) { /* popup may not appear for same-workspace threads */ }
+                return true;
+            }
         } catch(e) { console.debug(`[switchAgentThread] error: ${e.message}`); }
     }
     return false;
