@@ -106,10 +106,10 @@ const UI_LOCATORS_SCRIPT = `
         getNewChatButton: () => {
             const svgPath = document.querySelector('path[d="M12 4.5v15m7.5-7.5h-15"]');
             if (svgPath) {
-                const btn = svgPath.closest('button');
+                const btn = svgPath.closest('button, a, [role="button"]');
                 if (btn) return btn;
             }
-            return document.querySelector('[aria-label*="New Chat" i], [title*="New Chat" i], [aria-label*="Yeni Sohbet" i], [class*="new-chat"], [aria-label*="New Task" i], [title*="New Task" i]') || null;
+            return document.querySelector('[aria-label*="New Chat" i], [title*="New Chat" i], [aria-label*="Yeni Sohbet" i], [class*="new-chat"], [aria-label*="New Task" i], [title*="New Task" i], [data-tooltip-id*="new-conversation" i]') || null;
         },
 
         /**
