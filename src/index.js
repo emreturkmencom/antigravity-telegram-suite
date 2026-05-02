@@ -1200,6 +1200,46 @@ bot.command('menu', async (ctx) => {
     ctx.reply(t('menu.updated'));
 });
 
+// ===== UPDATE & VERSION =====
+
+bot.command('version', async (ctx) => {
+    const local = updater.getLocalVersion();
+    ctx.reply(
+        `📦 <b>Antigravity Telegram Suite</b>\n\n` +
+        `Version: <code>v${local.version}</code>\n` +
+        `Commit: <code>${local.commitHash}</code>`,
+        { parse_mode: 'HTML' }
+    );
+});
+
+bot.command('update', async (ctx) => {
+    ctx.reply('🔍 Güncellemeler kontrol ediliyor...');
+    try {
+        const result = await updater.checkForUpdates();
+        if (!result.available) {
+            ctx.reply(
+                `✅ Güncelsiniz!\n\nv${result.localVersion} (${result.localCommit})`,
+                { parse_mode: 'HTML' }
+            );
+            return;
+        }
+        ctx.reply(
+            `🔄 <b>Güncelleme Mevcut!</b>\n\n` +
+            `Mevcut: v${result.localVersion} (${result.localCommit})\n` +
+            `Yeni: v${result.remoteVersion} (${result.remoteCommit})\n\n` +
+            `Güncelleniyor...`,
+            { parse_mode: 'HTML' }
+        );
+        const updateResult = await updater.performUpdate();
+        if (!updateResult.updated) {
+            ctx.reply(`ℹ️ ${updateResult.message}`);
+        }
+        // If update succeeded, bot will restart and this code won't execute
+    } catch(e) {
+        ctx.reply(`❌ Güncelleme hatası: ${e.message}`);
+    }
+});
+
 // ===== TEXT MESSAGE HANDLER (Headless mode) =====
 
 bot.on('text', (ctx) => {
@@ -1294,46 +1334,6 @@ bot.on(['photo', 'document'], (ctx) => {
             ctx.reply(t('photo.error', { error: errorMsg })).catch(() => {});
         }
     })();
-});
-
-// ===== UPDATE & VERSION =====
-
-bot.command('version', async (ctx) => {
-    const local = updater.getLocalVersion();
-    ctx.reply(
-        `📦 <b>Antigravity Telegram Suite</b>\n\n` +
-        `Version: <code>v${local.version}</code>\n` +
-        `Commit: <code>${local.commitHash}</code>`,
-        { parse_mode: 'HTML' }
-    );
-});
-
-bot.command('update', async (ctx) => {
-    ctx.reply('🔍 Güncellemeler kontrol ediliyor...');
-    try {
-        const result = await updater.checkForUpdates();
-        if (!result.available) {
-            ctx.reply(
-                `✅ Güncelsiniz!\n\nv${result.localVersion} (${result.localCommit})`,
-                { parse_mode: 'HTML' }
-            );
-            return;
-        }
-        ctx.reply(
-            `🔄 <b>Güncelleme Mevcut!</b>\n\n` +
-            `Mevcut: v${result.localVersion} (${result.localCommit})\n` +
-            `Yeni: v${result.remoteVersion} (${result.remoteCommit})\n\n` +
-            `Güncelleniyor...`,
-            { parse_mode: 'HTML' }
-        );
-        const updateResult = await updater.performUpdate();
-        if (!updateResult.updated) {
-            ctx.reply(`ℹ️ ${updateResult.message}`);
-        }
-        // If update succeeded, bot will restart and this code won't execute
-    } catch(e) {
-        ctx.reply(`❌ Güncelleme hatası: ${e.message}`);
-    }
 });
 
 // ===== LAUNCH =====
