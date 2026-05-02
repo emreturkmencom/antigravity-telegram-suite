@@ -118,6 +118,8 @@
         "stop_desc": "Arrêter l'agent",
         "autoaccept_desc": "Basculer l'auto-acceptation",
         "quota_desc": "Afficher l'utilisation du quota",
+        "update_desc": "Vérifier les mises à jour",
+        "version_desc": "Afficher la version actuelle",
         "menu_desc": "Mettre à jour le menu",
         "close_window_desc": "Fermer la fenêtre actuelle",
         "agents_desc": "Lister et basculer entre les fils récents",

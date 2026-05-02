@@ -118,6 +118,8 @@
         "stop_desc": "Detener al agente",
         "autoaccept_desc": "Activar/desactivar auto-aceptar",
         "quota_desc": "Mostrar uso de cuota",
+        "update_desc": "Buscar actualizaciones y actualizar auto.",
+        "version_desc": "Mostrar versión actual",
         "menu_desc": "Actualizar menú de comandos",
         "close_window_desc": "Cerrar ventana actual",
         "agents_desc": "Listar y cambiar hilos de chat recientes",
