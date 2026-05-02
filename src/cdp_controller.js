@@ -720,29 +720,71 @@ async function triggerModelMenu(port) {
 }
 
 async function listAgentThreads(port) {
+    // --- Strategy 1: Agent Manager convo-pill approach (achshar's design) ---
     const candidates = await resolveTargets(port, false);
+    const managerCandidates = prioritizeManager(candidates);
+    for (const target of managerCandidates) {
+        try {
+            const client = await CDP({ target: target.webSocketDebuggerUrl });
+            const { Runtime } = client;
+            await Runtime.enable();
+            const res = await Runtime.evaluate({
+                expression: `
+                    ${UI_LOCATORS_SCRIPT}
+                    (() => {
+                        const workspaces = [];
+                        const cards = AG_UI.getWorkspaceCards();
+                        cards.forEach(card => {
+                            const wsNameEl = card.querySelector('span.truncate');
+                            if (!wsNameEl) return;
+                            const wsName = wsNameEl.textContent.trim();
+                            const threads = [];
+                            const sibling = card.nextElementSibling;
+                            if (sibling) {
+                                const pills = AG_UI.getChatThreadPills(sibling);
+                                pills.forEach(pill => {
+                                    const name = pill.textContent.trim();
+                                    const id = pill.getAttribute('data-testid').replace('convo-pill-', '');
+                                    const row = pill.closest('[role="button"]');
+                                    let time = '';
+                                    if (row) {
+                                        const timeEl = row.querySelector('.text-xs.opacity-50');
+                                        if (timeEl) time = timeEl.textContent.trim();
+                                    }
+                                    threads.push({ name, id, time });
+                                });
+                            }
+                            if (threads.length > 0) {
+                                workspaces.push({ workspace: wsName, threads });
+                            }
+                        });
+                        return workspaces;
+                    })()
+                `,
+                returnByValue: true
+            });
+            await client.close();
+            if (res.result?.value && res.result.value.length > 0) {
+                return res.result.value;
+            }
+        } catch(e) { console.debug(`[listAgentThreads] manager error: ${e.message}`); }
+    }
+
+    // --- Strategy 2: History popup fallback (code editor) ---
     for (const target of candidates) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
             const { Runtime } = client;
             await Runtime.enable();
-
-            // Step 1: Click the history icon to open the conversation picker
             const clickRes = await Runtime.evaluate({
                 expression: `(() => {
                     const icon = document.querySelector("svg.lucide-history");
                     if (!icon) return false;
-                    const btn = icon.closest("button") || icon.parentElement;
-                    btn.click();
+                    (icon.closest("button") || icon.parentElement).click();
                     return true;
                 })()`
             });
-            if (!clickRes.result?.value) {
-                await client.close();
-                continue;
-            }
-
-            // Step 2: Wait for the popup, then parse section headers + items
+            if (!clickRes.result?.value) { await client.close(); continue; }
             await new Promise(r => setTimeout(r, 800));
             const res = await Runtime.evaluate({
                 expression: `
@@ -784,8 +826,8 @@ async function listAgentThreads(port) {
                             } else if (section === 'Other Conversations' && wsEl) {
                                 wsName = wsEl.textContent.trim();
                             } else if (section === 'Current') {
-                                const recentHeader = sectionHeaders.find(h => h.textContent.trim().startsWith('Recent in '));
-                                wsName = recentHeader ? recentHeader.textContent.trim().replace('Recent in ', '') : 'Current';
+                                const rh = sectionHeaders.find(h => h.textContent.trim().startsWith('Recent in '));
+                                wsName = rh ? rh.textContent.trim().replace('Recent in ', '') : 'Current';
                             } else {
                                 wsName = 'IDE';
                             }
@@ -798,22 +840,17 @@ async function listAgentThreads(port) {
                 `,
                 returnByValue: true
             });
-
-            // Step 3: Close the popup by toggling the history icon
+            // Close popup
             await Runtime.evaluate({
                 expression: `(() => {
                     const icon = document.querySelector("svg.lucide-history");
-                    if (icon) {
-                        const btn = icon.closest("button") || icon.parentElement;
-                        btn.click();
-                    }
+                    if (icon) (icon.closest("button") || icon.parentElement).click();
                 })()`
             });
-
             await client.close();
             const workspaces = JSON.parse(res.result?.value || '[]');
             if (workspaces.length > 0) return workspaces;
-        } catch(e) { console.debug(`[listAgentThreads] target error: ${e.message}`); }
+        } catch(e) { console.debug(`[listAgentThreads] popup error: ${e.message}`); }
     }
     return [];
 }
@@ -822,38 +859,64 @@ function setActiveWorkspace(name) {
     activeWorkspaceName = name ? name.toLowerCase() : null;
 }
 
-async function switchAgentThread(port, threadName, workspaceName) {
+async function switchAgentThread(port, threadIdOrName, workspaceName) {
     const candidates = await resolveTargets(port, false);
+
+    // --- Strategy 1: Agent Manager convo-pill click ---
+    const managerCandidates = prioritizeManager(candidates);
+    for (const target of managerCandidates) {
+        try {
+            const client = await CDP({ target: target.webSocketDebuggerUrl });
+            const { Runtime } = client;
+            await Runtime.enable();
+            const res = await Runtime.evaluate({
+                expression: `
+                    (() => {
+                        // Try by convo-pill ID first
+                        let pill = document.querySelector('[data-testid="convo-pill-' + ${JSON.stringify(threadIdOrName)} + '"]');
+                        // If not found by ID, try by name
+                        if (!pill) {
+                            const allPills = Array.from(document.querySelectorAll('[data-testid^="convo-pill-"]'));
+                            pill = allPills.find(p => p.textContent.trim() === ${JSON.stringify(threadIdOrName)});
+                        }
+                        if (pill) {
+                            const btn = pill.closest('[role="button"]');
+                            if (btn && typeof btn.click === 'function') {
+                                btn.click();
+                                return true;
+                            }
+                        }
+                        return false;
+                    })()
+                `,
+                returnByValue: true
+            });
+            await client.close();
+            if (res.result?.value) {
+                if (workspaceName) activeWorkspaceName = workspaceName.toLowerCase();
+                return true;
+            }
+        } catch(e) { console.debug(`[switchAgentThread] manager error: ${e.message}`); }
+    }
+
+    // --- Strategy 2: History popup fallback ---
     for (const target of candidates) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
             const { Runtime } = client;
             await Runtime.enable();
-
-            // Step 1: Ensure the history popup is open
-            // Check if it's already open first; if not, click the icon
             const openRes = await Runtime.evaluate({
                 expression: `(() => {
                     const existing = document.querySelector('input[placeholder="Select a conversation"]');
                     if (existing) return "already-open";
                     const icon = document.querySelector("svg.lucide-history");
                     if (!icon) return "no-icon";
-                    const btn = icon.closest("button") || icon.parentElement;
-                    btn.click();
+                    (icon.closest("button") || icon.parentElement).click();
                     return "opened";
                 })()`
             });
             if (openRes.result?.value === 'no-icon') { await client.close(); continue; }
-
-            // Step 2: Wait for popup to render (skip if already open)
-            if (openRes.result?.value === 'opened') {
-                await new Promise(r => setTimeout(r, 800));
-            } else {
-                await new Promise(r => setTimeout(r, 200));
-            }
-
-            // Step 3: Find and click the matching conversation row
-            const threadNameStr = JSON.stringify(threadName);
+            await new Promise(r => setTimeout(r, openRes.result?.value === 'opened' ? 800 : 200));
             const res = await Runtime.evaluate({
                 expression: `(() => {
                     const input = document.querySelector('input[placeholder="Select a conversation"]');
@@ -864,7 +927,7 @@ async function switchAgentThread(port, threadName, workspaceName) {
                     const target = rows.find(row => {
                         const nameEl = row.querySelector('span.truncate, span.text-sm span');
                         const name = nameEl ? nameEl.textContent.trim() : '';
-                        return name === ${threadNameStr};
+                        return name === ${JSON.stringify(threadIdOrName)};
                     });
                     if (target) { target.click(); return true; }
                     return false;
@@ -873,13 +936,10 @@ async function switchAgentThread(port, threadName, workspaceName) {
             });
             await client.close();
             if (res.result?.value) {
-                // Update active workspace so sendViaCDP targets the right window
-                if (workspaceName) {
-                    activeWorkspaceName = workspaceName.toLowerCase();
-                }
+                if (workspaceName) activeWorkspaceName = workspaceName.toLowerCase();
                 return true;
             }
-        } catch(e) { console.debug(`[switchAgentThread] target error: ${e.message}`); }
+        } catch(e) { console.debug(`[switchAgentThread] popup error: ${e.message}`); }
     }
     return false;
 }
