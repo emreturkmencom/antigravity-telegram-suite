@@ -768,9 +768,11 @@ async function listAgentThreads(port) {
             // Step 3: Close the popup with Escape
             await Runtime.evaluate({
                 expression: `(() => {
-                    const input = document.querySelector('input[placeholder="Select a conversation"]');
-                    if (input) {
-                        input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+                    // Close the popup by clicking the history icon again (toggle)
+                    const icon = document.querySelector("svg.lucide-history");
+                    if (icon) {
+                        const btn = icon.closest("button") || icon.parentElement;
+                        btn.click();
                     }
                 })()`
             });
@@ -794,20 +796,29 @@ async function switchAgentThread(port, threadName) {
             const { Runtime } = client;
             await Runtime.enable();
 
-            // Step 1: Click the history icon
-            const clickRes = await Runtime.evaluate({
+            // Step 1: Ensure the history popup is open
+            // Check if it's already open first; if not, click the icon
+            const openRes = await Runtime.evaluate({
                 expression: `(() => {
+                    const existing = document.querySelector('input[placeholder="Select a conversation"]');
+                    if (existing) return "already-open";
                     const icon = document.querySelector("svg.lucide-history");
-                    if (!icon) return false;
+                    if (!icon) return "no-icon";
                     const btn = icon.closest("button") || icon.parentElement;
                     btn.click();
-                    return true;
+                    return "opened";
                 })()`
             });
-            if (!clickRes.result?.value) { await client.close(); continue; }
+            if (openRes.result?.value === 'no-icon') { await client.close(); continue; }
 
-            // Step 2: Wait for popup, then click the matching conversation row
-            await new Promise(r => setTimeout(r, 800));
+            // Step 2: Wait for popup to render (skip if already open)
+            if (openRes.result?.value === 'opened') {
+                await new Promise(r => setTimeout(r, 800));
+            } else {
+                await new Promise(r => setTimeout(r, 200));
+            }
+
+            // Step 3: Find and click the matching conversation row
             const threadNameStr = JSON.stringify(threadName);
             const res = await Runtime.evaluate({
                 expression: `(() => {
