@@ -93,7 +93,7 @@ function buildObserverScript() {
     var ALLOWED_COMMANDS = ${JSON.stringify(allowedCommands)};
     var HAS_FILTERS = BLOCKED_COMMANDS.length > 0 || ALLOWED_COMMANDS.length > 0;
 
-    window.__AA_BOT_CLICK_COUNT = 0;
+    window.__AA_BOT_CLICK_COUNT = window.__AA_BOT_CLICK_COUNT || 0;
     window.__AA_BOT_CLICK_LOG = window.__AA_BOT_CLICK_LOG || [];
     window.__AA_BOT_PAUSED = false;
     window.__AA_BOT_LAST_SCAN = Date.now();

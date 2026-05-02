@@ -97,6 +97,19 @@ async function resolveTargets(port, includeIframe = true) {
 }
 
 /**
+ * Sort candidates so the Manager target comes first.
+ * Manager holds the active conversation state, so it's the most reliable
+ * target for model selection, chat input, and status checks.
+ */
+function prioritizeManager(candidates) {
+    return [...candidates].sort((a, b) => {
+        if (a.title === 'Manager') return -1;
+        if (b.title === 'Manager') return 1;
+        return 0;
+    });
+}
+
+/**
  * List all available IDE windows for the /window command.
  */
 async function listWindows(port) {
@@ -213,12 +226,12 @@ function httpGet(url) {
  * Snapshot the current chat state so subsequent getLatestAgentResponse
  * calls only return text that appeared AFTER this snapshot.
  */
-// Track the last step_index we've seen for file-based diffing
-let lastSeenStepIndex = -1;
+// Track the last seen file size for file-based diffing
+let lastSnapshotFileSize = 0;
 
 /**
  * Snapshot the current chat state for diff tracking.
- * Now simply records the last step_index from the active thread's log file.
+ * Records the file size of the active thread's log file.
  */
 async function snapshotChatState(port) {
     try {
@@ -236,17 +249,9 @@ async function snapshotChatState(port) {
         const tail = buf.toString('utf8');
         const lines = tail.split('\n').filter(l => l.trim());
         
-        // Find the highest step_index
-        for (let i = lines.length - 1; i >= 0; i--) {
-            try {
-                const entry = JSON.parse(lines[i]);
-                if (entry.step_index !== undefined) {
-                    lastSeenStepIndex = entry.step_index;
-                    console.log(`[snapshot] Anchored at step_index ${lastSeenStepIndex}`);
-                    return;
-                }
-            } catch (_) {}
-        }
+        lastSnapshotFileSize = stats.size;
+        console.log(`[snapshot] Anchored at file size ${lastSnapshotFileSize}`);
+        return;
     } catch (e) {
         console.log('[snapshot] File-based snapshot failed:', e.message);
     }
@@ -460,11 +465,7 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null)
         try {
             const raw = await resolveTargets(port);
             // Manager has the active conversation — check it first
-            candidates = [...raw].sort((a, b) => {
-                if (a.title === 'Manager') return -1;
-                if (b.title === 'Manager') return 1;
-                return 0;
-            });
+            candidates = prioritizeManager(raw);
         } catch(e) {
             await new Promise(r => setTimeout(r, 3000));
             continue;
@@ -516,7 +517,7 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null)
                     if (val.isIdle && !val.isGenerating) isIdle = true;
                     break;
                 }
-            } catch(e) {}
+            } catch(e) { console.debug(`[waitForAgent] target ${target.title}: ${e.message}`); }
         }
         
         if (foundChat) {
@@ -550,11 +551,7 @@ async function sendViaCDP(text, port) {
     // Prioritize the Manager target — its #antigravity input always belongs
     // to the active conversation. Workspace targets' side-panel inputs may
     // be stale from previously-viewed threads.
-    const sortedCandidates = [...candidates].sort((a, b) => {
-        if (a.title === 'Manager') return -1;
-        if (b.title === 'Manager') return 1;
-        return 0;
-    });
+    const sortedCandidates = prioritizeManager(candidates);
 
     const errors = [];
     for (const target of sortedCandidates) {
@@ -698,11 +695,7 @@ async function triggerNewChat(port) {
 async function triggerModelMenu(port) {
     const raw = await resolveTargets(port, false);
     // Manager has the active conversation's model selector
-    const candidates = [...raw].sort((a, b) => {
-        if (a.title === 'Manager') return -1;
-        if (b.title === 'Manager') return 1;
-        return 0;
-    });
+    const candidates = prioritizeManager(raw);
 
     for (const target of candidates) {
         try {
@@ -773,7 +766,7 @@ async function listAgentThreads(port) {
             if (res.result?.value && res.result.value.length > 0) {
                 return res.result.value;
             }
-        } catch(e) {}
+        } catch(e) { console.debug(`[listAgentThreads] target error: ${e.message}`); }
     }
     return [];
 }
@@ -803,7 +796,7 @@ async function switchAgentThread(port, threadId) {
             });
             await client.close();
             if (res.result?.value) return true;
-        } catch(e) {}
+        } catch(e) { console.debug(`[switchAgentThread] target error: ${e.message}`); }
     }
     return false;
 }
@@ -832,18 +825,14 @@ async function getActiveThreadId(port) {
             });
             await client.close();
             if (res.result?.value) return res.result.value;
-        } catch(e) {}
+        } catch(e) { console.debug(`[getActiveThreadId] target error: ${e.message}`); }
     }
     return null;
 }
 async function isAgentWorking(port) {
     const raw = await resolveTargets(port, false);
     // Manager has the active conversation — check it first
-    const candidates = [...raw].sort((a, b) => {
-        if (a.title === 'Manager') return -1;
-        if (b.title === 'Manager') return 1;
-        return 0;
-    });
+    const candidates = prioritizeManager(raw);
     for (const target of candidates) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
@@ -878,7 +867,7 @@ async function isAgentWorking(port) {
             if (check && check.result && check.result.value !== undefined) {
                 return check.result.value;
             }
-        } catch(e) {}
+        } catch(e) { console.debug(`[isAgentWorking] target error: ${e.message}`); }
     }
     return false;
 }
@@ -960,11 +949,7 @@ async function captureFullIDEScreenshot(port) {
 async function getAvailableModels(port) {
     const raw = await resolveTargets(port, false);
     // Manager has the active conversation's model selector
-    const candidates = [...raw].sort((a, b) => {
-        if (a.title === 'Manager') return -1;
-        if (b.title === 'Manager') return 1;
-        return 0;
-    });
+    const candidates = prioritizeManager(raw);
 
     for (const target of candidates) {
         try {
@@ -1015,11 +1000,7 @@ async function getAvailableModels(port) {
 async function selectModel(port, modelName) {
     const raw = await resolveTargets(port, false);
     // Manager has the active conversation's model selector
-    const candidates = [...raw].sort((a, b) => {
-        if (a.title === 'Manager') return -1;
-        if (b.title === 'Manager') return 1;
-        return 0;
-    });
+    const candidates = prioritizeManager(raw);
 
     for (const target of candidates) {
         try {

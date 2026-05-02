@@ -19,10 +19,16 @@ loadLocale(lang);
 // ===== SECURITY: ALLOWED_CHAT_ID is mandatory =====
 const ALLOWED_CHAT_ID = process.env.ALLOWED_CHAT_ID;
 if (!ALLOWED_CHAT_ID) {
-    console.error('\n❌ SECURITY ERROR: ALLOWED_CHAT_ID is required.\n');
-    console.error('Set ALLOWED_CHAT_ID in your .env file to your Telegram chat ID.');
-    console.error('Send /start to your bot to discover your chat ID.\n');
-    // process.exit(1);
+    if (process.env.SETUP_MODE === 'true') {
+        console.warn('\n⚠️  SETUP MODE: Bot is running without ALLOWED_CHAT_ID.');
+        console.warn('Send /start to your bot to discover your chat ID.\n');
+    } else {
+        console.error('\n❌ SECURITY ERROR: ALLOWED_CHAT_ID is required.\n');
+        console.error('Set ALLOWED_CHAT_ID in your .env file to your Telegram chat ID.');
+        console.error('Send /start to your bot to discover your chat ID.');
+        console.error('Tip: Set SETUP_MODE=true in .env to run without ALLOWED_CHAT_ID during initial setup.\n');
+        process.exit(1);
+    }
 }
 
 const bot = new Telegraf(process.env.BOT_TOKEN, { handlerTimeout: 900000 }); // 15 minutes timeout to allow long /ask requests
@@ -432,12 +438,12 @@ bot.command('agents', async (ctx) => {
         
         for (const ws of workspaces) {
             const recentThreads = ws.threads.filter(th => {
-                const time = th.time ? th.time.toLowerCase() : '';
+                const time = th.time ? th.time.toLowerCase().trim() : '';
                 if (!time) return false;
-                if (time === 'now' || time.includes('m') || time.includes('h') || time === '1d' || time === '2d') {
-                    if (time.includes('mo')) return false;
-                    return true;
-                }
+                // Match: 'now', '5m', '2h', '1d', '2d' but NOT '3mo', '1y' etc.
+                if (time === 'now') return true;
+                if (/^\d+[mh]$/.test(time)) return true;
+                if (/^[12]d$/.test(time)) return true;
                 return false;
             });
             
@@ -499,6 +505,17 @@ bot.command('artifacts', async (ctx) => {
             }
             if (name.endsWith('.md') || name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.webp') || name.endsWith('.mp4') || name.endsWith('.mov')) {
                 cachedArtifacts.push({ name, path: path.join(artifactsDir, name) });
+            }
+        }
+
+        // Also scan the scratch/ subdirectory for temporary files
+        const scratchDir = path.join(artifactsDir, 'scratch');
+        if (fs.existsSync(scratchDir)) {
+            const scratchItems = fs.readdirSync(scratchDir, { withFileTypes: true });
+            for (const item of scratchItems) {
+                if (item.isDirectory()) continue;
+                const name = item.name;
+                cachedArtifacts.push({ name: `scratch/${name}`, path: path.join(scratchDir, name) });
             }
         }
 
