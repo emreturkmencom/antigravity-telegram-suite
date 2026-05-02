@@ -93,7 +93,7 @@ function buildObserverScript() {
     var ALLOWED_COMMANDS = ${JSON.stringify(allowedCommands)};
     var HAS_FILTERS = BLOCKED_COMMANDS.length > 0 || ALLOWED_COMMANDS.length > 0;
 
-    window.__AA_BOT_CLICK_COUNT = window.__AA_BOT_CLICK_COUNT || 0;
+    window.__AA_BOT_CLICK_COUNT = 0;
     window.__AA_BOT_CLICK_LOG = window.__AA_BOT_CLICK_LOG || [];
     window.__AA_BOT_PAUSED = false;
     window.__AA_BOT_LAST_SCAN = Date.now();
@@ -511,8 +511,35 @@ async function disable(port) {
         heartbeatTimer = null;
     }
 
-    // Kill our observer in all targets
+    // Final click harvest — capture any clicks that occurred since the last heartbeat
     const targets = await resolveTargets(port, true).catch(() => []);
+    for (const target of targets) {
+        if (!injectedTargets.has(target.id)) continue;
+        try {
+            const health = await cdpEval(target.webSocketDebuggerUrl, `
+                (function() {
+                    return {
+                        clicks: window.__AA_BOT_CLICK_COUNT || 0,
+                        log: (window.__AA_BOT_CLICK_LOG || []).slice(-5)
+                    };
+                })()
+            `);
+            if (health && health.clicks > sessionClicks) {
+                const delta = health.clicks - sessionClicks;
+                totalClicks += delta;
+                sessionClicks = health.clicks;
+            }
+            if (health && health.log) {
+                for (const cl of health.log) {
+                    console.log(`[autoaccept] CLICK (final harvest): ${cl.text} (${cl.tag})`);
+                    lastClickText = cl.text;
+                    lastClickTime = cl.time || Date.now();
+                }
+            }
+        } catch (_) {}
+    }
+
+    // Kill our observer in all targets
     for (const target of targets) {
         try {
             await cdpEval(target.webSocketDebuggerUrl, `

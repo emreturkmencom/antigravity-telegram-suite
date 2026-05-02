@@ -13,7 +13,9 @@
     "status_title": "👁️ <i>Status &amp; Info:</i>",
     "status_text": "- /latest → Get latest response (cleaned)\n- /screenshot → Take IDE screenshot\n- /status → System status (IDE, CDP, PM2)",
     "ide_title": "🛠️ <i>IDE Controls:</i>",
-    "ide_text": "- /start_ide → Start the IDE if closed\n- /close → Fully close the IDE (kill process + clean locks)\n- /new → Open a new chat\n- /model → Open model selection menu\n- /workspace → Switch project workspace\n- /window → Select active IDE window\n- /autoaccept → Toggle auto-accept on/off\n- /lang → Switch language\n- /cmd &lt;command&gt; → Run a terminal command\n- /help → Show this help message"
+    "ide_text": "- /start_ide → Start the IDE if closed\n- /close → Fully close the IDE (kill process + clean locks)\n- /workspace → Switch project workspace\n- /window → Select active IDE window\n- /lang → Switch language\n- /cmd &lt;command&gt; → Run a terminal command\n- /help → Show this help message",
+    "chat_title": "💬 <i>Chat Controls:</i>",
+    "chat_text": "- /new → Open a new chat\n- /agents → List and switch recent chat threads\n- /artifacts → List artifacts of current thread\n- /model → Open model selection menu\n- /autoaccept → Toggle auto-accept on/off"
   },
   "ide": {
     "already_running": "✅ Antigravity IDE is already running! No need to open another window.\n💡 Use /close to shut it down.",
@@ -109,6 +111,8 @@
     "close_desc": "Close entire IDE",
     "close_window_desc": "Close current window",
     "new_desc": "Open new chat",
+    "agents_desc": "List and switch recent chat threads",
+    "artifacts_desc": "List artifacts of current thread",
     "model_desc": "Open model selection menu",
     "workspace_desc": "Switch project",
     "lang_desc": "Switch language",
@@ -169,7 +173,22 @@
     "cleared_toast": "Cleared — using auto-detect",
     "cleared_msg": "🔄 Window preference cleared. Bot will auto-detect the active IDE window.",
     "expired": "Window list expired. Send /window again.",
-    "selected_toast": "Selected: {{title}}",
     "selected_msg": "✅ Now targeting: <b>{{title}}</b>\n\nAll commands will route to this window."
+  },
+  "agents": {
+    "list_title": "📂 <b>Recent Chat Threads:</b>\n\n",
+    "switched": "✅ Switched to thread: <b>{name}</b>",
+    "not_found": "❌ Thread could not be selected.",
+    "invalid_number": "❌ Invalid thread number.",
+    "no_recent": "ℹ️ No recent active threads found.",
+    "error": "❌ Error: {error}"
+  },
+  "artifacts": {
+    "list_title": "📎 <b>Artifacts for Current Thread:</b>\n\n",
+    "no_active_thread": "⚠️ No active thread found. Please select a thread in the IDE first.",
+    "no_artifacts": "ℹ️ No artifacts found for the current thread.",
+    "invalid_number": "❌ Invalid artifact number.",
+    "sending": "📤 Sending artifact: <b>{name}</b>...",
+    "error": "❌ Error reading artifact: {error}"
   }
 }

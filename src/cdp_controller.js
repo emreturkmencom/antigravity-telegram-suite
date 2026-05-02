@@ -1,5 +1,8 @@
 const CDP = require('chrome-remote-interface');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
 // Store the previous full chat state to filter out old messages
 let globalLastChatState = "";
@@ -18,6 +21,11 @@ let windowCache = [];
  * @param {boolean} includeIframe - whether to include iframe/webview types
  * @returns {Promise<Array>} sorted array of CDP target objects
  */
+const { UI_LOCATORS_SCRIPT } = require('./ui_locators');
+
+// Cache for the active workspace name, refreshed on each resolveTargets call
+let activeWorkspaceName = null;
+
 async function resolveTargets(port, includeIframe = true) {
     const raw = await httpGet(`http://127.0.0.1:${port}/json`);
     const targets = JSON.parse(raw);
@@ -29,16 +37,60 @@ async function resolveTargets(port, includeIframe = true) {
         !t.url.includes('devtools://') &&
         !(t.title && t.title.includes('Launchpad')));
 
+    // Query the Manager target's top bar for the active workspace name.
+    // The Manager renders a breadcrumb like "workspace-name / Thread Title"
+    // in the header bar, making it trivial to extract the active workspace.
+    try {
+        const manager = candidates.find(t => t.title === 'Manager');
+        if (manager) {
+            const client = await CDP({ target: manager.webSocketDebuggerUrl });
+            const { Runtime } = client;
+            await Runtime.enable();
+            const res = await Runtime.evaluate({
+                expression: `
+                    (() => {
+                        // Find top-bar elements (y < 40px, narrow height, wide)
+                        const topEls = Array.from(document.querySelectorAll('div')).filter(el => {
+                            const r = el.getBoundingClientRect();
+                            return r.y >= 0 && r.y < 40 && r.height < 50 && r.height > 20 && r.width > 200;
+                        });
+                        for (const el of topEls) {
+                            const text = el.innerText.replace(/\\n/g, ' ').trim();
+                            // Match the breadcrumb format: "... workspace-name / Thread Title ..."
+                            // Strip leading icon text (arrow_back, arrow_forward, dock_to_right)
+                            const cleaned = text.replace(/^(arrow_back|arrow_forward|dock_to_right|\\s)+/g, '').trim();
+                            const slashIdx = cleaned.indexOf(' / ');
+                            if (slashIdx > 0) {
+                                return cleaned.substring(0, slashIdx).trim();
+                            }
+                        }
+                        return null;
+                    })()
+                `,
+                returnByValue: true
+            });
+            await client.close();
+            if (res.result?.value) {
+                activeWorkspaceName = res.result.value.toLowerCase();
+            }
+        }
+    } catch (_) {
+        // Non-critical — if we can't query the Manager, we just keep the last cached value
+    }
+
     candidates.sort((a, b) => {
-        // Preferred target by ID always wins
+        // Preferred target by ID always wins (set via /window command)
         if (preferredTargetId) {
             if (a.id === preferredTargetId) return -1;
             if (b.id === preferredTargetId) return 1;
         }
-        // Fallback: prefer 'antigravity' in title
-        const aMatch = a.title.toLowerCase().includes('antigravity') ? 1 : 0;
-        const bMatch = b.title.toLowerCase().includes('antigravity') ? 1 : 0;
-        return bMatch - aMatch;
+        // Dynamic fallback: prefer the target matching the active workspace
+        if (activeWorkspaceName) {
+            const aMatch = a.title.toLowerCase().includes(activeWorkspaceName) ? 1 : 0;
+            const bMatch = b.title.toLowerCase().includes(activeWorkspaceName) ? 1 : 0;
+            if (aMatch !== bMatch) return bMatch - aMatch;
+        }
+        return 0;
     });
 
     return candidates;
@@ -73,47 +125,75 @@ function getCachedWindows() {
 }
 
 
-// DOM extraction expression (shared between snapshot and getLatest)
 const CHAT_EXTRACT_EXPR = `
+    ${UI_LOCATORS_SCRIPT}
     (function() {
         let extractedText = "";
         try {
-            const container = document.querySelector('.flex.w-full.grow.flex-col.overflow-hidden, #conversation, #chat, .interactive-session');
-            if (container) {
-                const buttons = Array.from(container.querySelectorAll('button')).filter(btn => btn.innerText && btn.innerText.includes('Thought for'));
-                const hiddenEls = [];
-                buttons.forEach(btn => {
-                    if (btn.parentElement) {
-                        hiddenEls.push({ el: btn.parentElement, display: btn.parentElement.style.display });
-                        btn.parentElement.style.setProperty('display', 'none', 'important');
-                    }
-                });
-                extractedText = container.innerText || container.textContent || "";
-                hiddenEls.forEach(item => { item.el.style.display = item.display; });
+            // Use the centralized locator to find the active conversation
+            const container = AG_UI.getVisibleChatContainer();
+            
+            function cleanText(text) {
+                if (!text) return "";
+                text = text.replace(/Ask anything.*?for workflows/gi, '');
+                text = text.replace(/0 Files With Changes/g, '');
+                text = text.replace(/Review Changes/g, '');
+                text = text.replace(/Gemini[\\s\\d\\.]+Pro[\\s]*\\([^)]*\\)/gi, '');
+                text = text.replace(/Claude[\\s\\w\\.]+\\([^)]*\\)/gi, '');
+                text = text.replace(/GPT[\\s\\w\\.]+\\([^)]*\\)/gi, '');
+                text = text.replace(/\\bSend\\b\\s*\\b(mic)?\\b/gi, '');
+                text = text.replace(/\\bmic\\b/gi, '');
+                text = text.replace(/Worked for \\d+s/gi, '');
+                text = text.replace(/\\b\\d{1,2}:\\d{2}(?:\\s*(?:AM|PM))?\\b/ig, '');
+                text = text.replace(/Thinking.../g, "").replace(/Gelişim App Dev/g, "");
+
+                text = text.replace(/^\\s*(Plan|Execute|Review|Task|Walkthrough|Implementation Plan)\\s*$/gm, '');
+                text = text.replace(/undo/g, '');
+                text = text.replace(/chevron_right/g, '');
+                text = text.replace(/chevron_left/g, '');
+                text = text.replace(/content_copy/g, '');
+                text = text.replace(/thumb_up/g, '');
+                text = text.replace(/thumb_down/g, '');
+                text = text.replace(/Files Modified[\\s\\n]*(\\d+)[\\s\\n]*([a-zA-Z0-9_\\-\\.]+)[\\s\\n]*\\+([0-9]+)[\\s\\n]*\\-([0-9]+)/gi, "\\n[📦 Files Modified: $2 (+$3, -$4)]\\n");
+                text = text.replace(/\\n{3,}/g, '\\n\\n');
+                return text.trim();
             }
-            extractedText = extractedText.replace(/Ask anything.*?for workflows/gi, '');
-            extractedText = extractedText.replace(/0 Files With Changes/g, '');
-            extractedText = extractedText.replace(/Review Changes/g, '');
-            extractedText = extractedText.replace(/Gemini[\\s\\d\\.]+Pro[\\s]*\\([^)]*\\)/gi, '');
-            extractedText = extractedText.replace(/Claude[\\s\\w\\.]+\\([^)]*\\)/gi, '');
-            extractedText = extractedText.replace(/GPT[\\s\\w\\.]+\\([^)]*\\)/gi, '');
-            extractedText = extractedText.replace(/\\bSend\\b\\s*\\b(mic)?\\b/gi, '');
-            extractedText = extractedText.replace(/\\bmic\\b/gi, '');
-            extractedText = extractedText.replace(/Files Modified[\\s\\n]*(\\d+)[\\s\\n]*([a-zA-Z0-9_\\-\\.]+)[\\s\\n]*\\+([0-9]+)[\\s\\n]*\\-([0-9]+)/gi, "\\n[📦 Files Modified: $2 (+$3, -$4)]\\n");
-            extractedText = extractedText.replace(/chevron_left/g, '');
-            extractedText = extractedText.replace(/chevron_right/g, '');
-            extractedText = extractedText.replace(/content_copy/g, '');
-            extractedText = extractedText.replace(/thumb_up/g, '');
-            extractedText = extractedText.replace(/thumb_down/g, '');
-            extractedText = extractedText.replace(/undo/g, '');
-            extractedText = extractedText.replace(/Worked for \\d+s/gi, '');
-            extractedText = extractedText.replace(/\\d{1,2}:\\d{2}\\s*(?:AM|PM)/ig, '');
-            extractedText = extractedText.replace(/Thinking.../g, "").replace(/Gelişim App Dev/g, "");
-            extractedText = extractedText.replace(/Thought for \\d+s\\s*Prioritizing Tool Usage[\\s\\S]*?(?=\\n\\n|$)/gi, "");
-            extractedText = extractedText.replace(/Prioritizing Tool Usage[\\s\\S]*?(?=\\n\\n|$)/gi, "");
-            extractedText = extractedText.replace(/I'm now focusing on tool selection[\\s\\S]*?(?=\\n\\n|$)/gi, "");
-            extractedText = extractedText.replace(/Thought for \\d+s/gi, "");
-            extractedText = extractedText.trim();
+
+            if (container) {
+                const list = container.querySelector('.relative.flex.flex-col.gap-y-3.px-4, .monaco-list-rows');
+                if (list) {
+                    const msgs = [];
+                    for (let child of list.children) {
+                        let isUser = !!child.querySelector('.bg-input');
+                        let clone = child.cloneNode(true);
+                        
+                        Array.from(clone.querySelectorAll('style, .material-icons, [class*="icon"]')).forEach(el => el.remove());
+                        
+                        // Use centralized logic to remove Thought blocks
+                        AG_UI.removeThoughtBlocks(clone);
+                        
+                        Array.from(clone.querySelectorAll('button')).forEach(el => el.remove());
+                        
+                        if (isUser) {
+                            const userInput = clone.querySelector('.bg-input');
+                            let uText = userInput ? userInput.innerText : "";
+                            if (userInput) userInput.remove();
+                            
+                            uText = cleanText(uText);
+                            if (uText) msgs.push("👤 User:\\n" + uText);
+                            
+                            let aText = cleanText(clone.innerText);
+                            if (aText) msgs.push("🤖 Agent:\\n" + aText);
+                        } else {
+                            let aText = cleanText(clone.innerText);
+                            if (aText) msgs.push("🤖 Agent:\\n" + aText);
+                        }
+                    }
+                    extractedText = msgs.join('\\n\\n');
+                } else {
+                    extractedText = cleanText(container.innerText || container.textContent || "");
+                }
+            }
         } catch(e) {}
         return String(extractedText);
     })()
@@ -133,7 +213,45 @@ function httpGet(url) {
  * Snapshot the current chat state so subsequent getLatestAgentResponse
  * calls only return text that appeared AFTER this snapshot.
  */
+// Track the last step_index we've seen for file-based diffing
+let lastSeenStepIndex = -1;
+
+/**
+ * Snapshot the current chat state for diff tracking.
+ * Now simply records the last step_index from the active thread's log file.
+ */
 async function snapshotChatState(port) {
+    try {
+        const activeId = await getActiveThreadId(port);
+        if (!activeId) return;
+        const logPath = path.join(os.homedir(), '.gemini', 'antigravity', 'brain', activeId, '.system_generated', 'logs', 'overview.txt');
+        if (!fs.existsSync(logPath)) return;
+        
+        const stats = fs.statSync(logPath);
+        const readSize = Math.min(stats.size, 5000);
+        const fd = fs.openSync(logPath, 'r');
+        const buf = Buffer.alloc(readSize);
+        fs.readSync(fd, buf, 0, readSize, stats.size - readSize);
+        fs.closeSync(fd);
+        const tail = buf.toString('utf8');
+        const lines = tail.split('\n').filter(l => l.trim());
+        
+        // Find the highest step_index
+        for (let i = lines.length - 1; i >= 0; i--) {
+            try {
+                const entry = JSON.parse(lines[i]);
+                if (entry.step_index !== undefined) {
+                    lastSeenStepIndex = entry.step_index;
+                    console.log(`[snapshot] Anchored at step_index ${lastSeenStepIndex}`);
+                    return;
+                }
+            } catch (_) {}
+        }
+    } catch (e) {
+        console.log('[snapshot] File-based snapshot failed:', e.message);
+    }
+    
+    // DOM fallback for legacy behavior
     const candidates = await resolveTargets(port);
     for (const target of candidates) {
         try {
@@ -145,82 +263,115 @@ async function snapshotChatState(port) {
             await client.close();
             if (val && val.length > 0) {
                 globalLastChatState = val;
-                console.log(`[snapshot] Chat state anchored (${val.length} chars)`);
+                console.log(`[snapshot] DOM fallback anchored (${val.length} chars)`);
                 return;
             }
         } catch (_) {}
     }
 }
 
-async function getLatestAgentResponse(port) {
-    const candidates = await resolveTargets(port);
+/**
+ * Get the latest agent response since the last snapshot.
+ * 
+ * Primary strategy: Read new entries from the active thread's overview.txt
+ * since the last snapshotted step_index. This avoids stale DOM issues and
+ * timestamp bleed from the DOM extraction.
+ * 
+ * Falls back to DOM extraction if the file doesn't exist.
+ */
 
-    const logs = [];
+/**
+ * Get the full last agent response block (no diffing).
+ * Used by /latest command.
+ * 
+ * Strategy: Read from the file system instead of the DOM, because the IDE's
+ * workspace DOM often retains stale content from previously-viewed threads.
+ * 
+ * 1. Get the active thread ID from the Manager sidebar (reliable)
+ * 2. Read the thread's overview.txt log file from disk
+ * 3. Parse the last user message + model response from the log
+ * 4. Fall back to DOM extraction only if the file doesn't exist
+ */
+async function getFullLatestResponse(port) {
+    // --- Primary: file-system extraction from the active thread's log ---
+    try {
+        const activeId = await getActiveThreadId(port);
+        if (activeId) {
+            const logPath = path.join(os.homedir(), '.gemini', 'antigravity', 'brain', activeId, '.system_generated', 'logs', 'overview.txt');
+            if (fs.existsSync(logPath)) {
+                // Read the last ~20KB of the file (enough for recent messages)
+                const stats = fs.statSync(logPath);
+                const readSize = Math.min(stats.size, 20000);
+                const fd = fs.openSync(logPath, 'r');
+                const buf = Buffer.alloc(readSize);
+                fs.readSync(fd, buf, 0, readSize, stats.size - readSize);
+                fs.closeSync(fd);
+                const tail = buf.toString('utf8');
+                
+                // Parse JSON lines to find the last user message + model content response
+                const lines = tail.split('\n').filter(l => l.trim());
+                let lastUserMsg = null;
+                let lastModelMsg = null;
+                
+                for (let i = lines.length - 1; i >= 0; i--) {
+                    try {
+                        const entry = JSON.parse(lines[i]);
+                        if (!lastModelMsg && entry.source === 'MODEL' && entry.content && entry.content.trim()) {
+                            lastModelMsg = entry.content;
+                        }
+                        if (lastModelMsg && !lastUserMsg && entry.source === 'USER_EXPLICIT' && entry.content) {
+                            // Extract just the user request from the XML wrapper
+                            const reqMatch = entry.content.match(/<USER_REQUEST>\n?([\s\S]*?)\n?<\/USER_REQUEST>/);
+                            lastUserMsg = reqMatch ? reqMatch[1].trim() : entry.content.substring(0, 200);
+                        }
+                        if (lastUserMsg && lastModelMsg) break;
+                    } catch (_) {}
+                }
+                
+                if (lastModelMsg) {
+                    const parts = [];
+                    if (lastUserMsg) parts.push('👤 User:\n' + lastUserMsg);
+                    // Truncate very long model responses for Telegram
+                    const truncated = lastModelMsg.length > 3000 ? lastModelMsg.substring(0, 3000) + '\n\n[...truncated]' : lastModelMsg;
+                    parts.push('🤖 Agent:\n' + truncated);
+                    return parts.join('\n\n');
+                }
+            }
+        }
+    } catch (e) {
+        console.log('[getFullLatestResponse] File-system extraction failed:', e.message);
+    }
+    
+    // --- Fallback: DOM extraction (may be stale if threads were switched) ---
+    const candidates = await resolveTargets(port);
     for (const target of candidates) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
             const { Runtime } = client;
             await Runtime.enable();
-
-            const boxResult = await Runtime.evaluate({
-                expression: CHAT_EXTRACT_EXPR,
-                awaitPromise: true,
+            
+            const expr = CHAT_EXTRACT_EXPR.replace(
+                "extractedText = msgs.join('\\n\\n');",
+                "extractedText = msgs.slice(-2).join('\\n\\n');"
+            );
+            
+            const res = await Runtime.evaluate({
+                expression: expr,
                 returnByValue: true
             });
-            const val = boxResult?.result?.value;
             await client.close();
             
-            if (val && val.length > 0) {
-                let fullStr = val;
-                let diffStr = fullStr;
-                
-                // Compare with previous state to only return NEW messages
-                if (globalLastChatState) {
-                    if (fullStr.includes(globalLastChatState)) {
-                        diffStr = fullStr.substring(fullStr.lastIndexOf(globalLastChatState) + globalLastChatState.length).trim();
-                    } else {
-                        let overlapFound = false;
-                        // Try finding progressively smaller suffixes from the end of globalLastChatState
-                        for (let size = Math.min(200, globalLastChatState.length); size >= 20; size -= 20) {
-                            const suffix = globalLastChatState.slice(-size);
-                            const lastIdx = fullStr.lastIndexOf(suffix);
-                            if (lastIdx !== -1) {
-                                diffStr = fullStr.substring(lastIdx + size).trim();
-                                overlapFound = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-                
-                if (fullStr.length > 0) {
-                    globalLastChatState = fullStr; // Save state for next call
-                }
-                
-                if (diffStr && diffStr.trim() !== '') {
-                    globalLastValidResponse = diffStr;
-                }
-                
-                return diffStr || "[No new messages]";
-            } else {
-                logs.push(`${target.title}: empty`);
+            if (res.result?.value && res.result.value.trim() !== '') {
+                return res.result.value;
             }
-        } catch(e) {
-            logs.push(`${target.title}: ${e.message}`);
-        }
+        } catch(e) {}
     }
-    throw new Error(`Failed to extract text. Details: ${logs.join(', ')}`);
-}
-
-/**
- * Get the full last agent response block (no diffing).
- * Used by /latest command so it always returns something useful.
- * Now it simply returns the cached last successful diff, avoiding grabbing user messages.
- */
-async function getFullLatestResponse(port) {
+    
+    // Fallback to cache if everything failed
     if (globalLastValidResponse) {
         return globalLastValidResponse;
     }
+    
     return "[No previous message stored yet. Run a prompt first.]";
 }
 
@@ -307,7 +458,13 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null)
         // Re-fetch targets on each iteration to avoid stale WebSocket connections
         let candidates;
         try {
-            candidates = await resolveTargets(port);
+            const raw = await resolveTargets(port);
+            // Manager has the active conversation — check it first
+            candidates = [...raw].sort((a, b) => {
+                if (a.title === 'Manager') return -1;
+                if (b.title === 'Manager') return 1;
+                return 0;
+            });
         } catch(e) {
             await new Promise(r => setTimeout(r, 3000));
             continue;
@@ -324,23 +481,12 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null)
                 await Runtime.enable();
                 const check = await Runtime.evaluate({
                     expression: `
+                        ${UI_LOCATORS_SCRIPT}
                         (function() {
-                            // Only treat stop icons inside the chat area as generation indicators
-                            const chatArea = document.querySelector('#conversation, #chat, #cascade');
-                            const stopIcon = chatArea ? chatArea.querySelector("svg.lucide-square, [data-tooltip-id*='cancel']") : null;
-                            const isGenerating = !!stopIcon;
-                            const editor = document.querySelector('[contenteditable="true"], textarea');
+                            const isGenerating = !!AG_UI.getStopButton();
+                            const editor = AG_UI.getChatInput();
                             const isInputDisabled = editor ? (editor.getAttribute('contenteditable') === 'false' || editor.disabled) : false;
-                            
-                            // Check for visible loading spinners, but exclude tiny persistent status spinners (h-3 w-3)
-                            const isSpinning = Array.from(document.querySelectorAll('.codicon-loading, .loading, [class*="animate-spin"], [class*="spinner"], [class*="loader"]')).some(el => {
-                                if (el.offsetParent === null) return false;
-                                // Exclude tiny status spinners (h-3 w-3) and opacity-reduced parents
-                                if (el.className.includes('h-3') && el.className.includes('w-3')) return false;
-                                const parent = el.parentElement;
-                                if (parent && (parent.className.includes('opacity-') || parent.className.includes('hidden'))) return false;
-                                return true;
-                            });
+                            const isSpinning = AG_UI.isLoading();
                             
                             // Check if AutoAccept is active and there is a button waiting to be clicked
                             const aaActive = !!window.__AA_BOT_OBSERVER_ACTIVE && !window.__AA_BOT_PAUSED;
@@ -355,7 +501,7 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null)
                             }
                             
                             const isIdle = !isGenerating && !isInputDisabled && !isSpinning && !hasPendingButton;
-                            const hasChat = !!document.querySelector('#conversation, #chat, #cascade, .chat-input, .interactive-input-editor');
+                            const hasChat = !!AG_UI.getVisibleChatContainer();
                             return { hasChat, isGenerating, isIdle, isSpinning, hasPendingButton };
                         })()
                     `,
@@ -400,9 +546,18 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null)
 
 async function sendViaCDP(text, port) {
     const candidates = await resolveTargets(port);
+    
+    // Prioritize the Manager target — its #antigravity input always belongs
+    // to the active conversation. Workspace targets' side-panel inputs may
+    // be stale from previously-viewed threads.
+    const sortedCandidates = [...candidates].sort((a, b) => {
+        if (a.title === 'Manager') return -1;
+        if (b.title === 'Manager') return 1;
+        return 0;
+    });
 
     const errors = [];
-    for (const target of candidates) {
+    for (const target of sortedCandidates) {
         let client;
         try {
             client = await CDP({ target: target.webSocketDebuggerUrl });
@@ -414,10 +569,17 @@ async function sendViaCDP(text, port) {
                     (async function() {
                         try {
                             const escapedText = ${JSON.stringify(text)};
-                            const editors = [...document.querySelectorAll('.interactive-input-editor textarea, #conversation textarea, #chat textarea, .chat-input textarea, [aria-label*="chat input" i] textarea, [contenteditable="true"]')]
+                            
+                            // Find the input inside #antigravity (the main agent panel input box).
+                            // This is the primary active conversation input in the Manager target.
+                            const agPanel = document.querySelector('#antigravity [contenteditable="true"]');
+                            
+                            // Fallback: any contenteditable not in xterm
+                            const allEditors = [...document.querySelectorAll('[contenteditable="true"]')]
                                 .filter(el => !el.className.includes('xterm'));
                             
-                            const editor = editors.at(-1);
+                            const editor = agPanel || allEditors.at(-1);
+                            
                             if (!editor) return { found: false, reason: "no_editor", editorCount: 0 };
 
                             editor.focus();
@@ -445,10 +607,12 @@ async function sendViaCDP(text, port) {
                             // Use setTimeout instead of requestAnimationFrame so it doesn't hang when minimized!
                             await new Promise(r => setTimeout(r, 150));
 
-                            const submit = document.querySelector("svg.lucide-arrow-right, svg[class*='arrow-right'], svg[class*='send']")?.closest("button");
+                            // Find the submit button near the editor (within same panel)
+                            const panelContainer = editor.closest('#antigravity') || editor.closest('#conversation') || document;
+                            const submit = panelContainer.querySelector("svg.lucide-arrow-right, svg[class*='arrow-right'], svg[class*='send']")?.closest("button");
                             if (submit && !submit.disabled) {
                                 setTimeout(() => submit.click(), 10);
-                                return { found: true, method: 'button' };
+                                return { found: true, method: 'button', target: '${target.title?.substring(0, 30) || 'unknown'}' };
                             }
 
                             setTimeout(() => {
@@ -456,7 +620,7 @@ async function sendViaCDP(text, port) {
                                     editor.dispatchEvent(new KeyboardEvent(type, { bubbles: true, key: "Enter", code: "Enter", keyCode: 13, which: 13 }));
                                 });
                             }, 10);
-                            return { found: true, method: 'keyboard' };
+                            return { found: true, method: 'keyboard', target: '${target.title?.substring(0, 30) || 'unknown'}' };
                         } catch(err) {
                             return { found: false, reason: err.message };
                         }
@@ -505,25 +669,13 @@ async function triggerNewChat(port) {
             await Runtime.enable();
             const res = await Runtime.evaluate({
                 expression: `
+                    ${UI_LOCATORS_SCRIPT}
                     (() => {
-                        // 1. Exact SVG Path match for the + icon (New Chat button)
-                        const svgPath = document.querySelector('path[d="M12 4.5v15m7.5-7.5h-15"]');
-                        if (svgPath) {
-                            // Walk up to find the clickable parent (a, button, or div)
-                            let clickTarget = svgPath.closest('a, button, [role="button"]') || svgPath.closest('svg')?.parentElement;
-                            if (clickTarget && typeof clickTarget.click === 'function') {
-                                clickTarget.click();
-                                return { clicked: true, method: 'svg_path', tag: clickTarget.tagName, aria: clickTarget.getAttribute('aria-label') || '' };
-                            }
-                        }
-                        
-                        // 2. aria-label based selectors
-                        const btn = document.querySelector('[aria-label*="New Chat" i], [title*="New Chat" i], [aria-label*="Yeni Sohbet" i], [class*="new-chat"], [aria-label*="New Task" i], [title*="New Task" i]');
+                        const btn = AG_UI.getNewChatButton();
                         if (btn && typeof btn.click === 'function') {
                             btn.click();
-                            return { clicked: true, method: 'aria_label', tag: btn.tagName, aria: btn.getAttribute('aria-label') || '' };
+                            return { clicked: true, tag: btn.tagName };
                         }
-                        
                         return { clicked: false };
                     })()
                 `, returnByValue: true
@@ -544,7 +696,13 @@ async function triggerNewChat(port) {
 
 
 async function triggerModelMenu(port) {
-    const candidates = await resolveTargets(port, false);
+    const raw = await resolveTargets(port, false);
+    // Manager has the active conversation's model selector
+    const candidates = [...raw].sort((a, b) => {
+        if (a.title === 'Manager') return -1;
+        if (b.title === 'Manager') return 1;
+        return 0;
+    });
 
     for (const target of candidates) {
         try {
@@ -553,8 +711,9 @@ async function triggerModelMenu(port) {
             await Runtime.enable();
             const res = await Runtime.evaluate({
                 expression: `
+                    ${UI_LOCATORS_SCRIPT}
                     (() => {
-                        const btn = document.querySelector('[aria-label*="Select model" i], [title*="Select model" i]');
+                        const btn = AG_UI.getModelSelectorButton();
                         if (btn) { btn.click(); return true; }
                         return false;
                     })()
@@ -567,8 +726,191 @@ async function triggerModelMenu(port) {
     return false;
 }
 
+async function listAgentThreads(port) {
+    const candidates = await resolveTargets(port, false);
+    for (const target of candidates) {
+        try {
+            const client = await CDP({ target: target.webSocketDebuggerUrl });
+            const { Runtime } = client;
+            await Runtime.enable();
+            const res = await Runtime.evaluate({
+                expression: `
+                    ${UI_LOCATORS_SCRIPT}
+                    (() => {
+                        const workspaces = [];
+                        const cards = AG_UI.getWorkspaceCards();
+                        cards.forEach(card => {
+                            const wsNameEl = card.querySelector('span.truncate');
+                            if (!wsNameEl) return;
+                            const wsName = wsNameEl.textContent.trim();
+                            
+                            const threads = [];
+                            const sibling = card.nextElementSibling;
+                            if (sibling) {
+                                const pills = AG_UI.getChatThreadPills(sibling);
+                                pills.forEach(pill => {
+                                    const name = pill.textContent.trim();
+                                    const id = pill.getAttribute('data-testid').replace('convo-pill-', '');
+                                    const row = pill.closest('[role="button"]');
+                                    let time = '';
+                                    if (row) {
+                                        const timeEl = row.querySelector('.text-xs.opacity-50');
+                                        if (timeEl) time = timeEl.textContent.trim();
+                                    }
+                                    threads.push({ name, id, time });
+                                });
+                            }
+                            if (threads.length > 0) {
+                                workspaces.push({ workspace: wsName, threads });
+                            }
+                        });
+                        return workspaces;
+                    })()
+                `,
+                returnByValue: true
+            });
+            await client.close();
+            if (res.result?.value && res.result.value.length > 0) {
+                return res.result.value;
+            }
+        } catch(e) {}
+    }
+    return [];
+}
+
+async function switchAgentThread(port, threadId) {
+    const candidates = await resolveTargets(port, false);
+    for (const target of candidates) {
+        try {
+            const client = await CDP({ target: target.webSocketDebuggerUrl });
+            const { Runtime } = client;
+            await Runtime.enable();
+            const res = await Runtime.evaluate({
+                expression: `
+                    (() => {
+                        const pill = document.querySelector('[data-testid="convo-pill-' + ${JSON.stringify(threadId)} + '"]');
+                        if (pill) {
+                            const btn = pill.closest('[role="button"]');
+                            if (btn && typeof btn.click === 'function') {
+                                btn.click();
+                                return true;
+                            }
+                        }
+                        return false;
+                    })()
+                `,
+                returnByValue: true
+            });
+            await client.close();
+            if (res.result?.value) return true;
+        } catch(e) {}
+    }
+    return false;
+}
+
+async function getActiveThreadId(port) {
+    const candidates = await resolveTargets(port, false);
+    for (const target of candidates) {
+        try {
+            const client = await CDP({ target: target.webSocketDebuggerUrl });
+            const { Runtime } = client;
+            await Runtime.enable();
+            const res = await Runtime.evaluate({
+                expression: `
+                    (() => {
+                        const all = document.querySelectorAll('[data-testid^="convo-pill-"]');
+                        for (let el of all) {
+                            const row = el.closest('[role="button"]');
+                            if (row && row.classList.contains('bg-list-hover')) {
+                                return el.getAttribute('data-testid').replace('convo-pill-', '');
+                            }
+                        }
+                        return null;
+                    })()
+                `,
+                returnByValue: true
+            });
+            await client.close();
+            if (res.result?.value) return res.result.value;
+        } catch(e) {}
+    }
+    return null;
+}
+async function isAgentWorking(port) {
+    const raw = await resolveTargets(port, false);
+    // Manager has the active conversation — check it first
+    const candidates = [...raw].sort((a, b) => {
+        if (a.title === 'Manager') return -1;
+        if (b.title === 'Manager') return 1;
+        return 0;
+    });
+    for (const target of candidates) {
+        try {
+            const client = await CDP({ target: target.webSocketDebuggerUrl });
+            const { Runtime } = client;
+            await Runtime.enable();
+            const check = await Runtime.evaluate({
+                expression: `
+                    ${UI_LOCATORS_SCRIPT}
+                    (function() {
+                        const isGenerating = !!AG_UI.getStopButton();
+                        const editor = AG_UI.getChatInput();
+                        const isInputDisabled = editor ? (editor.getAttribute('contenteditable') === 'false' || editor.disabled) : false;
+                        const isSpinning = AG_UI.isLoading();
+                        
+                        const aaActive = !!window.__AA_BOT_OBSERVER_ACTIVE && !window.__AA_BOT_PAUSED;
+                        let hasPendingButton = false;
+                        if (aaActive) {
+                            const texts = ['run', 'accept', 'allow', 'continue', 'retry', 'çalıştır', 'kabul et', 'izin ver', 'devam et', 'yeniden dene'];
+                            const btns = Array.from(document.querySelectorAll('button')).filter(b => b.offsetParent !== null);
+                            hasPendingButton = btns.some(b => {
+                                const t = (b.textContent||'').trim().toLowerCase();
+                                return texts.some(x => t === x || t.startsWith(x + ' ') || (t.startsWith(x) && t.length <= x.length + 8));
+                            });
+                        }
+                        
+                        return isGenerating || isInputDisabled || isSpinning || hasPendingButton;
+                    })()
+                `,
+                returnByValue: true
+            });
+            await client.close();
+            if (check && check.result && check.result.value !== undefined) {
+                return check.result.value;
+            }
+        } catch(e) {}
+    }
+    return false;
+}
+
+async function getCurrentModel(port) {
+    const candidates = await resolveTargets(port, false);
+    for (const target of candidates) {
+        try {
+            const client = await CDP({ target: target.webSocketDebuggerUrl });
+            const { Runtime } = client;
+            await Runtime.enable();
+            const check = await Runtime.evaluate({
+                expression: `
+                    ${UI_LOCATORS_SCRIPT}
+                    (function() {
+                        const btn = AG_UI.getModelSelectorButton();
+                        if (btn) {
+                            return btn.textContent.trim();
+                        }
+                        return null;
+                    })()
+                `, returnByValue: true
+            });
+            await client.close();
+            if (check?.result?.value) return check.result.value;
+        } catch(e) {}
+    }
+    return null;
+}
+
 module.exports = {
-    getLatestAgentResponse,
+    isAgentWorking,
     getFullLatestResponse,
     snapshotChatState,
     captureAgentScreenshot,
@@ -579,6 +921,7 @@ module.exports = {
     triggerModelMenu,
     getAvailableModels,
     selectModel,
+    getCurrentModel,
     stopAgent,
     getQuota,
     resolveTargets,
@@ -586,7 +929,10 @@ module.exports = {
     setPreferredWindow,
     getPreferredWindow,
     getCachedWindows,
-    closeWindow
+    closeWindow,
+    listAgentThreads,
+    switchAgentThread,
+    getActiveThreadId
 };
 
 async function captureFullIDEScreenshot(port) {
@@ -612,7 +958,13 @@ async function captureFullIDEScreenshot(port) {
 }
 
 async function getAvailableModels(port) {
-    const candidates = await resolveTargets(port, false);
+    const raw = await resolveTargets(port, false);
+    // Manager has the active conversation's model selector
+    const candidates = [...raw].sort((a, b) => {
+        if (a.title === 'Manager') return -1;
+        if (b.title === 'Manager') return 1;
+        return 0;
+    });
 
     for (const target of candidates) {
         try {
@@ -623,13 +975,10 @@ async function getAvailableModels(port) {
             // Önce model menüsünü aç
             await Runtime.evaluate({
                 expression: `
+                    ${UI_LOCATORS_SCRIPT}
                     (() => {
-                        const btn = document.querySelector('[aria-label*="Select model" i], [title*="Select model" i], [aria-label*="model" i]');
+                        const btn = AG_UI.getModelSelectorButton();
                         if (btn) { btn.click(); return true; }
-                        // Fallback: model adı gösteren butonu bul
-                        const allBtns = Array.from(document.querySelectorAll('button'));
-                        const modelBtn = allBtns.find(b => b.textContent.match(/gemini|claude|gpt|flash|pro|opus|sonnet/i));
-                        if (modelBtn) { modelBtn.click(); return true; }
                         return false;
                     })()
                 `, returnByValue: true
@@ -641,24 +990,14 @@ async function getAvailableModels(port) {
             // Model listesini oku
             const res = await Runtime.evaluate({
                 expression: `
+                    ${UI_LOCATORS_SCRIPT}
                     (() => {
-                        // Dropdown/listbox öğelerini bul
-                        const items = document.querySelectorAll('[role="option"], [role="menuitem"], [role="listitem"], .model-item, [class*="model-option"], [class*="dropdown"] li, [class*="menu"] [class*="item"]');
                         const models = [];
+                        const items = AG_UI.getModelOptions();
                         items.forEach(el => {
-                            const text = (el.textContent || '').trim();
-                            if (text && text.length > 2 && text.length < 80 && !text.includes('\\n')) {
-                                models.push(text);
-                            }
-                        });
-                        if (models.length > 0) return models;
-                        
-                        // Fallback: tüm görünür liste öğelerini tara
-                        const allLis = document.querySelectorAll('li, [role="option"]');
-                        allLis.forEach(el => {
-                            if (el.offsetParent && el.textContent.trim().length > 2) {
+                            if (el.offsetParent) {
                                 const t = el.textContent.trim().split('\\n')[0].trim();
-                                if (t.length < 80) models.push(t);
+                                if (t.length > 2 && t.length < 80) models.push(t);
                             }
                         });
                         return models;
@@ -674,7 +1013,13 @@ async function getAvailableModels(port) {
 }
 
 async function selectModel(port, modelName) {
-    const candidates = await resolveTargets(port, false);
+    const raw = await resolveTargets(port, false);
+    // Manager has the active conversation's model selector
+    const candidates = [...raw].sort((a, b) => {
+        if (a.title === 'Manager') return -1;
+        if (b.title === 'Manager') return 1;
+        return 0;
+    });
 
     for (const target of candidates) {
         try {
@@ -685,32 +1030,16 @@ async function selectModel(port, modelName) {
             // Step 1: Check if dropdown is already open, if not click the model selector button
             const openRes = await Runtime.evaluate({
                 expression: `
+                    ${UI_LOCATORS_SCRIPT}
                     (() => {
                         // Check if model dropdown is already open by looking for model option buttons
-                        const existingOptions = Array.from(document.querySelectorAll('button')).filter(b => 
-                            b.className.includes('px-2 py-1') && 
-                            b.className.includes('w-full') &&
-                            b.className.includes('cursor-pointer')
-                        );
+                        const existingOptions = AG_UI.getModelOptions().filter(el => el.offsetParent !== null);
                         if (existingOptions.length > 3) return { alreadyOpen: true };
                         
                         // Click the model selector button to open dropdown
-                        const selectorBtn = document.querySelector('[aria-label*="Select model" i]');
+                        const selectorBtn = AG_UI.getModelSelectorButton();
                         if (selectorBtn) {
                             selectorBtn.click();
-                            return { clicked: true };
-                        }
-                        
-                        // Fallback: find button showing current model name
-                        const allBtns = Array.from(document.querySelectorAll('button'));
-                        const modelBtn = allBtns.find(b => {
-                            const t = b.textContent.toLowerCase();
-                            return (t.includes('gemini') || t.includes('claude') || t.includes('gpt')) && 
-                                   b.className.includes('cursor-pointer') &&
-                                   b.getAttribute('aria-label')?.includes('Select model');
-                        });
-                        if (modelBtn) {
-                            modelBtn.click();
                             return { clicked: true };
                         }
                         return { clicked: false };
@@ -730,17 +1059,10 @@ async function selectModel(port, modelName) {
             // Step 3: Find and click the matching model in the dropdown
             const selectRes = await Runtime.evaluate({
                 expression: `
+                    ${UI_LOCATORS_SCRIPT}
                     (() => {
                         const targetModel = ${JSON.stringify(modelName)}.toLowerCase();
-                        const allBtns = Array.from(document.querySelectorAll('button'));
-                        
-                        // Find model option buttons in the dropdown
-                        const modelOptions = allBtns.filter(b => 
-                            b.className.includes('px-2') && 
-                            b.className.includes('w-full') &&
-                            b.className.includes('cursor-pointer') &&
-                            b.className.includes('items-center')
-                        );
+                        const modelOptions = AG_UI.getModelOptions().filter(el => el.offsetParent !== null);
                         
                         // Try exact match first
                         let match = modelOptions.find(b => {
@@ -793,22 +1115,11 @@ async function stopAgent(port) {
 
             const res = await Runtime.evaluate({
                 expression: `
+                    ${UI_LOCATORS_SCRIPT}
                     (() => {
-                        // Stop/Cancel butonunu bul
-                        const stopIcon = document.querySelector("svg.lucide-square, [data-tooltip-id*='cancel'], [aria-label*='Stop'], [title*='Stop'], [aria-label*='Cancel']");
-                        if (stopIcon) {
-                            const btn = stopIcon.closest('button') || stopIcon;
+                        const btn = AG_UI.getStopButton();
+                        if (btn) {
                             btn.click();
-                            return { stopped: true };
-                        }
-                        // Fallback: square icon olan butonu bul
-                        const allBtns = Array.from(document.querySelectorAll('button'));
-                        const stopBtn = allBtns.find(b => {
-                            const svg = b.querySelector('svg');
-                            return svg && (svg.classList.contains('lucide-square') || b.innerHTML.includes('square'));
-                        });
-                        if (stopBtn) {
-                            stopBtn.click();
                             return { stopped: true };
                         }
                         return { stopped: false };
