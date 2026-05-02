@@ -121,6 +121,8 @@
     "stop_desc": "Ajanı durdur",
     "autoaccept_desc": "Otomatik kabul aç/kapat",
     "quota_desc": "Kota durumunu gösterir",
+    "update_desc": "Güncelleme kontrol et ve güncelle",
+    "version_desc": "Mevcut sürümü gösterir",
     "menu_desc": "Komut menüsünü güncelle",
     "window_desc": "IDE penceresi seç"
   },

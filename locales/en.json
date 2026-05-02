@@ -121,6 +121,8 @@
     "stop_desc": "Stop the agent",
     "autoaccept_desc": "Toggle auto-accept on/off",
     "quota_desc": "Shows Antigravity quota usage",
+    "update_desc": "Check for updates and auto-update",
+    "version_desc": "Show current version",
     "menu_desc": "Update the command menu",
     "window_desc": "Select IDE window"
   },

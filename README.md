@@ -24,7 +24,9 @@ Send messages, switch AI models, manage workspaces, take screenshots — all fro
 | 🤖 **Model Switching** | Change AI models (Gemini, Claude) with inline buttons |
 | 📂 **File Explorer** | Browse, navigate, and download project files |
 | 🔄 **Workspace Management** | Switch between projects without touching the keyboard |
+| 💬 **Thread Switching** | List and switch between chat threads across workspaces |
 | ⚡ **Auto-Accept** | Automatically click Run, Accept, Allow, Continue buttons |
+| 🔄 **Auto-Update** | Check for updates and self-update with one command |
 | 🌐 **Multi-Language** | English and Turkish UI (extensible) |
 | ⌨️ **Typing Indicator** | Shows "typing..." instead of spamming progress messages |
 | 🖥️ **Cross-Platform** | Works on Linux, macOS (Intel), and Windows |
@@ -121,6 +123,10 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/autoaccept` | Toggle auto-accept (on/off/status) |
 | `/lang` | Switch language (EN/TR) |
 | `/stop` | Stop the running agent |
+| `/agents` | List and switch between chat threads |
+| `/artifacts` | List and download artifacts from current thread |
+| `/update` | Check for updates and auto-update |
+| `/version` | Show current version info |
 | `/menu` | Update Telegram command menu |
 
 ## 🏗️ Architecture
@@ -131,6 +137,8 @@ antigravity-telegram-suite/
 │   ├── index.js           # Main bot logic & Telegram handlers
 │   ├── cdp_controller.js   # Chrome DevTools Protocol communication
 │   ├── autoaccept.js       # Auto-accept button clicker via CDP
+│   ├── updater.js          # Self-update module (git pull + pm2 restart)
+│   ├── ui_locators.js      # DOM element locators for IDE interaction
 │   ├── i18n.js             # Internationalization module
 │   └── platform.js         # Cross-platform OS abstraction
 ├── locales/
@@ -175,6 +183,7 @@ antigravity-telegram-suite/
 ## 🙏 Acknowledgments
 
 - **[yvg](https://github.com/yvg/antigravity-telegram-suite)** — For the excellent Multi-Window Support feature that added the ability to route commands to specific IDE windows!
+- **[achshar](https://github.com/achshar/antigravity-telegram-suite)** — For the Agent Manager UI locators PR that helped identify the IDE's internal DOM structure for thread management.
 - **[acmavirus/antigravity-telegram-control](https://github.com/acmavirus/antigravity-telegram-control)** — A clean, open-source Telegram integration for Antigravity that served as the foundation for this project.
 - **[yazanbaker94/AntiGravity-AutoAccept](https://github.com/yazanbaker94/AntiGravity-AutoAccept)** — The DOM observer pattern used in the Auto-Accept module was inspired by this project's approach to automated button clicking.
 

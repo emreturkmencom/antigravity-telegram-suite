@@ -8,6 +8,7 @@ const { loadLocale, t, getLang } = require('./i18n');
 const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, trustWorkspaceViaCDP, PLATFORM } = require('./platform');
 const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getCachedWindows, closeWindow, listAgentThreads, switchAgentThread, getActiveThreadId } = require('./cdp_controller');
 const autoaccept = require('./autoaccept');
+const updater = require('./updater');
 
 let cachedAgentThreads = [];
 let cachedArtifacts = [];
@@ -1102,6 +1103,8 @@ function getMenuCommands() {
         { command: 'stop', description: t('menu.stop_desc') },
         { command: 'autoaccept', description: t('menu.autoaccept_desc') },
         { command: 'quota', description: t('menu.quota_desc') },
+        { command: 'update', description: t('menu.update_desc') || 'Check for updates' },
+        { command: 'version', description: t('menu.version_desc') || 'Show current version' },
         { command: 'menu', description: t('menu.menu_desc') }
     ];
 }
@@ -1293,6 +1296,46 @@ bot.on(['photo', 'document'], (ctx) => {
     })();
 });
 
+// ===== UPDATE & VERSION =====
+
+bot.command('version', async (ctx) => {
+    const local = updater.getLocalVersion();
+    ctx.reply(
+        `📦 <b>Antigravity Telegram Suite</b>\n\n` +
+        `Version: <code>v${local.version}</code>\n` +
+        `Commit: <code>${local.commitHash}</code>`,
+        { parse_mode: 'HTML' }
+    );
+});
+
+bot.command('update', async (ctx) => {
+    ctx.reply('🔍 Güncellemeler kontrol ediliyor...');
+    try {
+        const result = await updater.checkForUpdates();
+        if (!result.available) {
+            ctx.reply(
+                `✅ Güncelsiniz!\n\nv${result.localVersion} (${result.localCommit})`,
+                { parse_mode: 'HTML' }
+            );
+            return;
+        }
+        ctx.reply(
+            `🔄 <b>Güncelleme Mevcut!</b>\n\n` +
+            `Mevcut: v${result.localVersion} (${result.localCommit})\n` +
+            `Yeni: v${result.remoteVersion} (${result.remoteCommit})\n\n` +
+            `Güncelleniyor...`,
+            { parse_mode: 'HTML' }
+        );
+        const updateResult = await updater.performUpdate();
+        if (!updateResult.updated) {
+            ctx.reply(`ℹ️ ${updateResult.message}`);
+        }
+        // If update succeeded, bot will restart and this code won't execute
+    } catch(e) {
+        ctx.reply(`❌ Güncelleme hatası: ${e.message}`);
+    }
+});
+
 // ===== LAUNCH =====
 
 async function init() {
@@ -1321,6 +1364,9 @@ async function init() {
     bot.launch({ dropPendingUpdates: true }).catch(err => {
         console.error("Bot launch failed:", err);
     });
+
+    // Start periodic update checker (notifies via Telegram when update is available)
+    updater.startUpdateChecker(bot, ALLOWED_CHAT_ID);
 }
 
 init();
