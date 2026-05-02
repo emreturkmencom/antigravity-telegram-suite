@@ -6,7 +6,7 @@ const os = require('os');
 const { exec } = require('child_process');
 const { loadLocale, t, getLang } = require('./i18n');
 const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, trustWorkspaceViaCDP, PLATFORM } = require('./platform');
-const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getCachedWindows, closeWindow, listAgentThreads, switchAgentThread, getActiveThreadId } = require('./cdp_controller');
+const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getCachedWindows, closeWindow, listAgentThreads, switchAgentThread, getActiveThreadId, getActiveThreadInfo } = require('./cdp_controller');
 const autoaccept = require('./autoaccept');
 const updater = require('./updater');
 
@@ -239,30 +239,15 @@ bot.command('status', async (ctx) => {
     msg += t('status.bot_running') + '\n';
     
     try {
-        const activeId = await getActiveThreadId(CDP_PORT);
-        if (activeId) {
-            const workspaces = await listAgentThreads(CDP_PORT);
-            let activeWorkspace = null;
-            let activeThread = null;
-            
-            for (const ws of workspaces) {
-                const found = ws.threads.find(t => t.id === activeId);
-                if (found) {
-                    activeWorkspace = ws.workspace;
-                    activeThread = found.name;
-                    break;
-                }
-            }
-            
-            if (activeWorkspace && activeThread) {
-                msg += `\n💬 <b>Chat:</b>\n`;
-                msg += `- Workspace: ${activeWorkspace}\n`;
-                msg += `- Thread: ${activeThread}\n`;
-                const currentModel = await getCurrentModel(CDP_PORT);
-                if (currentModel) msg += `- Model: ${currentModel}\n`;
-                const isWorking = await isAgentWorking(CDP_PORT);
-                msg += `- Status: ${isWorking ? 'Working...' : 'Idle'}\n`;
-            }
+        const activeInfo = await getActiveThreadInfo(CDP_PORT);
+        if (activeInfo) {
+            msg += `\n💬 <b>Chat:</b>\n`;
+            msg += `- Workspace: ${activeInfo.workspace}\n`;
+            msg += `- Thread: ${activeInfo.name}\n`;
+            const currentModel = await getCurrentModel(CDP_PORT);
+            if (currentModel) msg += `- Model: ${currentModel}\n`;
+            const isWorking = await isAgentWorking(CDP_PORT);
+            msg += `- Status: ${isWorking ? 'Working...' : 'Idle'}\n`;
         }
     } catch (e) {
         // silently fail if we can't get chat info
@@ -278,18 +263,11 @@ bot.command('status', async (ctx) => {
  */
 async function appendThreadFooter(text) {
     try {
-        const activeId = await getActiveThreadId(CDP_PORT);
-        if (activeId) {
-            const workspaces = await listAgentThreads(CDP_PORT);
-            let threadName = null;
-            let wsName = null;
-            for (const ws of workspaces) {
-                const found = ws.threads.find(t => t.id === activeId);
-                if (found) { wsName = ws.workspace; threadName = found.name; break; }
-            }
+        const activeInfo = await getActiveThreadInfo(CDP_PORT);
+        if (activeInfo) {
             const isWorking = await isAgentWorking(CDP_PORT);
             const statusLine = isWorking ? 'Working...' : 'Idle';
-            text += '\n\n' + `📁 ${wsName || 'Unknown'}` + (threadName ? ` / ${threadName}` : '') + `\nAgent Status: ${statusLine}`;
+            text += '\n\n' + `📁 ${activeInfo.workspace || 'Unknown'}` + (activeInfo.name ? ` / ${activeInfo.name}` : '') + `\nAgent Status: ${statusLine}`;
         }
     } catch (_) {}
     return text;

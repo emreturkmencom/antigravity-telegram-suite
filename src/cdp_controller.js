@@ -192,14 +192,6 @@ async function snapshotChatState(port) {
         if (!fs.existsSync(logPath)) return;
         
         const stats = fs.statSync(logPath);
-        const readSize = Math.min(stats.size, 5000);
-        const fd = fs.openSync(logPath, 'r');
-        const buf = Buffer.alloc(readSize);
-        fs.readSync(fd, buf, 0, readSize, stats.size - readSize);
-        fs.closeSync(fd);
-        const tail = buf.toString('utf8');
-        const lines = tail.split('\n').filter(l => l.trim());
-        
         lastSnapshotFileSize = stats.size;
         console.log(`[snapshot] Anchored at file size ${lastSnapshotFileSize}`);
         return;
@@ -255,17 +247,11 @@ async function getFullLatestResponse(port) {
         if (activeId) {
             const logPath = path.join(os.homedir(), '.gemini', 'antigravity', 'brain', activeId, '.system_generated', 'logs', 'overview.txt');
             if (fs.existsSync(logPath)) {
-                // Read the last ~20KB of the file (enough for recent messages)
-                const stats = fs.statSync(logPath);
-                const readSize = Math.min(stats.size, 20000);
-                const fd = fs.openSync(logPath, 'r');
-                const buf = Buffer.alloc(readSize);
-                fs.readSync(fd, buf, 0, readSize, stats.size - readSize);
-                fs.closeSync(fd);
-                const tail = buf.toString('utf8');
+                // Read the entire file because chunks can break JSON parsing of large messages
+                const content = fs.readFileSync(logPath, 'utf8');
                 
                 // Parse JSON lines to find the last user message + model content response
-                const lines = tail.split('\n').filter(l => l.trim());
+                const lines = content.split('\n').filter(l => l.trim());
                 let lastUserMsg = null;
                 let lastModelMsg = null;
                 
@@ -285,12 +271,16 @@ async function getFullLatestResponse(port) {
                 }
                 
                 if (lastModelMsg) {
-                    const parts = [];
-                    if (lastUserMsg) parts.push('👤 User:\n' + lastUserMsg);
-                    // Truncate very long model responses for Telegram
-                    const truncated = lastModelMsg.length > 3000 ? lastModelMsg.substring(0, 3000) + '\n\n[...truncated]' : lastModelMsg;
-                    parts.push('🤖 Agent:\n' + truncated);
-                    return parts.join('\n\n');
+                    if (lastModelMsg.match(/<truncated \d+ bytes>$/)) {
+                        console.log('[getFullLatestResponse] File-system message is truncated by logger, falling back to DOM');
+                    } else {
+                        const parts = [];
+                        if (lastUserMsg) parts.push('👤 User:\n' + lastUserMsg);
+                        // Truncate very long model responses for Telegram
+                        const truncated = lastModelMsg.length > 3000 ? lastModelMsg.substring(0, 3000) + '\n\n[...truncated]' : lastModelMsg;
+                        parts.push('🤖 Agent:\n' + truncated);
+                        return parts.join('\n\n');
+                    }
                 }
             }
         }
@@ -832,8 +822,33 @@ async function switchAgentThread(port, threadName) {
     return false;
 }
 
-async function getActiveThreadId(port) {
-    // 1. Try DOM approach first (works for some IDE versions)
+async function getActiveThreadInfo(port) {
+    let threadId = null;
+    let threadName = 'Unknown Thread';
+    let workspaceName = 'IDE';
+
+    // 1. Get ID from the file system (most reliable since UI changes frequently)
+    try {
+        const brainPath = path.join(os.homedir(), '.gemini', 'antigravity', 'brain');
+        if (fs.existsSync(brainPath)) {
+            const dirs = fs.readdirSync(brainPath, { withFileTypes: true });
+            let latestTime = 0;
+            
+            for (const dir of dirs) {
+                if (!dir.isDirectory()) continue;
+                const logPath = path.join(brainPath, dir.name, '.system_generated', 'logs', 'overview.txt');
+                if (fs.existsSync(logPath)) {
+                    const stats = fs.statSync(logPath);
+                    if (stats.mtimeMs > latestTime) {
+                        latestTime = stats.mtimeMs;
+                        threadId = dir.name;
+                    }
+                }
+            }
+        }
+    } catch(e) { console.debug(`[getActiveThreadInfo] fallback error: ${e.message}`); }
+
+    // 2. Get Name and Workspace from the DOM
     const candidates = await resolveTargets(port, false);
     for (const target of candidates) {
         try {
@@ -843,47 +858,52 @@ async function getActiveThreadId(port) {
             const res = await Runtime.evaluate({
                 expression: `
                     (() => {
-                        const all = document.querySelectorAll('[data-testid^="convo-pill-"]');
-                        for (let el of all) {
-                            const row = el.closest('[role="button"]');
-                            if (row && row.classList.contains('bg-list-hover')) {
-                                return el.getAttribute('data-testid').replace('convo-pill-', '');
+                        let name = null;
+                        
+                        // Try to find the title next to the history icon
+                        const titleEl = document.querySelector("svg.lucide-history")?.closest("div")?.parentElement?.querySelector("div.whitespace-nowrap");
+                        if (titleEl) {
+                            name = titleEl.textContent.trim();
+                        } else {
+                            // Fallback for older UI
+                            const all = document.querySelectorAll('[data-testid^="convo-pill-"]');
+                            for (let el of all) {
+                                const row = el.closest('[role="button"]');
+                                if (row && row.classList.contains('bg-list-hover')) {
+                                    name = el.textContent.trim();
+                                    break;
+                                }
                             }
                         }
-                        return null;
+                        return { name, workspace: document.title };
                     })()
                 `,
                 returnByValue: true
             });
             await client.close();
-            if (res.result?.value) return res.result.value;
-        } catch(e) { console.debug(`[getActiveThreadId] target error: ${e.message}`); }
+            
+            if (res.result?.value) {
+                if (res.result.value.name) threadName = res.result.value.name;
+                
+                let wsName = res.result.value.workspace;
+                if (wsName && wsName.includes(' - ')) wsName = wsName.split(' - ')[0].trim();
+                if (wsName && wsName !== 'undefined' && wsName !== 'Launchpad') workspaceName = wsName;
+                
+                // If we found a valid name, we can break
+                if (res.result.value.name) break;
+            }
+        } catch(e) { console.debug(`[getActiveThreadInfo] target error: ${e.message}`); }
     }
 
-    // 2. Fallback to file system: find most recently modified overview.txt
-    try {
-        const brainPath = path.join(os.homedir(), '.gemini', 'antigravity', 'brain');
-        if (fs.existsSync(brainPath)) {
-            const dirs = fs.readdirSync(brainPath, { withFileTypes: true });
-            let latestTime = 0;
-            let latestId = null;
-            
-            for (const dir of dirs) {
-                if (!dir.isDirectory()) continue;
-                const logPath = path.join(brainPath, dir.name, '.system_generated', 'logs', 'overview.txt');
-                if (fs.existsSync(logPath)) {
-                    const stats = fs.statSync(logPath);
-                    if (stats.mtimeMs > latestTime) {
-                        latestTime = stats.mtimeMs;
-                        latestId = dir.name;
-                    }
-                }
-            }
-            if (latestId) return latestId;
-        }
-    } catch(e) { console.debug(`[getActiveThreadId] fallback error: ${e.message}`); }
-
+    if (threadId) {
+        return { id: threadId, name: threadName, workspace: workspaceName };
+    }
     return null;
+}
+
+async function getActiveThreadId(port) {
+    const info = await getActiveThreadInfo(port);
+    return info ? info.id : null;
 }
 async function isAgentWorking(port) {
     const raw = await resolveTargets(port, false);
@@ -978,6 +998,7 @@ module.exports = {
     listAgentThreads,
     switchAgentThread,
     getActiveThreadId,
+    getActiveThreadInfo,
     setActiveWorkspace
 };
 
