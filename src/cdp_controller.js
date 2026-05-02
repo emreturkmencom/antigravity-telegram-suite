@@ -818,7 +818,11 @@ async function listAgentThreads(port) {
     return [];
 }
 
-async function switchAgentThread(port, threadName) {
+function setActiveWorkspace(name) {
+    activeWorkspaceName = name ? name.toLowerCase() : null;
+}
+
+async function switchAgentThread(port, threadName, workspaceName) {
     const candidates = await resolveTargets(port, false);
     for (const target of candidates) {
         try {
@@ -868,7 +872,13 @@ async function switchAgentThread(port, threadName) {
                 returnByValue: true
             });
             await client.close();
-            if (res.result?.value) return true;
+            if (res.result?.value) {
+                // Update active workspace so sendViaCDP targets the right window
+                if (workspaceName) {
+                    activeWorkspaceName = workspaceName.toLowerCase();
+                }
+                return true;
+            }
         } catch(e) { console.debug(`[switchAgentThread] target error: ${e.message}`); }
     }
     return false;
@@ -1019,7 +1029,8 @@ module.exports = {
     closeWindow,
     listAgentThreads,
     switchAgentThread,
-    getActiveThreadId
+    getActiveThreadId,
+    setActiveWorkspace
 };
 
 async function captureFullIDEScreenshot(port) {

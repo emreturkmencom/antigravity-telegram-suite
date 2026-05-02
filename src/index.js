@@ -416,7 +416,7 @@ bot.command('agents', async (ctx) => {
         if (num > 0 && num <= cachedAgentThreads.length) {
             const thread = cachedAgentThreads[num - 1];
             ctx.reply(t('agents.switched', { name: thread.name }) || `✅ Switched to thread: ${thread.name}`, { parse_mode: 'HTML' });
-            const success = await switchAgentThread(CDP_PORT, thread.name);
+            const success = await switchAgentThread(CDP_PORT, thread.name, thread.workspace);
             if (!success) {
                 ctx.reply(t('agents.not_found') || '❌ Thread could not be selected.');
             }
@@ -446,7 +446,7 @@ bot.command('agents', async (ctx) => {
             if (recentThreads.length > 0) {
                 msg += `<b>📁 ${ws.workspace}</b>\n`;
                 for (const th of recentThreads) {
-                    cachedAgentThreads.push(th);
+                    cachedAgentThreads.push({ ...th, workspace: ws.workspace });
                     msg += `  /agents_${index} - ${th.name} <i>(${th.time})</i>\n`;
                     index++;
                 }
@@ -469,7 +469,7 @@ bot.hears(/^\/agents_(\d+)$/, async (ctx) => {
     if (num > 0 && num <= cachedAgentThreads.length) {
         const thread = cachedAgentThreads[num - 1];
         ctx.reply(t('agents.switched', { name: thread.name }) || `✅ Switched to thread: ${thread.name}`, { parse_mode: 'HTML' });
-        const success = await switchAgentThread(CDP_PORT, thread.name);
+        const success = await switchAgentThread(CDP_PORT, thread.name, thread.workspace);
         if (!success) {
             ctx.reply(t('agents.not_found') || '❌ Thread could not be selected.');
         }
