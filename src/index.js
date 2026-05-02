@@ -416,7 +416,7 @@ bot.command('agents', async (ctx) => {
         if (num > 0 && num <= cachedAgentThreads.length) {
             const thread = cachedAgentThreads[num - 1];
             ctx.reply(t('agents.switched', { name: thread.name }) || `✅ Switched to thread: ${thread.name}`, { parse_mode: 'HTML' });
-            const success = await switchAgentThread(CDP_PORT, thread.id);
+            const success = await switchAgentThread(CDP_PORT, thread.name);
             if (!success) {
                 ctx.reply(t('agents.not_found') || '❌ Thread could not be selected.');
             }
@@ -439,11 +439,17 @@ bot.command('agents', async (ctx) => {
         for (const ws of workspaces) {
             const recentThreads = ws.threads.filter(th => {
                 const time = th.time ? th.time.toLowerCase().trim() : '';
-                if (!time) return false;
-                // Match: 'now', '5m', '2h', '1d', '2d' but NOT '3mo', '1y' etc.
+                if (!time) return true; // If no time info, include it
+                // Match short format: 'now', '5m', '2h', '1d', '2d'
                 if (time === 'now') return true;
                 if (/^\d+[mh]$/.test(time)) return true;
                 if (/^[12]d$/.test(time)) return true;
+                // Match popup format: '2 mins ago', '4 days ago', etc.
+                if (/^\d+\s*(min|hour|day)s?\s*ago$/.test(time)) {
+                    const days = time.match(/(\d+)\s*day/);
+                    if (days && parseInt(days[1]) > 2) return false;
+                    return true;
+                }
                 return false;
             });
             
@@ -473,7 +479,7 @@ bot.hears(/^\/agents_(\d+)$/, async (ctx) => {
     if (num > 0 && num <= cachedAgentThreads.length) {
         const thread = cachedAgentThreads[num - 1];
         ctx.reply(t('agents.switched', { name: thread.name }) || `✅ Switched to thread: ${thread.name}`, { parse_mode: 'HTML' });
-        const success = await switchAgentThread(CDP_PORT, thread.id);
+        const success = await switchAgentThread(CDP_PORT, thread.name);
         if (!success) {
             ctx.reply(t('agents.not_found') || '❌ Thread could not be selected.');
         }

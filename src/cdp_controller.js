@@ -726,72 +726,104 @@ async function listAgentThreads(port) {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
             const { Runtime } = client;
             await Runtime.enable();
+
+            // Step 1: Click the history icon to open the conversation picker
+            const clickRes = await Runtime.evaluate({
+                expression: `(() => {
+                    const icon = document.querySelector("svg.lucide-history");
+                    if (!icon) return false;
+                    const btn = icon.closest("button") || icon.parentElement;
+                    btn.click();
+                    return true;
+                })()`
+            });
+            if (!clickRes.result?.value) {
+                await client.close();
+                continue;
+            }
+
+            // Step 2: Wait for the popup to render, then read conversation items
+            await new Promise(r => setTimeout(r, 800));
             const res = await Runtime.evaluate({
-                expression: `
-                    ${UI_LOCATORS_SCRIPT}
-                    (() => {
-                        const workspaces = [];
-                        const cards = AG_UI.getWorkspaceCards();
-                        cards.forEach(card => {
-                            const wsNameEl = card.querySelector('span.truncate');
-                            if (!wsNameEl) return;
-                            const wsName = wsNameEl.textContent.trim();
-                            
-                            const threads = [];
-                            const sibling = card.nextElementSibling;
-                            if (sibling) {
-                                const pills = AG_UI.getChatThreadPills(sibling);
-                                pills.forEach(pill => {
-                                    const name = pill.textContent.trim();
-                                    const id = pill.getAttribute('data-testid').replace('convo-pill-', '');
-                                    const row = pill.closest('[role="button"]');
-                                    let time = '';
-                                    if (row) {
-                                        const timeEl = row.querySelector('.text-xs.opacity-50');
-                                        if (timeEl) time = timeEl.textContent.trim();
-                                    }
-                                    threads.push({ name, id, time });
-                                });
-                            }
-                            if (threads.length > 0) {
-                                workspaces.push({ workspace: wsName, threads });
-                            }
-                        });
-                        return workspaces;
-                    })()
-                `,
+                expression: `(() => {
+                    const input = document.querySelector('input[placeholder="Select a conversation"]');
+                    if (!input) return JSON.stringify([]);
+                    let container = input;
+                    for (let i = 0; i < 15; i++) { if (container.parentElement) container = container.parentElement; }
+                    const rows = Array.from(container.querySelectorAll('div.cursor-pointer'));
+                    const threads = rows.filter(r => {
+                        return r.classList.contains('px-2.5') || (r.className.includes('px-2.5') && r.className.includes('cursor-pointer'));
+                    }).map(row => {
+                        const nameEl = row.querySelector('span.truncate, span.text-sm span');
+                        const timeEl = row.querySelector('span.opacity-50, span.text-xs');
+                        const name = nameEl ? nameEl.textContent.trim() : row.textContent.trim().replace(/\\d+ \\w+ ago$/, '').trim();
+                        const time = timeEl ? timeEl.textContent.trim() : '';
+                        return { name, time };
+                    }).filter(t => t.name.length > 0);
+                    return JSON.stringify(threads);
+                })()`,
                 returnByValue: true
             });
+
+            // Step 3: Close the popup with Escape
+            await Runtime.evaluate({
+                expression: `(() => {
+                    const input = document.querySelector('input[placeholder="Select a conversation"]');
+                    if (input) {
+                        input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+                    }
+                })()`
+            });
+
             await client.close();
-            if (res.result?.value && res.result.value.length > 0) {
-                return res.result.value;
+            const threads = JSON.parse(res.result?.value || '[]');
+            if (threads.length > 0) {
+                // Wrap in workspace format for backward compat with index.js
+                return [{ workspace: target.title.split(' - ')[0] || 'IDE', threads }];
             }
         } catch(e) { console.debug(`[listAgentThreads] target error: ${e.message}`); }
     }
     return [];
 }
 
-async function switchAgentThread(port, threadId) {
+async function switchAgentThread(port, threadName) {
     const candidates = await resolveTargets(port, false);
     for (const target of candidates) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
             const { Runtime } = client;
             await Runtime.enable();
+
+            // Step 1: Click the history icon
+            const clickRes = await Runtime.evaluate({
+                expression: `(() => {
+                    const icon = document.querySelector("svg.lucide-history");
+                    if (!icon) return false;
+                    const btn = icon.closest("button") || icon.parentElement;
+                    btn.click();
+                    return true;
+                })()`
+            });
+            if (!clickRes.result?.value) { await client.close(); continue; }
+
+            // Step 2: Wait for popup, then click the matching conversation row
+            await new Promise(r => setTimeout(r, 800));
+            const threadNameStr = JSON.stringify(threadName);
             const res = await Runtime.evaluate({
-                expression: `
-                    (() => {
-                        const pill = document.querySelector('[data-testid="convo-pill-' + ${JSON.stringify(threadId)} + '"]');
-                        if (pill) {
-                            const btn = pill.closest('[role="button"]');
-                            if (btn && typeof btn.click === 'function') {
-                                btn.click();
-                                return true;
-                            }
-                        }
-                        return false;
-                    })()
-                `,
+                expression: `(() => {
+                    const input = document.querySelector('input[placeholder="Select a conversation"]');
+                    if (!input) return false;
+                    let container = input;
+                    for (let i = 0; i < 15; i++) { if (container.parentElement) container = container.parentElement; }
+                    const rows = Array.from(container.querySelectorAll('div.cursor-pointer')).filter(r => r.className.includes('px-2.5'));
+                    const target = rows.find(row => {
+                        const nameEl = row.querySelector('span.truncate, span.text-sm span');
+                        const name = nameEl ? nameEl.textContent.trim() : '';
+                        return name === ${threadNameStr};
+                    });
+                    if (target) { target.click(); return true; }
+                    return false;
+                })()`,
                 returnByValue: true
             });
             await client.close();
@@ -802,6 +834,7 @@ async function switchAgentThread(port, threadId) {
 }
 
 async function getActiveThreadId(port) {
+    // 1. Try DOM approach first (works for some IDE versions)
     const candidates = await resolveTargets(port, false);
     for (const target of candidates) {
         try {
@@ -827,6 +860,30 @@ async function getActiveThreadId(port) {
             if (res.result?.value) return res.result.value;
         } catch(e) { console.debug(`[getActiveThreadId] target error: ${e.message}`); }
     }
+
+    // 2. Fallback to file system: find most recently modified overview.txt
+    try {
+        const brainPath = path.join(os.homedir(), '.gemini', 'antigravity', 'brain');
+        if (fs.existsSync(brainPath)) {
+            const dirs = fs.readdirSync(brainPath, { withFileTypes: true });
+            let latestTime = 0;
+            let latestId = null;
+            
+            for (const dir of dirs) {
+                if (!dir.isDirectory()) continue;
+                const logPath = path.join(brainPath, dir.name, '.system_generated', 'logs', 'overview.txt');
+                if (fs.existsSync(logPath)) {
+                    const stats = fs.statSync(logPath);
+                    if (stats.mtimeMs > latestTime) {
+                        latestTime = stats.mtimeMs;
+                        latestId = dir.name;
+                    }
+                }
+            }
+            if (latestId) return latestId;
+        }
+    } catch(e) { console.debug(`[getActiveThreadId] fallback error: ${e.message}`); }
+
     return null;
 }
 async function isAgentWorking(port) {
