@@ -163,13 +163,33 @@ const CHAT_EXTRACT_EXPR = `
     })()
 `;
 
-function httpGet(url) {
+function withTimeout(promise, ms, errorMsg) {
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+            reject(new Error(errorMsg || `Operation timed out after ${ms}ms`));
+        }, ms);
+    });
+    return Promise.race([
+        promise,
+        timeoutPromise
+    ]).finally(() => {
+        clearTimeout(timeoutId);
+    });
+}
+
+function httpGet(url, timeoutMs = 5000) {
     return new Promise((resolve, reject) => {
-        http.get(url, (res) => {
+        const req = http.get(url, (res) => {
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => resolve(data));
         }).on('error', err => reject(err));
+        
+        req.setTimeout(timeoutMs, () => {
+            req.destroy();
+            reject(new Error('HTTP request timed out'));
+        });
     });
 }
 
@@ -496,11 +516,11 @@ async function sendViaCDP(text, port) {
     for (const target of sortedCandidates) {
         let client;
         try {
-            client = await CDP({ target: target.webSocketDebuggerUrl });
+            client = await withTimeout(CDP({ target: target.webSocketDebuggerUrl }), 3000, "CDP connect timeout");
             const { Runtime, Input } = client;
             await Runtime.enable();
 
-            const focusResult = await Runtime.evaluate({
+            const focusResult = await withTimeout(Runtime.evaluate({
                 expression: `
                     (async function() {
                         try {
@@ -564,7 +584,7 @@ async function sendViaCDP(text, port) {
                 `,
                 awaitPromise: true,
                 returnByValue: true
-            });
+            }), 8000, "CDP evaluate timeout");
             const val = focusResult?.result?.value;
             console.log(`sendViaCDP [${target.title?.substring(0, 30)}]: result =`, JSON.stringify(val));
             
@@ -852,10 +872,10 @@ async function getActiveThreadInfo(port) {
     const candidates = await resolveTargets(port, false);
     for (const target of candidates) {
         try {
-            const client = await CDP({ target: target.webSocketDebuggerUrl });
+            const client = await withTimeout(CDP({ target: target.webSocketDebuggerUrl }), 2000, "CDP timeout");
             const { Runtime } = client;
             await Runtime.enable();
-            const res = await Runtime.evaluate({
+            const res = await withTimeout(Runtime.evaluate({
                 expression: `
                     (() => {
                         let name = null;
@@ -879,7 +899,7 @@ async function getActiveThreadInfo(port) {
                     })()
                 `,
                 returnByValue: true
-            });
+            }), 3000, "Evaluate timeout");
             await client.close();
             
             if (res.result?.value) {
@@ -911,10 +931,10 @@ async function isAgentWorking(port) {
     const candidates = raw;
     for (const target of candidates) {
         try {
-            const client = await CDP({ target: target.webSocketDebuggerUrl });
+            const client = await withTimeout(CDP({ target: target.webSocketDebuggerUrl }), 2000, "CDP timeout");
             const { Runtime } = client;
             await Runtime.enable();
-            const check = await Runtime.evaluate({
+            const check = await withTimeout(Runtime.evaluate({
                 expression: `
                     ${UI_LOCATORS_SCRIPT}
                     (function() {
@@ -938,7 +958,7 @@ async function isAgentWorking(port) {
                     })()
                 `,
                 returnByValue: true
-            });
+            }), 3000, "Evaluate timeout");
             await client.close();
             if (check && check.result && check.result.value !== undefined) {
                 return check.result.value;
