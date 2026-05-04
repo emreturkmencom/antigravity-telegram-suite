@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-05-04
+
+### Added
+- **Emergency Restart** (`/restart`): Dedicated command to instantly kill the Node process and trigger a PM2 restart, helping recover from system locks.
+- **Alphabetical Command Menu**: Telegram bot menu commands are now automatically sorted A-Z for easier navigation.
+
+### Fixed
+- **Auto-Accept Infinite Loop**: Fixed a critical bug in `autoaccept.js` where injecting UI DOM elements caused an infinite MutationObserver loop that locked up the Node process and IDE.
+- **Agents Popup Fix**: The `/agents` command now successfully closes the Quick Pick popup in the IDE by dispatching an Escape keydown event instead of relying on fragile UI locators.
+- **Unauthorized Interaction Handling**: Replaced hard crashes with proper error handling and logging for unauthorized interactions (e.g., when the bot is blocked by an unauthorized user).
+
 ### Added
 - **Auto-Accept** (`/autoaccept`): Automatically clicks Run, Accept, Always Allow, Allow, Retry, and Continue buttons in the agent panel via CDP MutationObserver injection
   - Toggle on/off/status via Telegram command
