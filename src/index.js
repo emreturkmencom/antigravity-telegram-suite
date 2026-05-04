@@ -1078,7 +1078,7 @@ bot.action(/fp_(.+)/, (ctx) => {
 // ===== MENU REGISTRATION =====
 
 function getMenuCommands() {
-    return [
+    const cmds = [
         { command: 'help', description: t('menu.help_desc') },
         { command: 'latest', description: t('menu.latest_desc') },
         { command: 'screenshot', description: t('menu.screenshot_desc') },
@@ -1103,6 +1103,7 @@ function getMenuCommands() {
         { command: 'menu', description: t('menu.menu_desc') },
         { command: 'restart', description: t('menu.restart_desc') || 'Restart the bot' }
     ];
+    return cmds.sort((a, b) => a.command.localeCompare(b.command));
 }
 
 /**
