@@ -119,19 +119,16 @@ function performUpdate() {
             return reject(new Error('Not running under PM2. Please update manually:\n`cd ' + PROJECT_ROOT + ' && git pull && npm install`'));
         }
 
-        // Step 1: git pull
-        exec('git pull origin main', { cwd: PROJECT_ROOT }, (err, stdout, stderr) => {
-            if (err) return reject(new Error(`git pull failed: ${err.message}`));
+        // Step 1: Check if package.json will change before we reset
+        exec('git fetch origin main && git diff --name-only HEAD origin/main', { cwd: PROJECT_ROOT }, (err, stdout) => {
+            if (err) return reject(new Error(`git fetch failed: ${err.message}`));
+            
+            const diffOutput = stdout.trim();
+            const packageChanged = diffOutput.includes('package.json') || diffOutput.includes('package-lock.json');
 
-            const pullOutput = stdout.trim();
-            const alreadyUpToDate = pullOutput.includes('Already up to date');
-
-            if (alreadyUpToDate) {
-                return resolve({ updated: false, message: 'Already up to date.' });
-            }
-
-            // Step 2: Check if package.json changed (need npm install)
-            const packageChanged = pullOutput.includes('package.json') || pullOutput.includes('package-lock.json');
+            // Step 2: Force one-way sync (discard local changes)
+            exec('git reset --hard origin/main', { cwd: PROJECT_ROOT }, (err2, resetOut) => {
+                if (err2) return reject(new Error(`git reset failed: ${err2.message}`));
 
             const nextStep = () => {
                 // Resolve immediately so the bot can send the confirmation message
@@ -153,9 +150,10 @@ function performUpdate() {
             } else {
                 nextStep();
             }
-        });
-    });
-}
+        }); // close exec git reset
+        }); // close exec git fetch
+    }); // close new Promise
+} // close performUpdate
 
 /**
  * Start periodic update checking. Sends Telegram notification when update is found.
