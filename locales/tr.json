@@ -124,7 +124,8 @@
     "update_desc": "Güncelleme kontrol et ve güncelle",
     "version_desc": "Mevcut sürümü gösterir",
     "menu_desc": "Komut menüsünü güncelle",
-    "window_desc": "IDE penceresi seç"
+    "window_desc": "IDE penceresi seç",
+    "restart_desc": "Botu yeniden başlatır"
   },
   "photo": {
     "downloaded": "✅ Dosya indirildi ve ajana yönlendiriliyor...",

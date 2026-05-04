@@ -752,8 +752,10 @@ async function listAgentThreads(port) {
             // Close popup
             await Runtime.evaluate({
                 expression: `(() => {
-                    const icon = document.querySelector("svg.lucide-history");
-                    if (icon) (icon.closest("button") || icon.parentElement).click();
+                    document.body.click();
+                    const esc = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true });
+                    document.activeElement.dispatchEvent(esc);
+                    document.dispatchEvent(esc);
                 })()`
             });
             await client.close();

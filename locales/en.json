@@ -124,7 +124,8 @@
     "update_desc": "Check for updates and auto-update",
     "version_desc": "Show current version",
     "menu_desc": "Update the command menu",
-    "window_desc": "Select IDE window"
+    "window_desc": "Select IDE window",
+    "restart_desc": "Restart the bot"
   },
   "photo": {
     "downloaded": "✅ File downloaded and forwarding to agent...",

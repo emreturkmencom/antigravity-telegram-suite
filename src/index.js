@@ -145,10 +145,22 @@ function checkAuth(ctx, next) {
     if (!ALLOWED_CHAT_ID) {
         console.log(`\n🔔 NEW CHAT ID DETECTED: ${ctx.chat.id}`);
         console.log(`Please add ALLOWED_CHAT_ID=${ctx.chat.id} to your .env file and restart.\n`);
-        return ctx.reply(`Welcome! Your Chat ID is: ${ctx.chat.id}\nPlease add it to the .env file as ALLOWED_CHAT_ID and restart the bot.`);
+        return ctx.reply(`Welcome! Your Chat ID is: ${ctx.chat.id}\nPlease add it to the .env file as ALLOWED_CHAT_ID and restart the bot.`).catch(e => console.error('[checkAuth]', e.message));
     }
     if (ctx.chat.id.toString() !== ALLOWED_CHAT_ID) {
-        return ctx.reply(t('auth.unauthorized'));
+        const from = ctx.from || ctx.chat;
+        if (from && ALLOWED_CHAT_ID) {
+            const username = from.username ? `@${from.username}` : 'Yok';
+            const fullName = `${from.first_name || ''} ${from.last_name || ''}`.trim() || 'İsimsiz';
+            
+            let actionDetails = `Eylem: ${ctx.updateType || 'Bilinmiyor'}`;
+            if (ctx.message && ctx.message.text) actionDetails = `Mesaj: "${ctx.message.text}"`;
+            else if (ctx.callbackQuery) actionDetails = `Buton: ${ctx.callbackQuery.data}`;
+
+            const alertMsg = `⚠️ <b>Yetkisiz Erişim Denemesi!</b>\n\n👤 <b>Kişi:</b> ${fullName}\n🔖 <b>Kullanıcı Adı:</b> ${username}\n🆔 <b>ID:</b> <code>${from.id}</code>\n💬 <b>${actionDetails}</b>`;
+            ctx.telegram.sendMessage(ALLOWED_CHAT_ID, alertMsg, { parse_mode: 'HTML' }).catch(e => console.error('[checkAuth Alert]', e.message));
+        }
+        return ctx.reply(t('auth.unauthorized')).catch(e => console.error('[checkAuth]', e.message));
     }
     return next();
 }
@@ -159,6 +171,11 @@ bot.use(checkAuth);
 
 bot.start((ctx) => {
     ctx.reply(t('bot.started', { chatId: ctx.chat.id }));
+});
+
+bot.command('restart', async (ctx) => {
+    await ctx.reply('🔄 Bot yeniden başlatılıyor...');
+    process.exit(0);
 });
 
 bot.help((ctx) => {
@@ -1083,7 +1100,8 @@ function getMenuCommands() {
         { command: 'quota', description: t('menu.quota_desc') },
         { command: 'update', description: t('menu.update_desc') || 'Check for updates' },
         { command: 'version', description: t('menu.version_desc') || 'Show current version' },
-        { command: 'menu', description: t('menu.menu_desc') }
+        { command: 'menu', description: t('menu.menu_desc') },
+        { command: 'restart', description: t('menu.restart_desc') || 'Restart the bot' }
     ];
 }
 
@@ -1339,6 +1357,11 @@ async function init() {
     }
 
     console.log(t('bot.polling'));
+    
+    bot.catch((err, ctx) => {
+        console.error(`[Bot Error] for ${ctx.updateType}:`, err.message || err);
+    });
+
     bot.launch({ dropPendingUpdates: true }).catch(err => {
         console.error("Bot launch failed:", err);
     });
