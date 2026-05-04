@@ -256,7 +256,10 @@ function launchIDE(workspace, port = 9333) {
                 cmd = `start "" "${binary}" --remote-debugging-port=${port} ${wsArg}`;
                 break;
             case 'darwin':
-                cmd = `open -a "${binary}" --args --remote-debugging-port=${port} ${wsArg}`;
+                // Executing the binary directly allows passing arguments to an already running instance (like --new-window)
+                // Using 'open -a' ignores arguments if the app is already running.
+                const macBinary = `${binary}/Contents/MacOS/Antigravity`;
+                cmd = `nohup "${macBinary}" --remote-debugging-port=${port} ${wsArg} > /dev/null 2>&1 &`;
                 break;
             default: // linux
                 // Always use the binary directly with full args for reliable workspace switching.
