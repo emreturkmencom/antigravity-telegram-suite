@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.2.3] - 2026-05-04
+
+### Fixed
+- **One-Way Update Sync**: The auto-updater now forces a one-way sync (`git reset --hard`) instead of standard pulls, eliminating update failures caused by local modifications like `package-lock.json`.
+- **macOS Multi-Window IPC**: Corrected the macOS application launch strategy to use the built-in CLI (`bin/antigravity`) instead of the raw binary, ensuring the `--new-window` flag propagates correctly to already running instances.
+- **Update Notifications**: Fixed a logic flaw that explicitly suppressed the "Update Successful" Telegram message. Notifications now correctly wait 3 seconds before PM2 restarts the process.
 ## [2.2.2] - 2026-05-04
 
 ### Fixed
