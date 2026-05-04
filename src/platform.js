@@ -24,16 +24,18 @@ const config = {
         }
     },
 
+    /** IDE data directory path */
+    get dataDir() {
+        switch (PLATFORM) {
+            case 'darwin': return path.join(HOME, 'Library', 'Application Support', 'Antigravity');
+            case 'win32': return path.join(process.env.APPDATA || '', 'Antigravity');
+            default: return path.join(HOME, '.config', 'Antigravity');
+        }
+    },
+
     /** IDE lock file path */
     get lockFile() {
-        switch (PLATFORM) {
-            case 'darwin':
-                return path.join(HOME, 'Library', 'Application Support', 'Antigravity', 'code.lock');
-            case 'win32':
-                return path.join(process.env.APPDATA || '', 'Antigravity', 'code.lock');
-            default:
-                return path.join(HOME, '.config', 'Antigravity', 'code.lock');
-        }
+        return path.join(this.dataDir, 'code.lock');
     },
 
     /** Default projects directory */
@@ -180,7 +182,7 @@ function cleanLockFile() {
  */
 function clearWindowState() {
     const fs = require('fs');
-    const backupsDir = path.join(HOME, '.config', 'Antigravity', 'Backups');
+    const backupsDir = path.join(config.dataDir, 'Backups');
     try {
         if (fs.existsSync(backupsDir)) {
             fs.rmSync(backupsDir, { recursive: true, force: true });
@@ -201,7 +203,7 @@ function clearWindowState() {
  */
 function clearBackupWorkspaces() {
     const fs = require('fs');
-    const storageFile = path.join(HOME, '.config', 'Antigravity', 'User', 'globalStorage', 'storage.json');
+    const storageFile = path.join(config.dataDir, 'User', 'globalStorage', 'storage.json');
     try {
         if (!fs.existsSync(storageFile)) {
             console.log('[platform] storage.json not found at', storageFile);
@@ -237,47 +239,56 @@ function launchIDE(workspace, port = 9333) {
             return reject(new Error('IDE_NOT_INSTALLED'));
         }
 
-        // When opening a specific workspace, clear session restore state
-        // so the IDE doesn't ignore the workspace argument
-        if (workspace) {
-            clearWindowState();
-        }
+        const executeCmd = () => {
+            let cmd;
+            // --new-window ensures the IDE opens a fresh window for the workspace
+            // instead of restoring the previous session
+            // --disable-workspace-trust prevents the trust dialog from blocking automation
+            const wsArg = workspace ? `--new-window --disable-workspace-trust "${workspace}"` : '';
 
-        let cmd;
-        // --new-window ensures the IDE opens a fresh window for the workspace
-        // instead of restoring the previous session
-        // --disable-workspace-trust prevents the trust dialog from blocking automation
-        const wsArg = workspace ? `--new-window --disable-workspace-trust "${workspace}"` : '';
+            console.log(`[platform] launchIDE: workspace=${workspace || 'none'}, port=${port}`);
 
-        console.log(`[platform] launchIDE: workspace=${workspace || 'none'}, port=${port}`);
-
-        switch (PLATFORM) {
-            case 'win32':
-                cmd = `start "" "${binary}" --remote-debugging-port=${port} ${wsArg}`;
-                break;
-            case 'darwin':
-                // Executing the binary directly allows passing arguments to an already running instance (like --new-window)
-                // Using 'open -a' ignores arguments if the app is already running.
-                const macBinary = `${binary}/Contents/MacOS/Antigravity`;
-                cmd = `nohup "${macBinary}" --remote-debugging-port=${port} ${wsArg} > /dev/null 2>&1 &`;
-                break;
-            default: // linux
-                // Always use the binary directly with full args for reliable workspace switching.
-                // The launcher script doesn't pass --disable-workspace-trust and can interfere.
-                cmd = `nohup "${binary}" --remote-debugging-port=${port} ${wsArg} > /dev/null 2>&1 &`;
-        }
-
-        console.log(`[platform] launchIDE cmd: ${cmd}`);
-
-        exec(cmd, (err) => {
-            if (err) {
-                console.error(`[platform] launchIDE exec error: ${err.message}`);
-                reject(err);
-            } else {
-                console.log('[platform] launchIDE exec completed successfully');
-                resolve();
+            switch (PLATFORM) {
+                case 'win32':
+                    cmd = `start "" "${binary}" --remote-debugging-port=${port} ${wsArg}`;
+                    break;
+                case 'darwin':
+                    // Executing the binary directly allows passing arguments to an already running instance (like --new-window)
+                    // Using 'open -a' ignores arguments if the app is already running.
+                    const macBinary = `${binary}/Contents/MacOS/Antigravity`;
+                    cmd = `nohup "${macBinary}" --remote-debugging-port=${port} ${wsArg} > /dev/null 2>&1 &`;
+                    break;
+                default: // linux
+                    // Always use the binary directly with full args for reliable workspace switching.
+                    // The launcher script doesn't pass --disable-workspace-trust and can interfere.
+                    cmd = `nohup "${binary}" --remote-debugging-port=${port} ${wsArg} > /dev/null 2>&1 &`;
             }
-        });
+
+            console.log(`[platform] launchIDE cmd: ${cmd}`);
+
+            exec(cmd, (err) => {
+                if (err) {
+                    console.error(`[platform] launchIDE exec error: ${err.message}`);
+                    reject(err);
+                } else {
+                    console.log('[platform] launchIDE exec completed successfully');
+                    resolve();
+                }
+            });
+        };
+
+        if (workspace) {
+            isIDERunning().then(running => {
+                // Only clear session restore state if NO existing IDE is running.
+                // With multi-window, we don't want to wipe other windows' backup state.
+                if (!running) {
+                    clearWindowState();
+                }
+                executeCmd();
+            });
+        } else {
+            executeCmd();
+        }
     });
 }
 
