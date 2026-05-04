@@ -1220,7 +1220,7 @@ bot.command('update', async (ctx) => {
             );
             return;
         }
-        ctx.reply(
+        await ctx.reply(
             `🔄 <b>Güncelleme Mevcut!</b>\n\n` +
             `Mevcut: v${result.localVersion} (${result.localCommit})\n` +
             `Yeni: v${result.remoteVersion} (${result.remoteCommit})\n\n` +
@@ -1228,10 +1228,7 @@ bot.command('update', async (ctx) => {
             { parse_mode: 'HTML' }
         );
         const updateResult = await updater.performUpdate();
-        if (!updateResult.updated) {
-            ctx.reply(`ℹ️ ${updateResult.message}`);
-        }
-        // If update succeeded, bot will restart and this code won't execute
+        await ctx.reply(`ℹ️ ${updateResult.message}`);
     } catch(e) {
         ctx.reply(`❌ Güncelleme hatası: ${e.message}`);
     }
