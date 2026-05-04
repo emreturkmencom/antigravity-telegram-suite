@@ -134,17 +134,15 @@ function performUpdate() {
             const packageChanged = pullOutput.includes('package.json') || pullOutput.includes('package-lock.json');
 
             const nextStep = () => {
-                // Step 3: Restart via PM2 using process ID
-                exec(`pm2 restart ${pmId}`, (err2) => {
-                    if (err2) {
-                        return resolve({
-                            updated: true,
-                            message: `✅ Code updated!\n\n${pullOutput}\n\n⚠️ PM2 restart failed: ${err2.message}\nPlease restart manually.`
-                        });
-                    }
-                    // This code won't execute because PM2 will kill the process
-                    resolve({ updated: true, message: `✅ Updated and restarting...` });
-                });
+                // Resolve immediately so the bot can send the confirmation message
+                resolve({ updated: true, message: `✅ Kodlar güncellendi ve bağımlılıklar kuruldu.\nBot şimdi yeniden başlatılıyor...` });
+                
+                // Delay restart by 3 seconds to let Telegram API deliver the message
+                setTimeout(() => {
+                    exec(`pm2 restart ${pmId}`, (err2) => {
+                        if (err2) console.error(`PM2 restart failed: ${err2.message}`);
+                    });
+                }, 3000);
             };
 
             if (packageChanged) {

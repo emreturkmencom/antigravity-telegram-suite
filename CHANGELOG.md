@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.2.2] - 2026-05-04
+
+### Fixed
+- **Updater Notification**: Fixed a bug where the `/update` command failed to send the success notification because the PM2 restart killed the bot process instantly. The restart is now delayed by 3 seconds to ensure the Telegram message is delivered.
+- **macOS Multi-Window**: Fixed a bug where switching workspaces via `/workspace` on macOS failed to open a new window if the IDE was already running. The bot now directly executes the binary instead of using `open -a`.
+
 ## [2.2.1] - 2026-05-04
 
 ### Added
