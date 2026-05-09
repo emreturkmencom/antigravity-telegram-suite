@@ -9,13 +9,13 @@
   "help": {
     "title": "🤖 <b>Available Commands:</b>",
     "messaging_title": "📝 <i>Messaging &amp; Interaction:</i>",
-    "messaging_text": "- Just type text → Talk to the agent (headless mode)\n- 📎 Send image/file → Forward to agent (caption supported)",
+    "messaging_text": "• Just type text → Talk to the agent (headless mode)\n• 📎 Send image/file → Forward to agent (caption supported)",
     "status_title": "👁️ <i>Status &amp; Info:</i>",
-    "status_text": "- /latest (or /l) → Get latest response\n- /screenshot (or /ss) → Take IDE screenshot\n- /status (or /s) → System status (IDE, CDP, PM2)",
+    "status_text": "• /latest (or /l) → Get latest response\n• /screenshot (or /ss) → Take IDE screenshot\n• /status (or /s) → System status (IDE, CDP, PM2)",
     "ide_title": "🛠️ <i>IDE Controls:</i>",
-    "ide_text": "- /start_ide → Start the IDE if closed\n- /close → Fully close the IDE (kill process + clean locks)\n- /workspace → Switch project workspace\n- /window → Select active IDE window\n- /lang → Switch language\n- /cmd &lt;command&gt; → Run a terminal command\n- /help (or /h) → Show this help message",
+    "ide_text": "• /start_ide → Start the IDE if closed\n• /close → Fully close the IDE (kill process + clean locks)\n• /workspace → Switch project workspace\n• /window → Select active IDE window\n• /lang → Switch language\n• /cmd &lt;command&gt; → Run a terminal command\n• /help (or /h) → Show this help message",
     "chat_title": "💬 <i>Chat Controls:</i>",
-    "chat_text": "- /new → Open a new chat\n- /agents (or /a) → List and switch recent chat threads\n- /artifacts (or /af) → List artifacts of current thread\n- /model (or /m) → Open model selection menu\n- /autoaccept (or /aa) → Toggle auto-accept on/off"
+    "chat_text": "• /new → Open a new chat\n• /agents (or /a) → List and switch recent chat threads\n• /artifacts (or /af) → List artifacts of current thread\n• /model (or /m) → Open model selection menu\n• /autoaccept (or /aa) → Toggle auto-accept on/off"
   },
   "ide": {
     "already_running": "✅ Antigravity IDE is already running! No need to open another window.\n💡 Use /close to shut it down.",
