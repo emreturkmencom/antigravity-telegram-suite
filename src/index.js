@@ -571,13 +571,13 @@ bot.hears(/^\/af(\d+)$/, async (ctx) => {
         
         try {
             if (ext === '.png' || ext === '.jpg' || ext === '.jpeg') {
-                await ctx.replyWithPhoto({ source: artifact.path, filename: displayName + ext });
+                await ctx.replyWithPhoto({ source: artifact.path, filename: displayName + ext }, { caption: displayName + ext });
             } else if (ext === '.webp') {
                 const { execSync } = require('child_process');
                 
                 if (!isAnimated) {
                     // It's a static WebP image
-                    await ctx.replyWithPhoto({ source: artifact.path, filename: displayName + '.webp' });
+                    await ctx.replyWithPhoto({ source: artifact.path, filename: displayName + '.webp' }, { caption: displayName + '.webp' });
                 } else {
                     // It's an animated WebP
                     const mp4Path = artifact.path.replace(/\.webp$/i, '.mp4');
@@ -591,17 +591,17 @@ bot.hears(/^\/af(\d+)$/, async (ctx) => {
                     if (fs.existsSync(mp4Path)) {
                         const stats = fs.statSync(mp4Path);
                         if (stats.size > 1024) { // Ensure it's not an empty/broken file
-                            await ctx.replyWithVideo({ source: mp4Path, filename: displayName + '.mp4' });
+                            await ctx.replyWithVideo({ source: mp4Path, filename: displayName + '.mp4' }, { caption: displayName + '.mp4' });
                         } else {
-                            await ctx.replyWithDocument({ source: artifact.path, filename: displayName + '.webp' });
+                            await ctx.replyWithDocument({ source: artifact.path, filename: displayName + '.webp' }, { caption: displayName + '.webp' });
                         }
                         try { fs.unlinkSync(mp4Path); } catch(e) { console.error('Cleanup failed:', e.message); }
                     } else {
-                        await ctx.replyWithDocument({ source: artifact.path, filename: displayName + '.webp' });
+                        await ctx.replyWithDocument({ source: artifact.path, filename: displayName + '.webp' }, { caption: displayName + '.webp' });
                     }
                 }
             } else if (ext === '.mp4' || ext === '.mov') {
-                await ctx.replyWithVideo({ source: artifact.path, filename: displayName + ext });
+                await ctx.replyWithVideo({ source: artifact.path, filename: displayName + ext }, { caption: displayName + ext });
             } else if (ext === '.md') {
                 const content = fs.readFileSync(artifact.path, 'utf8');
                 await sendLongMessage(ctx, content);
