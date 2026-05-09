@@ -39,3 +39,11 @@ To view the bot's logs:
 ```bash
 pm2 logs antigravity-bot
 ```
+
+## Documentation
+
+Explore the rest of the wiki to understand the inner workings and capabilities of the bot:
+
+- 🏗️ **[Architecture](Architecture.md)**: Deep dive into how the bot uses Chrome DevTools Protocol to remote-control the headless IDE.
+- ⌨️ **[Commands Reference](Commands.md)**: A complete list of all Telegram commands, aliases, and chat management tools.
+- 🤖 **[Auto-Accept State Machine](Auto-Accept.md)**: How the intelligent DOM observer automatically handles IDE prompts to keep your agent running autonomously.
