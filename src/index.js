@@ -469,7 +469,7 @@ bot.command(['agents', 'a'], async (ctx) => {
                 msg += `<b>📁 ${ws.workspace}</b>\n`;
                 for (const th of recentThreads) {
                     cachedAgentThreads.push(th);
-                    msg += `  /agents_${index} - ${th.name} <i>(${th.time})</i>\n`;
+                    msg += `  /a_${index} - ${th.name} <i>(${th.time})</i>\n`;
                     index++;
                 }
                 msg += '\n';
@@ -486,7 +486,7 @@ bot.command(['agents', 'a'], async (ctx) => {
     }
 });
 
-bot.hears(/^\/agents_(\d+)$/, async (ctx) => {
+bot.hears(/^\/a_(\d+)$/, async (ctx) => {
     const num = parseInt(ctx.match[1], 10);
     if (num > 0 && num <= cachedAgentThreads.length) {
         const thread = cachedAgentThreads[num - 1];
@@ -545,7 +545,7 @@ bot.command(['artifacts', 'af'], async (ctx) => {
         for (let i = 0; i < cachedArtifacts.length; i++) {
             const filename = cachedArtifacts[i].name;
             const { displayName, icon } = getArtifactDisplayInfo(filename, cachedArtifacts[i].path);
-            msg += `${icon} /artifact_${i + 1} - ${displayName}\n`;
+            msg += `${icon} /af_${i + 1} - ${displayName}\n`;
         }
         
         ctx.reply(msg, { parse_mode: 'HTML' });
@@ -554,7 +554,7 @@ bot.command(['artifacts', 'af'], async (ctx) => {
     }
 });
 
-bot.hears(/^\/artifact_(\d+)$/, async (ctx) => {
+bot.hears(/^\/af_(\d+)$/, async (ctx) => {
     const num = parseInt(ctx.match[1], 10);
     
     // Auto-refresh cache if the bot restarted or new artifacts pushed the index out of bounds
