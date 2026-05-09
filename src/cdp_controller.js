@@ -171,10 +171,10 @@ const CHAT_EXTRACT_EXPR = `
                             if (uText) msgs.push("👤 User:\\n" + uText);
                             
                             let aText = cleanText(clone.innerText);
-                            if (aText) msgs.push("🤖 Agent:\\n" + aText);
+                            if (aText) msgs.push(aText);
                         } else {
                             let aText = cleanText(clone.innerText);
-                            if (aText) msgs.push("🤖 Agent:\\n" + aText);
+                            if (aText) msgs.push(aText);
                         }
                     }
                     extractedText = msgs.join('\\n\\n');
@@ -325,7 +325,7 @@ async function getFullLatestResponse(port, sinceSnapshot = false) {
                     if (!sinceSnapshot && lastUserMsg) parts.push('👤 User:\n' + lastUserMsg);
                     // Truncate very long model responses for Telegram
                     const truncated = lastModelMsg.length > 3000 ? lastModelMsg.substring(0, 3000) + '\n\n[...truncated]' : lastModelMsg;
-                    parts.push('🤖 Agent:\n' + truncated);
+                    parts.push(truncated);
                     return parts.join('\n\n');
                 } else if (sinceSnapshot) {
                     // We found no new model content in the diff (maybe only tool calls)

@@ -4,9 +4,10 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { exec } = require('child_process');
+const { getArtifactDisplayInfo } = require('./utils/artifact_utils');
 const { loadLocale, t, getLang } = require('./i18n');
 const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, trustWorkspaceViaCDP, PLATFORM } = require('./platform');
-const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getCachedWindows, closeWindow, listAgentThreads, switchAgentThread, getActiveThreadId } = require('./cdp_controller');
+const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getCachedWindows, closeWindow, listAgentThreads, switchAgentThread, getActiveThreadId, getArtifacts } = require('./cdp_controller');
 const autoaccept = require('./autoaccept');
 
 let cachedAgentThreads = [];
@@ -36,6 +37,10 @@ const CDP_PORT = process.env.DEBUGGING_PORT || 9333;
 
 function markdownToTelegramHtml(text) {
     let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    html = html.replace(/(?:^&gt;[ \t]?.*\n?)+/gm, (match) => {
+        const content = match.replace(/^&gt;[ \t]?/gm, '');
+        return '<blockquote>' + content.trim() + '</blockquote>\n';
+    });
     html = html.replace(/^(#{1,6})\s+(.+)$/gm, '<b>$2</b>');
     html = html.replace(/\*\*([^\*]+)\*\*/g, '<b>$1</b>');
     html = html.replace(/(?<![A-Za-z0-9])\*([^\*]+)\*(?![A-Za-z0-9])/g, '<i>$1</i>');
@@ -309,7 +314,6 @@ bot.command('latest', async (ctx) => {
 
 bot.command('screenshot', async (ctx) => {
     try {
-        ctx.reply(t('screenshot.taking'));
         const buffer = await captureFullIDEScreenshot(CDP_PORT);
         await ctx.replyWithPhoto({ source: buffer });
     } catch (err) {
@@ -341,7 +345,6 @@ bot.command('ask', (ctx) => {
     (async () => {
         try {
             await sendViaCDP(query, CDP_PORT);
-            await ctx.reply(t('ask.sent'));
 
             // Wait briefly for message to render in DOM before anchoring state
             await new Promise(r => setTimeout(r, 1500));
@@ -353,7 +356,7 @@ bot.command('ask', (ctx) => {
                 text = stripQueryFromResponse(text, query);
                 if (!text) text = t('ask.done_empty');
                 text = await appendThreadFooter(text);
-                await sendLongMessage(ctx, text, t('ask.done'));
+                await sendLongMessage(ctx, text);
             } else {
                 await ctx.reply(t('ask.timeout'));
             }
@@ -542,51 +545,7 @@ bot.command('artifacts', async (ctx) => {
         let msg = t('artifacts.list_title') || '📎 <b>Artifacts for Current Thread:</b>\\n\\n';
         for (let i = 0; i < cachedArtifacts.length; i++) {
             const filename = cachedArtifacts[i].name;
-            const ext = path.extname(filename).toLowerCase();
-            let icon = '📄';
-            if (ext === '.md' || ext === '.txt') icon = '📝';
-            else if (ext === '.png' || ext === '.jpg' || ext === '.jpeg') icon = '🖼️';
-            else if (ext === '.mp4' || ext === '.mov') icon = '🎥';
-            else if (ext === '.webp') {
-                let frameCount = 1;
-                try {
-                    const { execSync } = require('child_process');
-                    const output = execSync(`ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of default=nokey=1:noprint_wrappers=1 "${path.join(artifactsDir, filename)}"`);
-                    frameCount = parseInt(output.toString().trim(), 10) || 1;
-                } catch (e) {}
-                icon = frameCount > 1 ? '🎥' : '🖼️';
-            }
-
-            const extless = filename.replace(/\.[^/.]+$/, "");
-            let baseName = extless;
-            let dateStrFull = '';
-
-            const timeMatch = extless.match(/_(\d{13})$/);
-            if (timeMatch) {
-                baseName = extless.slice(0, -timeMatch[0].length);
-                if (baseName.endsWith('_')) baseName = baseName.slice(0, -1);
-                
-                const date = new Date(parseInt(timeMatch[1], 10));
-                const today = new Date();
-                const yesterday = new Date(today);
-                yesterday.setDate(yesterday.getDate() - 1);
-                
-                let dateStr = '';
-                if (date.toDateString() === today.toDateString()) dateStr = 'Today';
-                else if (date.toDateString() === yesterday.toDateString()) dateStr = 'Yesterday';
-                else dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                
-                const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-                dateStrFull = ` (${dateStr} ${timeStr})`;
-            }
-
-            baseName = baseName.replace(/_/g, ' ')
-                               .split(' ')
-                               .filter(w => w.length > 0)
-                               .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-                               .join(' ');
-            
-            let displayName = `${baseName}${dateStrFull}`;
+            const { displayName, icon } = getArtifactDisplayInfo(filename, cachedArtifacts[i].path);
             msg += `${icon} /artifact_${i + 1} - ${displayName}\n`;
         }
         
@@ -598,33 +557,32 @@ bot.command('artifacts', async (ctx) => {
 
 bot.hears(/^\/artifact_(\d+)$/, async (ctx) => {
     const num = parseInt(ctx.match[1], 10);
+    
+    // Auto-refresh cache if the bot restarted or new artifacts pushed the index out of bounds
+    if (num > cachedArtifacts.length) {
+        const activeId = getActiveThreadId();
+        if (activeId) {
+            cachedArtifacts = getArtifacts(activeId);
+        }
+    }
+
     if (num > 0 && num <= cachedArtifacts.length) {
         const artifact = cachedArtifacts[num - 1];
-        ctx.reply((t('artifacts.sending', { name: artifact.name }) || `📤 Sending artifact: <b>${artifact.name}</b>...`), { parse_mode: 'HTML' });
+        const { displayName, icon, isAnimated, ext } = getArtifactDisplayInfo(artifact.name, artifact.path);
         
-        const ext = path.extname(artifact.name).toLowerCase();
         try {
             if (ext === '.png' || ext === '.jpg' || ext === '.jpeg') {
-                await ctx.replyWithPhoto({ source: artifact.path });
+                await ctx.replyWithPhoto({ source: artifact.path, filename: displayName + ext });
             } else if (ext === '.webp') {
                 const { execSync } = require('child_process');
                 
-                let frameCount = 1;
-                try {
-                    const output = execSync(`ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of default=nokey=1:noprint_wrappers=1 "${artifact.path}"`);
-                    frameCount = parseInt(output.toString().trim(), 10) || 1;
-                } catch (e) {
-                    console.error('ffprobe failed to read frame count:', e.message);
-                }
-
-                if (frameCount <= 1) {
+                if (!isAnimated) {
                     // It's a static WebP image
-                    await ctx.replyWithPhoto({ source: artifact.path });
+                    await ctx.replyWithPhoto({ source: artifact.path, filename: displayName + '.webp' });
                 } else {
                     // It's an animated WebP
                     const mp4Path = artifact.path.replace(/\.webp$/i, '.mp4');
                     if (!fs.existsSync(mp4Path)) {
-                        await ctx.reply('⏳ Converting WebP to MP4 video for native playback...');
                         try {
                             execSync(`ffmpeg -y -i "${artifact.path}" -vcodec libx264 -pix_fmt yuv420p "${mp4Path}"`);
                         } catch (err) {
@@ -634,22 +592,22 @@ bot.hears(/^\/artifact_(\d+)$/, async (ctx) => {
                     if (fs.existsSync(mp4Path)) {
                         const stats = fs.statSync(mp4Path);
                         if (stats.size > 1024) { // Ensure it's not an empty/broken file
-                            await ctx.replyWithVideo({ source: mp4Path });
+                            await ctx.replyWithVideo({ source: mp4Path, filename: displayName + '.mp4' });
                         } else {
-                            await ctx.replyWithDocument({ source: artifact.path });
+                            await ctx.replyWithDocument({ source: artifact.path, filename: displayName + '.webp' });
                         }
                         try { fs.unlinkSync(mp4Path); } catch(e) { console.error('Cleanup failed:', e.message); }
                     } else {
-                        await ctx.replyWithDocument({ source: artifact.path });
+                        await ctx.replyWithDocument({ source: artifact.path, filename: displayName + '.webp' });
                     }
                 }
             } else if (ext === '.mp4' || ext === '.mov') {
-                await ctx.replyWithVideo({ source: artifact.path });
+                await ctx.replyWithVideo({ source: artifact.path, filename: displayName + ext });
             } else if (ext === '.md') {
                 const content = fs.readFileSync(artifact.path, 'utf8');
                 await sendLongMessage(ctx, content);
             } else {
-                await ctx.replyWithDocument({ source: artifact.path });
+                await ctx.replyWithDocument({ source: artifact.path, filename: displayName + ext });
             }
         } catch (e) {
             ctx.reply((t('artifacts.error') || '❌ Error: ') + e.message);
@@ -1288,7 +1246,6 @@ bot.on('text', (ctx) => {
     (async () => {
         try {
             await sendViaCDP(query, CDP_PORT);
-            await ctx.reply(t('ask.sent'));
 
             // Wait briefly for message to render in DOM before anchoring state
             await new Promise(r => setTimeout(r, 1500));
@@ -1300,7 +1257,7 @@ bot.on('text', (ctx) => {
                 text = stripQueryFromResponse(text, query);
                 if (!text) text = t('ask.done_empty');
                 text = await appendThreadFooter(text);
-                await sendLongMessage(ctx, text, t('ask.done'));
+                await sendLongMessage(ctx, text);
             } else {
                 await ctx.reply(t('ask.timeout'));
             }
@@ -1348,7 +1305,6 @@ bot.on(['photo', 'document'], (ctx) => {
             const caption = ctx.message.caption ? `\nUser's message: ${ctx.message.caption}` : "";
             const query = `[System: The user has uploaded an image or file. You MUST use your \`view_file\` tool to examine the file at this absolute path: ${dest} . Do not say you cannot see it. Use the tool!]${caption}`;
             
-            await ctx.reply(t('photo.downloaded'));
             await sendViaCDP(query, CDP_PORT);
 
             // Wait briefly for message to render in DOM before anchoring state
@@ -1364,7 +1320,7 @@ bot.on(['photo', 'document'], (ctx) => {
                 }
                 if (!text) text = t('ask.done_empty');
                 text = await appendThreadFooter(text);
-                await sendLongMessage(ctx, text, t('ask.done'));
+                await sendLongMessage(ctx, text);
             } else {
                 await ctx.reply(t('ask.timeout'));
             }
