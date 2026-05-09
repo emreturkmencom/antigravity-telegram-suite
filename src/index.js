@@ -541,7 +541,17 @@ bot.command(['artifacts', 'af'], async (ctx) => {
             return ctx.reply(t('artifacts.no_artifacts') || 'ℹ️ No artifacts found for the current thread.');
         }
 
-        let msg = t('artifacts.list_title') || '📎 <b>Artifacts for Current Thread:</b>\\n\\n';
+        let wsName = 'Unknown';
+        let threadName = 'Current Thread';
+        try {
+            const workspaces = await listAgentThreads(CDP_PORT);
+            for (const ws of workspaces) {
+                const found = ws.threads.find(t => t.id === activeId);
+                if (found) { wsName = ws.workspace; threadName = found.name; break; }
+            }
+        } catch (_) {}
+
+        let msg = t('artifacts.list_title', { title: `${wsName} / ${threadName}` }) || `📎 <b>Artifacts for ${wsName} / ${threadName}:</b>\n\n`;
         for (let i = 0; i < cachedArtifacts.length; i++) {
             const filename = cachedArtifacts[i].name;
             const { displayName, icon } = getArtifactDisplayInfo(filename, cachedArtifacts[i].path);

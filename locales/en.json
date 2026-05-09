@@ -184,7 +184,7 @@
     "error": "❌ Error: {error}"
   },
   "artifacts": {
-    "list_title": "📎 <b>Artifacts for Current Thread:</b>\n\n",
+    "list_title": "📎 <b>Artifacts for {title}:</b>\n\n",
     "no_active_thread": "⚠️ No active thread found. Please select a thread in the IDE first.",
     "no_artifacts": "ℹ️ No artifacts found for the current thread.",
     "invalid_number": "❌ Invalid artifact number.",
