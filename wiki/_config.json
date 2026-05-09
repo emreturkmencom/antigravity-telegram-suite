@@ -1,0 +1,8 @@
+{
+  "rootPages": [
+    { "slug": "Home", "icon": "fa-house" },
+    { "slug": "Architecture", "icon": "fa-sitemap" },
+    { "slug": "Commands", "icon": "fa-terminal" },
+    { "slug": "Auto-Accept", "icon": "fa-robot" }
+  ]
+}
