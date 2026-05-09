@@ -272,7 +272,7 @@ async function snapshotChatState(port) {
  * 3. Parse the last user message + model response from the log
  * 4. Fall back to DOM extraction only if the file doesn't exist
  */
-async function getFullLatestResponse(port, sinceSnapshot = false) {
+async function getFullLatestResponse(port, sinceSnapshot = false, includePrefixes = false) {
     // --- Primary: file-system extraction from the active thread's log ---
     try {
         const activeId = await getActiveThreadId(port);
@@ -321,11 +321,15 @@ async function getFullLatestResponse(port, sinceSnapshot = false) {
                 
                 if (lastModelMsg) {
                     const parts = [];
-                    // Only include User prefix if not explicitly doing a delta extraction
-                    if (!sinceSnapshot && lastUserMsg) parts.push('👤 User:\n' + lastUserMsg);
+                    // Only include User prefix if requested
+                    if (includePrefixes && lastUserMsg) parts.push('👤 User:\n' + lastUserMsg);
                     // Truncate very long model responses for Telegram
                     const truncated = lastModelMsg.length > 3000 ? lastModelMsg.substring(0, 3000) + '\n\n[...truncated]' : lastModelMsg;
-                    parts.push(truncated);
+                    if (includePrefixes) {
+                        parts.push('🤖 Agent:\n' + truncated);
+                    } else {
+                        parts.push(truncated);
+                    }
                     return parts.join('\n\n');
                 } else if (sinceSnapshot) {
                     // We found no new model content in the diff (maybe only tool calls)

@@ -304,7 +304,7 @@ async function appendThreadFooter(text) {
 
 bot.command('latest', async (ctx) => {
     try {
-        let text = await getFullLatestResponse(CDP_PORT);
+        let text = await getFullLatestResponse(CDP_PORT, false, true);
         text = await appendThreadFooter(text);
         await sendLongMessage(ctx, text, t('latest.title'));
     } catch (err) {
