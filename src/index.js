@@ -12,6 +12,7 @@ const updater = require('./updater');
 
 let cachedAgentThreads = [];
 let cachedArtifacts = [];
+const messageTargetMap = new Map();
 
 // Load configured language
 const lang = process.env.LANGUAGE || 'en';
@@ -94,6 +95,7 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
         let inPre = false;
         let preLang = '';
         let currentReplyId = replyToMsgId;
+        const sentMsgIds = [];
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -111,17 +113,23 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
                     currentChunk += preLang ? '</code></pre>' : '</pre>';
                 }
                 const sentMsg = await replyWithRetry(currentChunk, buttons, 3, currentReplyId);
-                if (sentMsg) currentReplyId = sentMsg.message_id;
+                if (sentMsg) {
+                    currentReplyId = sentMsg.message_id;
+                    sentMsgIds.push(sentMsg.message_id);
+                }
                 currentChunk = inPre ? (preLang ? `<pre><code class="language-${preLang}">\n` : '<pre>\n') : '';
             }
             currentChunk += line + '\n';
         }
         if (currentChunk.trim().length > 0) {
-            await replyWithRetry(currentChunk, buttons, 3, currentReplyId);
+            const sentMsg = await replyWithRetry(currentChunk, buttons, 3, currentReplyId);
+            if (sentMsg) sentMsgIds.push(sentMsg.message_id);
         }
         console.log(`sendLongMessage: Sent successfully`);
+        return sentMsgIds;
     } catch (err) {
         console.error('sendLongMessage final error:', err.message);
+        return [];
     }
 }
 
@@ -299,7 +307,7 @@ async function getChatHeader(targetId = null, fallback = '') {
                     thName = thName.substring(0, 35) + '...';
                 }
             }
-            return `📁 ${wsName}\n🤖 ${thName}`;
+            return `📁 ${wsName}\n🤖 ${thName}\n<i>(Bu ajanı yanıtlamak için mesajı sola kaydırın)</i>`;
         }
     } catch (_) {}
     return fallback;
@@ -1294,7 +1302,10 @@ bot.on('text', (ctx) => {
     const query = ctx.message.text;
     
     let explicitTargetId = null;
-    if (ctx.message.reply_to_message?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data?.startsWith('focus_')) {
+    if (ctx.message.reply_to_message) {
+        explicitTargetId = messageTargetMap.get(ctx.message.reply_to_message.message_id);
+    }
+    if (!explicitTargetId && ctx.message.reply_to_message?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data?.startsWith('focus_')) {
         explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
     }
     
@@ -1313,8 +1324,15 @@ bot.on('text', (ctx) => {
                 text = stripQueryFromResponse(text, query);
                 if (!text) text = t('ask.done_empty');
                 const header = await getChatHeader(targetId, t('ask.done'));
-                const buttons = targetId ? [[{ text: t('ask.reply_agent') || '✍️ Bu Ajanı Yanıtla', callback_data: `focus_${targetId.substring(0, 15)}` }]] : null;
-                await sendLongMessage(ctx, text, header, buttons, ctx.message.message_id);
+                const buttons = null;
+                const sentIds = await sendLongMessage(ctx, text, header, buttons, ctx.message.message_id);
+                if (sentIds && sentIds.length > 0 && targetId) {
+                    sentIds.forEach(id => messageTargetMap.set(id, targetId));
+                    if (messageTargetMap.size > 2000) {
+                        const firstKey = messageTargetMap.keys().next().value;
+                        messageTargetMap.delete(firstKey);
+                    }
+                }
             } else {
                 await ctx.reply(t('ask.timeout'));
             }
@@ -1363,7 +1381,10 @@ bot.on(['photo', 'document'], (ctx) => {
             const query = `[System: The user has uploaded an image or file. You MUST use your \`view_file\` tool to examine the file at this absolute path: ${dest} . Do not say you cannot see it. Use the tool!]${caption}`;
             
             let explicitTargetId = null;
-            if (ctx.message.reply_to_message?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data?.startsWith('focus_')) {
+            if (ctx.message.reply_to_message) {
+                explicitTargetId = messageTargetMap.get(ctx.message.reply_to_message.message_id);
+            }
+            if (!explicitTargetId && ctx.message.reply_to_message?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data?.startsWith('focus_')) {
                 explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
             }
             
@@ -1383,8 +1404,15 @@ bot.on(['photo', 'document'], (ctx) => {
                 }
                 if (!text) text = t('ask.done_empty');
                 const header = await getChatHeader(targetId, t('ask.done'));
-                const buttons = targetId ? [[{ text: t('ask.reply_agent') || '✍️ Bu Ajanı Yanıtla', callback_data: `focus_${targetId.substring(0, 15)}` }]] : null;
-                await sendLongMessage(ctx, text, header, buttons, ctx.message.message_id);
+                const buttons = null;
+                const sentIds = await sendLongMessage(ctx, text, header, buttons, ctx.message.message_id);
+                if (sentIds && sentIds.length > 0 && targetId) {
+                    sentIds.forEach(id => messageTargetMap.set(id, targetId));
+                    if (messageTargetMap.size > 2000) {
+                        const firstKey = messageTargetMap.keys().next().value;
+                        messageTargetMap.delete(firstKey);
+                    }
+                }
             } else {
                 await ctx.reply(t('ask.timeout'));
             }
