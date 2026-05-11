@@ -241,29 +241,40 @@ function launchIDE(workspace, port = 9333) {
 
         const executeCmd = (isRunning) => {
             let cmd;
+            // --new-window ensures the IDE opens a fresh window for the workspace
+            // instead of restoring the previous session
+            // --disable-workspace-trust prevents the trust dialog from blocking automation
             const wsArg = workspace ? `--new-window --disable-workspace-trust "${workspace}"` : '';
-
-            // If the IDE is already running, passing the debugging port again can cause Electron to fail 
-            // binding the port and abort before sending the IPC message to open the new window.
-            const portArg = isRunning ? '' : `--remote-debugging-port=${port}`;
 
             console.log(`[platform] launchIDE: workspace=${workspace || 'none'}, port=${port}, isRunning=${isRunning}`);
 
             switch (PLATFORM) {
                 case 'win32':
-                    cmd = `start "" "${binary}" ${portArg} ${wsArg}`;
+                    cmd = isRunning
+                        ? `start "" "${binary}" ${wsArg}`
+                        : `start "" "${binary}" --remote-debugging-port=${port} ${wsArg}`;
                     break;
                 case 'darwin':
+                    // Use the CLI script which handles IPC to correctly open new windows
+                    // in existing instances, unlike the raw MacOS binary.
                     const macCli = `${binary}/Contents/Resources/app/bin/antigravity`;
-                    cmd = `nohup "${macCli}" ${portArg} ${wsArg} > /dev/null 2>&1 &`;
+                    cmd = isRunning
+                        ? `nohup "${macCli}" ${wsArg} > /dev/null 2>&1 &`
+                        : `nohup "${macCli}" --remote-debugging-port=${port} ${wsArg} > /dev/null 2>&1 &`;
                     break;
                 default: // linux
                     if (isRunning) {
-                        // Use CLI wrapper to correctly send IPC message to open new window
-                        cmd = `nohup /usr/bin/antigravity ${wsArg} > /dev/null 2>&1 &`;
+                        // IDE is already running with CDP on the port.
+                        // Use the CLI wrapper which sends IPC to the existing instance.
+                        // Raw binary fails with "bind() Address already in use" on the debug port.
+                        // IMPORTANT: Run synchronously (no nohup/&) — the CLI wrapper is a
+                        // quick IPC call that must complete before the process exits.
+                        // Backgrounding it with & kills it before the IPC message is delivered.
+                        const folderArg = workspace ? `"${workspace}"` : '';
+                        cmd = `/usr/bin/antigravity ${folderArg}`;
                     } else {
-                        // Use raw binary for first launch
-                        cmd = `nohup "${binary}" ${portArg} ${wsArg} > /dev/null 2>&1 &`;
+                        // First launch — use raw binary with debugging port.
+                        cmd = `nohup "${binary}" --remote-debugging-port=${port} ${wsArg} > /dev/null 2>&1 &`;
                     }
             }
 
