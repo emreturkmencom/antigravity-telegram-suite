@@ -111,34 +111,36 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | Command | Description |
 |---|---|
 | *(any text)* | Send directly to the AI agent |
-| `/latest` /l | Get the latest agent response |
-| `/screenshot` /ss | Take an IDE screenshot |
-| `/status` /s | System status (IDE, CDP, Bot) |
+| `/latest`, `/l` | Get the latest agent response |
+| `/screenshot`, `/ss` | Take an IDE screenshot |
+| `/status`, `/s` | System status (IDE, CDP, Bot) |
 | `/start_ide` | Start the IDE remotely |
 | `/close` | Fully close the IDE |
 | `/new` | Open a new chat session |
-| `/agents` /a | List and switch recent chat threads |
-| `/artifacts` /af | List and download artifacts from the current thread |
-| `/model` /m | Switch AI model |
+| `/agents`, `/a` | List and switch recent chat threads |
+| `/artifacts`, `/af` | List and download artifacts from the current thread |
+| `/model`, `/m` | Switch AI model |
 | `/workspace` | Switch project workspace |
 | `/window` | Select specific IDE window (multi-window support) |
 | `/file` | Browse & download project files |
 | `/quota` | Check AI credits and model usage limits |
-| `/autoaccept` /aa | Toggle auto-accept (on/off/status) |
+| `/autoaccept`, `/aa` | Toggle auto-accept (on/off/status) |
 | `/lang` | Switch language (EN/TR) |
 | `/stop` | Stop the running agent |
-| `/help` /h | Show the Telegram quick-reference menu |
+| `/help`, `/h` | Show the Telegram quick-reference menu |
 
 ## 🏗️ Architecture
 
 ```
 antigravity-telegram-suite/
 ├── src/
-│   ├── index.js           # Main bot logic & Telegram handlers
+│   ├── index.js            # Main bot logic & Telegram handlers
 │   ├── cdp_controller.js   # Chrome DevTools Protocol communication
 │   ├── autoaccept.js       # Auto-accept button clicker via CDP
+│   ├── ui_locators.js      # Robust DOM abstractions for IDE interactions
 │   ├── i18n.js             # Internationalization module
-│   └── platform.js         # Cross-platform OS abstraction
+│   ├── platform.js         # Cross-platform OS abstraction
+│   └── utils/              # Helper utilities (e.g., artifact parsing)
 ├── locales/
 │   ├── en.json             # English strings
 │   └── tr.json             # Turkish strings
