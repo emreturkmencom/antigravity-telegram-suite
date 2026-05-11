@@ -291,15 +291,29 @@ function launchIDE(workspace, port = 9333) {
             delete cleanEnv.VSCODE_CODE_CACHE_PATH;
             delete cleanEnv.WAYLAND_DISPLAY;
 
-            exec(cmd, { env: cleanEnv }, (err) => {
-                if (err) {
-                    console.error(`[platform] launchIDE exec error: ${err.message}`);
-                    reject(err);
-                } else {
-                    console.log('[platform] launchIDE exec completed successfully');
+            if (isRunning && PLATFORM === 'linux') {
+                // Use execSync for cli.js IPC call — must complete synchronously
+                // for the IPC message to be fully delivered before Node moves on.
+                const { execSync } = require('child_process');
+                try {
+                    execSync(cmd, { env: cleanEnv, timeout: 15000, stdio: 'pipe' });
+                    console.log('[platform] launchIDE execSync completed successfully');
                     resolve();
+                } catch (err) {
+                    console.error(`[platform] launchIDE execSync error: ${err.message}`);
+                    reject(err);
                 }
-            });
+            } else {
+                exec(cmd, { env: cleanEnv }, (err) => {
+                    if (err) {
+                        console.error(`[platform] launchIDE exec error: ${err.message}`);
+                        reject(err);
+                    } else {
+                        console.log('[platform] launchIDE exec completed successfully');
+                        resolve();
+                    }
+                });
+            }
         };
 
         if (workspace) {
