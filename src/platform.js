@@ -270,7 +270,7 @@ function launchIDE(workspace, port = 9333) {
                         // IMPORTANT: Run synchronously (no nohup/&) — the CLI wrapper is a
                         // quick IPC call that must complete before the process exits.
                         // Backgrounding it with & kills it before the IPC message is delivered.
-                        const folderArg = workspace ? `"${workspace}"` : '';
+                        const folderArg = workspace ? `--new-window "${workspace}"` : '';
                         cmd = `/usr/bin/antigravity ${folderArg}`;
                     } else {
                         // First launch — use raw binary with debugging port.
