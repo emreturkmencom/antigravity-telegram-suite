@@ -2,6 +2,8 @@
 
 # 🤖 Antigravity Telegram Suite
 
+🌍 Languages: [English](README.md) | [Türkçe](README.tr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md)
+
 **Control your [Antigravity IDE](https://antigravity.google/) remotely via Telegram.**
 
 Send messages, switch AI models, manage workspaces, take screenshots — all from your phone.

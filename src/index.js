@@ -1371,7 +1371,7 @@ async function setMenuOnAllScopes() {
 bot.command('menu', async (ctx) => {
     await clearAllMenuScopes();
     await setMenuOnAllScopes();
-    ctx.reply(t('menu.updated'));
+    await sendMainMenu(ctx, t('menu.updated'));
 });
 
 // ===== UPDATE & VERSION =====
