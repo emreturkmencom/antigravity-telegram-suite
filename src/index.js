@@ -79,14 +79,14 @@ const lang = loadSavedLang();
 loadLocale(lang);
 
 // ===== SECURITY: ALLOWED_CHAT_ID is mandatory =====
-const ALLOWED_CHAT_ID = process.env.ALLOWED_CHAT_ID;
-if (!ALLOWED_CHAT_ID) {
+const ALLOWED_CHAT_IDS = process.env.ALLOWED_CHAT_ID ? process.env.ALLOWED_CHAT_ID.split(',').map(id => id.trim()).filter(id => id) : [];
+if (ALLOWED_CHAT_IDS.length === 0) {
     if (process.env.SETUP_MODE === 'true') {
         console.warn('\n⚠️  SETUP MODE: Bot is running without ALLOWED_CHAT_ID.');
         console.warn('Send /start to your bot to discover your chat ID.\n');
     } else {
         console.error('\n❌ SECURITY ERROR: ALLOWED_CHAT_ID is required.\n');
-        console.error('Set ALLOWED_CHAT_ID in your .env file to your Telegram chat ID.');
+        console.error('Set ALLOWED_CHAT_ID in your .env file to your Telegram chat ID. (You can use a comma-separated list of IDs)');
         console.error('Send /start to your bot to discover your chat ID.');
         console.error('Tip: Set SETUP_MODE=true in .env to run without ALLOWED_CHAT_ID during initial setup.\n');
         process.exit(1);
@@ -268,14 +268,14 @@ function createProgressHandler(ctx) {
 }
 
 function checkAuth(ctx, next) {
-    if (!ALLOWED_CHAT_ID) {
+    if (ALLOWED_CHAT_IDS.length === 0) {
         console.log(`\n🔔 NEW CHAT ID DETECTED: ${ctx.chat.id}`);
         console.log(`Please add ALLOWED_CHAT_ID=${ctx.chat.id} to your .env file and restart.\n`);
         return ctx.reply(`Welcome! Your Chat ID is: ${ctx.chat.id}\nPlease add it to the .env file as ALLOWED_CHAT_ID and restart the bot.`).catch(e => console.error('[checkAuth]', e.message));
     }
-    if (ctx.chat.id.toString() !== ALLOWED_CHAT_ID) {
+    if (!ALLOWED_CHAT_IDS.includes(ctx.chat.id.toString())) {
         const from = ctx.from || ctx.chat;
-        if (from && ALLOWED_CHAT_ID) {
+        if (from && ALLOWED_CHAT_IDS.length > 0) {
             const username = from.username ? `@${from.username}` : 'Yok';
             const fullName = `${from.first_name || ''} ${from.last_name || ''}`.trim() || 'İsimsiz';
             
@@ -284,7 +284,7 @@ function checkAuth(ctx, next) {
             else if (ctx.callbackQuery) actionDetails = `Buton: ${ctx.callbackQuery.data}`;
 
             const alertMsg = `⚠️ <b>Yetkisiz Erişim Denemesi!</b>\n\n👤 <b>Kişi:</b> ${fullName}\n🔖 <b>Kullanıcı Adı:</b> ${username}\n🆔 <b>ID:</b> <code>${from.id}</code>\n💬 <b>${actionDetails}</b>`;
-            ctx.telegram.sendMessage(ALLOWED_CHAT_ID, alertMsg, { parse_mode: 'HTML' }).catch(e => console.error('[checkAuth Alert]', e.message));
+            ctx.telegram.sendMessage(ALLOWED_CHAT_IDS[0], alertMsg, { parse_mode: 'HTML' }).catch(e => console.error('[checkAuth Alert]', e.message));
         }
         // Silently ignore unauthorized access to prevent errors if the user blocked the bot
         return Promise.resolve();
@@ -549,9 +549,9 @@ async function sendMainMenu(ctx, text = '🕹️ Kontrol Paneli:') {
 }
 
 async function pushMainMenuToUser(text = '🚀 Antigravity Bot güncellendi / yeniden başlatıldı!') {
-    if (!ALLOWED_CHAT_ID || process.env.SETUP_MODE === 'true') return;
+    if (ALLOWED_CHAT_IDS.length === 0 || process.env.SETUP_MODE === 'true') return;
     const kb = await buildMainMenu();
-    return bot.telegram.sendMessage(ALLOWED_CHAT_ID, text, kb).catch(() => {});
+    return Promise.all(ALLOWED_CHAT_IDS.map(id => bot.telegram.sendMessage(id, text, kb).catch(() => {})));
 }
 
 bot.command('start', async (ctx) => {
@@ -771,7 +771,8 @@ const handleArtifacts = async (ctx) => {
             return ctx.reply(t('artifacts.no_active_thread') || '⚠️ No active thread found. Please select a thread in the IDE first.');
         }
 
-        const conversationDir = path.join(os.homedir(), '.gemini', 'antigravity', 'brain', activeId);
+        const appDataName = (process.env.ANTIGRAVITY_PREFERRED_APP || 'agent') === 'ide' ? 'antigravity-ide' : 'antigravity';
+        const conversationDir = path.join(os.homedir(), '.gemini', appDataName, 'brain', activeId);
         if (!fs.existsSync(conversationDir)) {
             return ctx.reply(t('artifacts.no_artifacts') || 'ℹ️ No artifacts found for the current thread.');
         }
@@ -785,6 +786,11 @@ const handleArtifacts = async (ctx) => {
             return ARTIFACT_EXTENSIONS.some(ext => name.endsWith(ext));
         };
 
+        // Helper to get file mtime safely
+        const getMtime = (filePath) => {
+            try { return fs.statSync(filePath).mtimeMs; } catch (_) { return 0; }
+        };
+
         // 1. Primary: Scan artifacts/ subdirectory (new Antigravity UI structure)
         const artifactsSubDir = path.join(conversationDir, 'artifacts');
         if (fs.existsSync(artifactsSubDir)) {
@@ -792,7 +798,8 @@ const handleArtifacts = async (ctx) => {
             for (const item of items) {
                 if (item.isDirectory()) continue;
                 if (isArtifactFile(item.name)) {
-                    cachedArtifacts.push({ name: item.name, path: path.join(artifactsSubDir, item.name) });
+                    const filePath = path.join(artifactsSubDir, item.name);
+                    cachedArtifacts.push({ name: item.name, path: filePath, mtime: getMtime(filePath) });
                 }
             }
         }
@@ -802,7 +809,8 @@ const handleArtifacts = async (ctx) => {
         for (const item of rootItems) {
             if (item.isDirectory()) continue;
             if (isArtifactFile(item.name)) {
-                cachedArtifacts.push({ name: item.name, path: path.join(conversationDir, item.name) });
+                const filePath = path.join(conversationDir, item.name);
+                cachedArtifacts.push({ name: item.name, path: filePath, mtime: getMtime(filePath) });
             }
         }
 
@@ -812,7 +820,8 @@ const handleArtifacts = async (ctx) => {
             const scratchItems = fs.readdirSync(scratchDir, { withFileTypes: true });
             for (const item of scratchItems) {
                 if (item.isDirectory()) continue;
-                cachedArtifacts.push({ name: `scratch/${item.name}`, path: path.join(scratchDir, item.name) });
+                const filePath = path.join(scratchDir, item.name);
+                cachedArtifacts.push({ name: `scratch/${item.name}`, path: filePath, mtime: getMtime(filePath) });
             }
         }
 
@@ -823,7 +832,8 @@ const handleArtifacts = async (ctx) => {
             for (const item of browserItems) {
                 if (item.isDirectory()) continue;
                 if (isArtifactFile(item.name)) {
-                    cachedArtifacts.push({ name: `🌐 ${item.name}`, path: path.join(browserDir, item.name) });
+                    const filePath = path.join(browserDir, item.name);
+                    cachedArtifacts.push({ name: `🌐 ${item.name}`, path: filePath, mtime: getMtime(filePath) });
                 }
             }
         }
@@ -831,6 +841,9 @@ const handleArtifacts = async (ctx) => {
         if (cachedArtifacts.length === 0) {
             return ctx.reply(t('artifacts.no_artifacts') || 'ℹ️ No artifacts found for the current thread.');
         }
+
+        // Sort by modification time, newest first
+        cachedArtifacts.sort((a, b) => b.mtime - a.mtime);
 
         let msg = t('artifacts.list_title') || '📎 <b>Artifacts for Current Thread:</b>\\n\\n';
         for (let i = 0; i < cachedArtifacts.length; i++) {
@@ -1715,11 +1728,11 @@ async function clearAllMenuScopes() {
         }
     }
     
-    // Also clear chat-specific scope if ALLOWED_CHAT_ID is set
-    if (ALLOWED_CHAT_ID) {
+    // Also clear chat-specific scope if ALLOWED_CHAT_IDS is set
+    for (const chat_id of ALLOWED_CHAT_IDS) {
         for (const lang of langs) {
             try {
-                const params = { scope: { type: 'chat', chat_id: parseInt(ALLOWED_CHAT_ID) } };
+                const params = { scope: { type: 'chat', chat_id: parseInt(chat_id) } };
                 if (lang) params.language_code = lang;
                 await bot.telegram.callApi('deleteMyCommands', params);
             } catch (_) {}
@@ -1756,12 +1769,14 @@ async function setMenuOnAllScopes() {
         await bot.telegram.callApi('setMyCommands', paramsDefault).catch(()=>{});
         await bot.telegram.callApi('setMyCommands', paramsPrivate).catch(()=>{});
 
-        if (ALLOWED_CHAT_ID && langCode === originalLang) {
-            const paramsChat = { 
-                commands: cmds, 
-                scope: { type: 'chat', chat_id: parseInt(ALLOWED_CHAT_ID) } 
-            };
-            await bot.telegram.callApi('setMyCommands', paramsChat).catch(()=>{});
+        if (langCode === originalLang) {
+            for (const chat_id of ALLOWED_CHAT_IDS) {
+                const paramsChat = { 
+                    commands: cmds, 
+                    scope: { type: 'chat', chat_id: parseInt(chat_id) } 
+                };
+                await bot.telegram.callApi('setMyCommands', paramsChat).catch(()=>{});
+            }
         }
     };
 
@@ -1808,7 +1823,9 @@ bot.command('update', async (ctx) => {
         await ctx.reply(
             `🔄 <b>Güncelleme Mevcut!</b>\n\n` +
             `Mevcut: v${result.localVersion} (${result.localCommit})\n` +
-            `Yeni: v${result.remoteVersion} (${result.remoteCommit})\n\n` +
+            `Yeni: v${result.remoteVersion} (${result.remoteCommit})\n` +
+            (result.remoteCommitMessage ? `📝 <b>Changelog:</b> <i>${result.remoteCommitMessage}</i>\n\n` : `\n`) +
+            `<i>💡 Not: Antigravity 2.0 (Standalone App) desteklenir, fakat Antigravity IDE önerilir.</i>\n\n` +
             `Güncelleniyor...`,
             { parse_mode: 'HTML' }
         );
@@ -2077,11 +2094,12 @@ async function init() {
 
     // Push the main menu keyboard to the user so it's active by default (wait 3s to let IDE/CDP initialize)
     setTimeout(() => {
-        pushMainMenuToUser().catch(console.error);
+        const startupMsg = '🚀 Antigravity Bot güncellendi / yeniden başlatıldı!\n\n<i>💡 Not: Bu sürüm Antigravity 2.0 (Standalone App) destekler, fakat en yüksek performans ve stabilite için Antigravity IDE kullanmanız tavsiye edilir.</i>';
+        pushMainMenuToUser(startupMsg).catch(console.error);
     }, 3000);
 
     // Start periodic update checker (notifies via Telegram when update is available)
-    updater.startUpdateChecker(bot, ALLOWED_CHAT_ID);
+    updater.startUpdateChecker(bot, ALLOWED_CHAT_IDS);
 }
 
 init();

@@ -21,6 +21,10 @@ check_dom*.js
 find_buttons.js
 patch.js
 test_send.js
+dump_*.js
+find_*.js
+test_*.js
+patch_*.js
 
 # Logs
 *.log

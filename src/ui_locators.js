@@ -33,7 +33,7 @@ const UI_LOCATORS_SCRIPT = `
                     if (el.id === 'conversation' || 
                         el.classList.contains('interactive-session') || 
                         el.classList.contains('chat-container') ||
-                        el.tagName === 'MAIN') {
+                        el.id === 'chat') {
                         return el;
                     }
                     el = el.parentElement;
@@ -46,9 +46,7 @@ const UI_LOCATORS_SCRIPT = `
                 '.interactive-session',
                 '.chat-container',
                 '#chat',
-                '.flex.w-full.grow.flex-col.overflow-hidden',
-                'main',
-                'body'
+                '.flex.w-full.grow.flex-col.overflow-hidden'
             ];
             
             const containers = Array.from(document.querySelectorAll(candidates.join(', ')));
@@ -222,7 +220,7 @@ const UI_LOCATORS_SCRIPT = `
         },
         
         /**
-         * Removes "Thought for Xs" blocks from a cloned DOM element.
+         * Removes "Thought for Xs" blocks and tool execution blocks from a cloned DOM element.
          * @param {HTMLElement} clone The cloned message node
          */
         removeThoughtBlocks: (clone) => {
@@ -233,6 +231,9 @@ const UI_LOCATORS_SCRIPT = `
             // Support modern 2.0 thought/thinking blocks
             const modernThoughts = Array.from(clone.querySelectorAll('.thought-block, [class*="thought-"], details.thought'));
             modernThoughts.forEach(el => el.remove());
+            // Remove IDE 2.0 tool execution blocks
+            const toolBlocks = Array.from(clone.querySelectorAll('[class*="group/run-command"], [class*="group/file-change"], [class*="group/tool-"], [class*="group/edit-file"]'));
+            toolBlocks.forEach(el => el.remove());
         }
     };
 `;

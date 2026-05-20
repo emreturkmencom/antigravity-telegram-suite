@@ -24,6 +24,7 @@ Envía mensajes, cambia modelos de IA, administra espacios de trabajo, toma capt
 
 | Característica | Descripción |
 |---|---|
+| 👥 **Multiusuario** | Comparte el control del bot con tu equipo mediante IDs de chat separados por comas |
 | 💬 **Headless Chat** | Envía mensajes directamente al agente de IA a través de Telegram |
 | 📎 **Subida de Archivos e Imágenes** | Reenvía archivos/imágenes al agente con subtítulos |
 | 📸 **Capturas de pantalla del IDE** | Captura y recibe capturas de pantalla del IDE de forma remota |

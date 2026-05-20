@@ -31,6 +31,7 @@ Send messages, switch AI models, manage workspaces, take screenshots, and run mu
 | 📂 **File Explorer** | Browse, navigate, and download project files |
 | 🔄 **Workspace Management** | Switch between projects without touching the keyboard |
 | 🪟 **Multi-Window Support** | Route commands to a specific IDE window when multiple are open |
+| 👥 **Multi-User** | Share bot control with your team via comma-separated Chat IDs |
 | 💬 **Thread Management** | List, switch, and manage chat threads (agent conversations) |
 | ⚡ **Auto-Accept** | Automatically click Run, Accept, Allow, Continue buttons via a DOM MutationObserver |
 | 🚀 **Turbo Mode** | Multi-agent orchestration: Claude plans → Gemini codes → Claude reviews → Gemini fixes |
@@ -69,7 +70,7 @@ Edit `.env` with your values:
 ```env
 # Telegram
 BOT_TOKEN=your_telegram_bot_token
-ALLOWED_CHAT_ID=your_chat_id
+ALLOWED_CHAT_ID=your_chat_id,another_chat_id_optional
 
 # CDP Debugging Ports (must match the --remote-debugging-port used when launching)
 AGENT_CDP_PORT=9333    # Port for the Standalone Antigravity App
@@ -193,7 +194,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/artifacts` | List and download artifacts from the current thread |
 | `/autoaccept` | Toggle auto-accept (on / off / status) |
 | `/lang` | Switch display language |
-| `/update` | Check for updates and auto-update the bot |
+| `/update` | Check for updates, view changelog, and auto-update the bot |
 | `/version` | Show current version info |
 | `/menu` | Update the Telegram command menu |
 | `/fix_shortcuts` | Repair desktop shortcuts for Antigravity apps |

@@ -37,18 +37,27 @@ function getLocalVersion() {
 }
 
 /**
- * Get the latest remote commit hash from GitHub.
- * Uses git ls-remote to avoid needing to fetch/pull.
+ * Get the latest remote commit hash and message.
  */
-function getRemoteCommitHash() {
+function getRemoteCommitInfo() {
     return new Promise((resolve, reject) => {
         try {
-            const result = execSync('git ls-remote origin HEAD', { cwd: PROJECT_ROOT })
-                .toString().trim();
-            const hash = result.split('\t')[0];
-            resolve(hash ? hash.substring(0, 7) : null);
+            // Fetch origin main so we can get the latest commit message
+            execSync('git fetch origin main', { cwd: PROJECT_ROOT, stdio: 'ignore' });
+            
+            const hash = execSync('git log -1 --format="%h" origin/main', { cwd: PROJECT_ROOT }).toString().trim();
+            const message = execSync('git log -1 --format="%s" origin/main', { cwd: PROJECT_ROOT }).toString().trim();
+            
+            resolve({ hash, message });
         } catch(e) {
-            reject(e);
+            // Fallback to ls-remote if fetch fails
+            try {
+                const result = execSync('git ls-remote origin HEAD', { cwd: PROJECT_ROOT }).toString().trim();
+                const hash = result.split('\t')[0];
+                resolve({ hash: hash ? hash.substring(0, 7) : null, message: '' });
+            } catch(e2) {
+                reject(e2);
+            }
         }
     });
 }
@@ -92,9 +101,15 @@ function getRemoteVersion() {
 async function checkForUpdates() {
     const local = getLocalVersion();
     let remoteCommit = null;
+    let remoteCommitMessage = '';
     let remoteVersion = null;
 
-    try { remoteCommit = await getRemoteCommitHash(); } catch(_) {}
+    try { 
+        const info = await getRemoteCommitInfo(); 
+        remoteCommit = info.hash;
+        remoteCommitMessage = info.message;
+    } catch(_) {}
+    
     try { remoteVersion = await getRemoteVersion(); } catch(_) {}
 
     const available = (remoteCommit && remoteCommit !== local.commitHash) ||
@@ -105,7 +120,8 @@ async function checkForUpdates() {
         localVersion: local.version,
         remoteVersion: remoteVersion || local.version,
         localCommit: local.commitHash,
-        remoteCommit: remoteCommit || local.commitHash
+        remoteCommit: remoteCommit || local.commitHash,
+        remoteCommitMessage: remoteCommitMessage
     };
 }
 
@@ -159,21 +175,24 @@ function performUpdate() {
 /**
  * Start periodic update checking. Sends Telegram notification when update is found.
  * @param {object} bot - Telegraf bot instance
- * @param {string} chatId - Chat ID to send notifications to
+ * @param {Array<string>} chatIds - Array of Chat IDs to send notifications to
  */
-function startUpdateChecker(bot, chatId) {
-    if (!chatId) return;
+function startUpdateChecker(bot, chatIds) {
+    if (!chatIds || chatIds.length === 0) return;
 
     const doCheck = async () => {
         try {
             const result = await checkForUpdates();
             if (result.available) {
-                const local = getLocalVersion();
-                const msg = `🔄 <b>Update Available!</b>\n\n` +
-                    `Current: v${result.localVersion} (${result.localCommit})\n` +
-                    `Latest: v${result.remoteVersion} (${result.remoteCommit})\n\n` +
-                    `Run /update to update automatically.`;
-                bot.telegram.sendMessage(chatId, msg, { parse_mode: 'HTML' }).catch(() => {});
+                const msg = `🔄 <b>Güncelleme Mevcut! / Update Available!</b>\n\n` +
+                    `Mevcut: v${result.localVersion} (${result.localCommit})\n` +
+                    `Yeni: v${result.remoteVersion} (${result.remoteCommit})\n` +
+                    (result.remoteCommitMessage ? `📝 <b>Changelog:</b> <i>${result.remoteCommitMessage}</i>\n\n` : `\n`) +
+                    `<i>💡 Not: Bu sürüm Antigravity 2.0 (Standalone App) destekler, fakat en yüksek performans için Antigravity IDE kullanmanız önerilir.</i>\n\n` +
+                    `Güncellemek için /update komutunu kullanabilirsiniz.`;
+                for (const chatId of chatIds) {
+                    bot.telegram.sendMessage(chatId, msg, { parse_mode: 'HTML' }).catch(() => {});
+                }
             }
         } catch(e) {
             console.debug(`[updater] check failed: ${e.message}`);

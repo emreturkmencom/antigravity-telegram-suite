@@ -190,6 +190,7 @@ const CHAT_EXTRACT_EXPR = `
                 text = text.replace(/Worked for \\d+s/gi, '');
                 text = text.replace(/(?<!\\d)\\d{1,2}:\\d{2}(?:\\s*(?:AM|PM))?(?!\\d)/ig, '');
                 text = text.replace(/Thinking.../g, "").replace(/Gelişim App Dev/g, "");
+                text = text.replace(/Bu ajanı yanıtlamak için mesajı sola kaydırın/gi, "");
 
                 text = text.replace(/^\\s*(Plan|Execute|Review|Task|Walkthrough|Implementation Plan)\\s*$/gm, '');
                 text = text.replace(/undo/g, '');
@@ -253,7 +254,7 @@ const CHAT_EXTRACT_EXPR = `
             }
 
             if (container) {
-                const list = container.querySelector('.relative.flex.flex-col.gap-y-3.px-4, .monaco-list-rows');
+                const list = container.querySelector('.relative.flex.flex-col.gap-y-3.px-4, .monaco-list-rows, [class*="message-list"], .chat-messages, [data-testid*="message-list"]');
                 if (list) {
                     const msgs = [];
                     for (let child of list.children) {
@@ -285,7 +286,24 @@ const CHAT_EXTRACT_EXPR = `
                     // Clean up language names left behind by code block headers
                     extractedText = msgs.join('\\n\\n').replace(/^(javascript|python|html|css|bash|json|markdown)\\n/gm, '');
                 } else {
-                    extractedText = cleanText(container.innerText || container.textContent || "");
+                    // Fallback for Standalone 2.0 or unknown DOM structures
+                    const messageNodes = Array.from(container.querySelectorAll('.prose, .markdown-body, [data-message-author], .chat-message, [class*="message-bubble"]'));
+                    if (messageNodes.length > 0) {
+                        const msgs = [];
+                        messageNodes.forEach(child => {
+                            let clone = child.cloneNode(true);
+                            Array.from(clone.querySelectorAll('style, .material-icons, .material-symbols-outlined, .material-symbols-rounded, .google-symbols, .codicon, [class*="icon"], button')).forEach(el => el.remove());
+                            AG_UI.removeThoughtBlocks(clone);
+                            let text = cleanText(nodeToMd(clone));
+                            if (text && !msgs.includes(text)) msgs.push(text);
+                        });
+                        extractedText = msgs.join('\\n\\n');
+                    } else {
+                        // Last resort: clone container and strip interactive/layout elements
+                        let clone = container.cloneNode(true);
+                        Array.from(clone.querySelectorAll('button, input, textarea, nav, header, [role="navigation"], [data-project-card], .convo-pill')).forEach(el => el.remove());
+                        extractedText = cleanText(clone.innerText || clone.textContent || "");
+                    }
                 }
             }
         } catch(e) {}
@@ -427,7 +445,7 @@ async function _domLatestExtraction(port, specificTargetId = null) {
             await Runtime.enable();
             
             const expr = CHAT_EXTRACT_EXPR.replace(
-                "extractedText = msgs.join",
+                /extractedText\s*=\s*msgs\.join/g,
                 "extractedText = msgs.slice(-2).join"
             );
             

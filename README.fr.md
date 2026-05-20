@@ -24,6 +24,7 @@ Envoyez des messages, changez de modèle d'IA, gérez les espaces de travail, pr
 
 | Fonctionnalité | Description |
 |---|---|
+| 👥 **Multi-Utilisateurs** | Partagez le contrôle du bot avec votre équipe via des identifiants de chat séparés par des virgules |
 | 💬 **Headless Chat** | Envoyez des messages directement à l'agent IA via Telegram |
 | 📎 **Envoi de fichiers & d'images** | Transférez des fichiers/images à l'agent avec des légendes |
 | 📸 **Captures d'écran de l'IDE** | Capturez et recevez des captures d'écran à distance |

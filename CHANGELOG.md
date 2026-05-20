@@ -7,6 +7,18 @@ All notable changes to this project will be documented in this file.
 ## [3.1.0] - 2026-05-21
 
 ### Added
+- **Multi-User Support**: `ALLOWED_CHAT_ID` now supports a comma-separated list of multiple Telegram Chat IDs, allowing a team to control the same bot.
+- **Automated Changelog**: The `/update` command and background update notifications now automatically fetch and display the latest commit message from GitHub.
+- **Custom Update Notices**: Added specific advisory notes regarding performance optimization for Antigravity IDE vs the Standalone App.
+
+### Fixed
+- **Artifacts Sorting**: Fixed the `/artifacts` command to correctly list files sorted by modification time (newest first).
+- **Artifacts Path Targeting**: Fixed the artifacts directory resolution to respect the `ANTIGRAVITY_PREFERRED_APP` environment variable setting.
+- **Temp File Leakage**: Globally excluded `test_*`, `dump_*`, and `patch_*` debug files from Git tracking.
+
+## [3.0.0] - 2026-05-20
+
+### Added
 - **Dual-Port CDP Support**: Run Antigravity IDE and Standalone App simultaneously with independent CDP ports (`AGENT_CDP_PORT` / `IDE_CDP_PORT`)
 - **Default Model Selection**: New `DEFAULT_MODEL` env var — automatically selects your preferred AI model on IDE startup and new chat creation
 - **Standalone App Commands**: `/start_ag`, `/close_ag` for independent Standalone App lifecycle management

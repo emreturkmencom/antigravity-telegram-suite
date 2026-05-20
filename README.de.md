@@ -24,6 +24,7 @@ Sende Nachrichten, wechsle KI-Modelle, verwalte Arbeitsbereiche, nimm Screenshot
 
 | Funktion | Beschreibung |
 |---|---|
+| 👥 **Multi-User** | Teilen Sie die Bot-Steuerung mit Ihrem Team über kommagetrennte Chat-IDs |
 | 💬 **Headless Chat** | Sende Nachrichten über Telegram direkt an den KI-Agenten |
 | 📎 **Datei- & Bild-Upload** | Leite Dateien/Bilder mit Bildunterschriften an den Agenten weiter |
 | 📸 **IDE-Screenshots** | Erfasse und empfange Screenshots aus der Ferne |
