@@ -167,10 +167,12 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
     // Parse text to HTML and preserve prefix formatting
     const htmlText = prefix ? `<b>${prefix}</b>\n\n${markdownToTelegramHtml(text)}` : markdownToTelegramHtml(text);
     
-    async function replyWithRetry(content, kbOpts = null, retries = 3, threadReplyId = null) {
+    async function replyWithRetry(content, isPlain = false, kbOpts = null, retries = 3, threadReplyId = null) {
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
-                const opts = { parse_mode: 'HTML' };
+                const opts = {};
+                if (!isPlain) opts.parse_mode = 'HTML';
+                
                 if (kbOpts) {
                     if (Array.isArray(kbOpts)) {
                         if (kbOpts.length > 0) opts.reply_markup = { inline_keyboard: kbOpts };
@@ -186,14 +188,10 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
                 console.error(`sendLongMessage attempt ${attempt}/${retries} failed:`, err.message);
                 if (attempt < retries && !err.message.includes("can't parse entities")) {
                     await new Promise(r => setTimeout(r, 2000 * attempt));
-                } else if (err.message.includes("can't parse entities")) {
+                } else if (err.message.includes("can't parse entities") && !isPlain) {
                     // Fallback to sending raw text if HTML parsing completely fails
-                    try {
-                        const plain = content.replace(/<[^>]*>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-                        return await ctx.reply(plain, threadReplyId ? { reply_parameters: { message_id: threadReplyId, allow_sending_without_reply: true } } : {});
-                    } catch (fallbackErr) {
-                        throw fallbackErr;
-                    }
+                    const plain = content.replace(/<[^>]*>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+                    return await replyWithRetry(plain.substring(0, 4000), true, kbOpts, 1, threadReplyId);
                 } else {
                     throw err;
                 }
@@ -210,7 +208,13 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
         const sentMsgIds = [];
 
         for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
+            let line = lines[i];
+            
+            // If a single line is absurdly long, force a split
+            if (line.length > MAX_LEN) {
+               line = line.substring(0, MAX_LEN) + '...';
+            }
+
             const preMatch = line.match(/<pre>(?:<code class="language-([^"]+)">)?/);
             if (preMatch) {
                 inPre = true;
@@ -224,7 +228,7 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
                 if (inPre) {
                     currentChunk += preLang ? '</code></pre>' : '</pre>';
                 }
-                const sentMsg = await replyWithRetry(currentChunk, buttons, 3, currentReplyId);
+                const sentMsg = await replyWithRetry(currentChunk, false, buttons, 3, currentReplyId);
                 if (sentMsg) {
                     currentReplyId = sentMsg.message_id;
                     sentMsgIds.push(sentMsg.message_id);
@@ -234,7 +238,7 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
             currentChunk += line + '\n';
         }
         if (currentChunk.trim().length > 0) {
-            const sentMsg = await replyWithRetry(currentChunk, buttons, 3, currentReplyId);
+            const sentMsg = await replyWithRetry(currentChunk, false, buttons, 3, currentReplyId);
             if (sentMsg) sentMsgIds.push(sentMsg.message_id);
         }
         console.log(`sendLongMessage: Sent successfully`);
@@ -548,10 +552,10 @@ async function sendMainMenu(ctx, text = '🕹️ Kontrol Paneli:') {
     return ctx.reply(text, kb);
 }
 
-async function pushMainMenuToUser(text = '🚀 Antigravity Bot güncellendi / yeniden başlatıldı!') {
+async function pushMainMenuToUser(text, silent = false) {
     if (ALLOWED_CHAT_IDS.length === 0 || process.env.SETUP_MODE === 'true') return;
     const kb = await buildMainMenu();
-    return Promise.all(ALLOWED_CHAT_IDS.map(id => bot.telegram.sendMessage(id, text, kb).catch(() => {})));
+    return Promise.all(ALLOWED_CHAT_IDS.map(id => bot.telegram.sendMessage(id, text, { ...kb, disable_notification: silent }).catch(() => {})));
 }
 
 bot.command('start', async (ctx) => {
@@ -2094,8 +2098,15 @@ async function init() {
 
     // Push the main menu keyboard to the user so it's active by default (wait 3s to let IDE/CDP initialize)
     setTimeout(() => {
-        const startupMsg = '🚀 Antigravity Bot güncellendi / yeniden başlatıldı!\n\n<i>💡 Not: Bu sürüm Antigravity 2.0 (Standalone App) destekler, fakat en yüksek performans ve stabilite için Antigravity IDE kullanmanız tavsiye edilir.</i>';
-        pushMainMenuToUser(startupMsg).catch(console.error);
+        const updateFlagPath = path.join(__dirname, '..', '.update_flag');
+        if (fs.existsSync(updateFlagPath)) {
+            const startupMsg = '🚀 Antigravity Bot başarıyla güncellendi!';
+            pushMainMenuToUser(startupMsg).catch(console.error);
+            try { fs.unlinkSync(updateFlagPath); } catch (e) {}
+        } else {
+            // Sadece sessizce menüyü güncelle
+            pushMainMenuToUser('🔄 Bot yeniden başlatıldı.', true).catch(console.error);
+        }
     }, 3000);
 
     // Start periodic update checker (notifies via Telegram when update is available)

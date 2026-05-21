@@ -148,6 +148,9 @@ function performUpdate() {
                 if (err2) return reject(new Error(`git reset failed: ${err2.message}`));
 
             const nextStep = () => {
+                // Set update flag for index.js
+                try { fs.writeFileSync(path.join(PROJECT_ROOT, '.update_flag'), '1'); } catch (e) {}
+                
                 // Resolve immediately so the bot can send the confirmation message
                 resolve({ updated: true, message: t('update.success') });
                 
@@ -188,7 +191,6 @@ function startUpdateChecker(bot, chatIds) {
                     `Mevcut: v${result.localVersion} (${result.localCommit})\n` +
                     `Yeni: v${result.remoteVersion} (${result.remoteCommit})\n` +
                     (result.remoteCommitMessage ? `📝 <b>Changelog:</b> <i>${result.remoteCommitMessage}</i>\n\n` : `\n`) +
-                    `<i>💡 Not: Bu sürüm Antigravity 2.0 (Standalone App) destekler, fakat en yüksek performans için Antigravity IDE kullanmanız önerilir.</i>\n\n` +
                     `Güncellemek için /update komutunu kullanabilirsiniz.`;
                 for (const chatId of chatIds) {
                     bot.telegram.sendMessage(chatId, msg, { parse_mode: 'HTML' }).catch(() => {});
