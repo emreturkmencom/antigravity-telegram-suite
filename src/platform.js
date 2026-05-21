@@ -187,17 +187,28 @@ function killIDE(app = getPreferredApp()) {
         const lock = path.join(getAppDataDir(app), 'code.lock');
         let cmd;
 
+        // Two-stage termination: SIGTERM first (graceful) → wait → SIGKILL (fallback)
+        // SIGKILL alone prevents Electron from flushing state.vscdb to disk,
+        // causing chat history and settings to be lost on restart.
         switch (PLATFORM) {
             case 'win32':
-                cmd = `taskkill /F /IM "${procName}" 2>nul & timeout /t 2 /nobreak >nul`;
+                // Try graceful termination first, then fallback to force-kill
+                cmd = `taskkill /IM "${procName}" 2>nul & timeout /t 3 /nobreak >nul & taskkill /F /IM "${procName}" 2>nul & timeout /t 1 /nobreak >nul`;
                 break;
             case 'darwin':
-                cmd = `pkill -9 -f "${binary}" 2>/dev/null; pkill -9 -f "antigravity-launcher" 2>/dev/null; sleep 2`;
+                // SIGTERM (15) first to allow Electron to save databases gracefully, then SIGKILL (9) fallback
+                cmd = `pkill -15 -f "${binary}" 2>/dev/null; pkill -15 -f "antigravity-launcher" 2>/dev/null; sleep 3; pkill -9 -f "${binary}" 2>/dev/null; pkill -9 -f "antigravity-launcher" 2>/dev/null; sleep 1`;
                 break;
             default: // linux
                 // Kill ALL app-related processes including child processes
                 // (chrome-sandbox, crashpad_handler, language_server, utility processes)
                 cmd = [
+                    // Stage 1: Graceful SIGTERM — lets Electron flush state.vscdb
+                    `pkill -15 -x "${procName}" 2>/dev/null`,
+                    `pkill -15 -f "${binary}" 2>/dev/null`,
+                    `pkill -15 -f "antigravity-launcher" 2>/dev/null`,
+                    `sleep 3`,
+                    // Stage 2: Forceful SIGKILL fallback for any lingering processes
                     `pkill -9 -x "${procName}" 2>/dev/null`,
                     `pkill -9 -f "${binary}" 2>/dev/null`,
                     `pkill -9 -f "antigravity-launcher" 2>/dev/null`,
@@ -205,7 +216,7 @@ function killIDE(app = getPreferredApp()) {
                     `pkill -9 -f "chrome-sandbox" 2>/dev/null`,
                     `pkill -9 -f "language_server_linux" 2>/dev/null`,
                     `pkill -9 -f "user-data-dir.*${app === 'ide' ? 'Antigravity-IDE' : 'Antigravity'}" 2>/dev/null`,
-                    `sleep 2`,
+                    `sleep 1`,
                     // Ensure the debugging port is freed
                     `fuser -k 9333/tcp 2>/dev/null || true`
                 ].join('; ');
