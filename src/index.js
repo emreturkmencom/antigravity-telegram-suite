@@ -499,14 +499,14 @@ async function getChatHeader(targetId = null, fallback = '') {
     return fallback;
 }
 
-async function buildMainMenu(overrideThread = null, overrideWorkspace = null) {
+async function buildMainMenu(overrideThread = null, overrideWorkspace = null, targetId = null) {
     const preferredApp = process.env.ANTIGRAVITY_PREFERRED_APP || 'agent';
     const isIDE = preferredApp === 'ide';
     let wsName = overrideWorkspace || 'Projects';
     let threadName = overrideThread || null;
     if (!overrideThread && !overrideWorkspace) {
     try {
-        const info = await getActiveThreadInfo(CDP_PORT);
+        const info = await getActiveThreadInfo(CDP_PORT, targetId);
         if (info && info.name) threadName = info.name;
         if (info && info.workspace) {
             wsName = info.workspace.split('/').pop() || info.workspace;
@@ -560,8 +560,8 @@ async function buildMainMenu(overrideThread = null, overrideWorkspace = null) {
     ]).resize();
 }
 
-async function sendMainMenu(ctx, text = '🕹️ Kontrol Paneli:', overrideThread = null, overrideWorkspace = null) {
-    const kb = await buildMainMenu(overrideThread, overrideWorkspace);
+async function sendMainMenu(ctx, text = '🕹️ Kontrol Paneli:', overrideThread = null, overrideWorkspace = null, targetId = null) {
+    const kb = await buildMainMenu(overrideThread, overrideWorkspace, targetId);
     return ctx.reply(text, kb);
 }
 
@@ -1177,8 +1177,12 @@ function doLaunchWorkspace(ctx, workspace) {
                         }).on('error', reject);
                     });
                     if (targets && targets.length > 0) {
-                        cdpReady = true;
-                        break;
+                        const targetWsName = workspace ? path.basename(workspace).toLowerCase() : null;
+                        const foundNew = targetWsName ? targets.some(t => t.title && t.title.toLowerCase().includes(targetWsName)) : true;
+                        if (foundNew) {
+                            cdpReady = true;
+                            break;
+                        }
                     }
                 } catch (_) {
                     // CDP not ready yet, keep waiting
@@ -2075,7 +2079,7 @@ bot.on('text', (ctx) => {
 
             if (!text) text = t('ask.done_empty');
             const header = await getChatHeader(targetId, t('ask.done'));
-            const buttons = await buildMainMenu();
+            const buttons = await buildMainMenu(null, null, targetId);
             
             const sentIds = await sendLongMessage(ctx, text, header, buttons, ctx.message.message_id);
             if (sentIds && sentIds.length > 0 && targetId) {
@@ -2157,7 +2161,7 @@ bot.on(['photo', 'document'], (ctx) => {
                 if (!text) text = t('ask.done_empty');
                 const header = await getChatHeader(targetId, t('ask.done'));
                 
-                const buttons = await buildMainMenu();
+                const buttons = await buildMainMenu(null, null, targetId);
                 
                 const sentIds = await sendLongMessage(ctx, text, header, buttons, ctx.message.message_id);
                 if (sentIds && sentIds.length > 0 && targetId) {

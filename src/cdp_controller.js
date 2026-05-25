@@ -1295,12 +1295,14 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
             await client.close();
             
             if (res.result?.value) {
-                if (res.result.value.name) threadName = res.result.value.name;
-                if (res.result.value.threadId) threadId = res.result.value.threadId;
+                if (res.result.value.name && !threadName) threadName = res.result.value.name;
+                if (res.result.value.threadId && !threadId) threadId = res.result.value.threadId;
                 
                 let wsName = res.result.value.workspace;
                 if (wsName && wsName.includes(' - ')) wsName = wsName.split(' - ')[0].trim();
-                if (wsName && wsName !== 'undefined' && wsName !== 'Launchpad') workspaceName = wsName;
+                if (wsName && wsName !== 'undefined' && wsName !== 'Launchpad') {
+                    if (!workspaceName) workspaceName = wsName;
+                }
                 
                 // Only break if we got a REAL thread name (not just workspace/title fallback)
                 // If threadId was found directly from DOM, that's authoritative — break immediately
