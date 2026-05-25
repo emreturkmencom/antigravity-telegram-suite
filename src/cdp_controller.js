@@ -493,7 +493,7 @@ async function getFullLatestResponse(port, specificTargetId = null, threadName =
                 const content = fs.readFileSync(logPath, 'utf8');
                 const lines = content.split('\n').filter(l => l.trim());
                 let lastUserMsg = null;
-                let lastModelMsg = null;
+                let modelMsgs = [];
                 
                 // For transcript.jsonl, the format uses 'type' and 'source' differently:
                 // - USER messages: source=USER_EXPLICIT, type=USER_INPUT
@@ -505,31 +505,32 @@ async function getFullLatestResponse(port, specificTargetId = null, threadName =
                         
                         if (isTranscript) {
                             // transcript.jsonl format: look for PLANNER_RESPONSE as the model's text answer
-                            if (!lastModelMsg && entry.source === 'MODEL' && entry.type === 'PLANNER_RESPONSE' && entry.content && entry.content.trim()) {
-                                lastModelMsg = entry.content;
-                            }
-                            if (lastModelMsg && !lastUserMsg && entry.source === 'USER_EXPLICIT' && entry.content) {
+                            if (entry.source === 'USER_EXPLICIT' && entry.content) {
                                 const reqMatch = entry.content.match(/<USER_REQUEST>\n?([\s\S]*?)\n?<\/USER_REQUEST>/);
                                 lastUserMsg = reqMatch ? reqMatch[1].trim() : entry.content.substring(0, 200);
+                                break;
+                            }
+                            if (entry.source === 'MODEL' && entry.type === 'PLANNER_RESPONSE' && entry.content && entry.content.trim()) {
+                                modelMsgs.unshift(entry.content.trim());
                             }
                         } else {
                             // overview.txt format (legacy)
-                            if (!lastModelMsg && entry.source === 'MODEL' && entry.content && entry.content.trim()) {
-                                lastModelMsg = entry.content;
-                            }
-                            if (lastModelMsg && !lastUserMsg && entry.source === 'USER_EXPLICIT' && entry.content) {
+                            if (entry.source === 'USER_EXPLICIT' && entry.content) {
                                 const reqMatch = entry.content.match(/<USER_REQUEST>\n?([\s\S]*?)\n?<\/USER_REQUEST>/);
                                 lastUserMsg = reqMatch ? reqMatch[1].trim() : entry.content.substring(0, 200);
+                                break;
+                            }
+                            if (entry.source === 'MODEL' && entry.content && entry.content.trim()) {
+                                modelMsgs.unshift(entry.content.trim());
                             }
                         }
-                        if (lastUserMsg && lastModelMsg) break;
                     } catch (_) {}
                 }
                 
-                if (lastModelMsg) {
+                if (modelMsgs.length > 0) {
                     const parts = [];
                     if (lastUserMsg) parts.push('👤 User:\n' + lastUserMsg);
-                    parts.push('🤖 Agent:\n' + lastModelMsg);
+                    parts.push('🤖 Agent:\n' + modelMsgs.join('\n\n'));
                     console.log(`[getFullLatestResponse] Read from ${isTranscript ? 'transcript.jsonl' : 'overview.txt'} for thread ${activeId.substring(0, 8)}`);
                     return parts.join('\n\n');
                 }
