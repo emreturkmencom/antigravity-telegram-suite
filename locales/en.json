@@ -4,7 +4,9 @@
     "polling": "Antigravity Bot is actively polling!"
   },
   "auth": {
-    "unauthorized": "❌ Unauthorized."
+    "unauthorized": "❌ Unauthorized.",
+    "unauthorized_attempt": "⚠️ <b>Unauthorized Access Attempt!</b>\n\n👤 <b>Person:</b> {name}\n🔖 <b>Username:</b> {username}\n🆔 <b>ID:</b> <code>{id}</code>\n💬 <b>{details}</b>",
+    "anonymous": "Anonymous"
   },
   "help": {
     "title": "🤖 <b>Available Commands:</b>",
@@ -32,13 +34,24 @@
   },
   "status": {
     "title": "📊 <b>System Status:</b>\n",
-    "ide_running": "🟢 IDE: Running",
+    "ide_running": "💻 <b>Antigravity IDE (Classic):</b> {status}\n",
     "ide_stopped": "🔴 IDE: Stopped",
-    "cdp_active": "🟢 CDP Connection: Active",
-    "cdp_inactive": "🔴 CDP Connection: Inactive",
+    "cdp_active": "⚡ <b>CDP Automation:</b> 🟢 ACTIVE\n",
+    "cdp_inactive": "⚡ <b>CDP Automation:</b> 🔴 INACTIVE (CDP connection failed)\n",
     "bot_running": "🟢 Bot: Running",
     "autoaccept_on": "✅ ON",
-    "autoaccept_off": "❌ OFF"
+    "autoaccept_off": "❌ OFF",
+    "standalone_running": "🤖 <b>Antigravity Standalone:</b> {status}\n",
+    "running_status": "🟢 RUNNING",
+    "stopped_status": "🔴 CLOSED",
+    "telegram_bot": "🤖 <b>Telegram Bot:</b> 🟢 ACTIVE\n",
+    "active_chat": "\n💬 <b>Active Chat Details:</b>\n",
+    "project_area": "- Project Area: <code>{workspace}</code>\n",
+    "agent_title": "- Agent Title: <code>{name}</code>\n",
+    "selected_model": "- Selected Model: <code>{model}</code>\n",
+    "agent_status": "- Agent Status: <b>{status}</b>\n",
+    "agent_working": "🔄 Working (Busy)",
+    "agent_idle": "💤 Idle"
   },
   "latest": {
     "title": "📝 Latest Response:\n\n",
@@ -141,7 +154,10 @@
     "btn_latest": "💬 Latest",
     "start_ag_desc": "Start Agent",
     "close_ide_desc": "Close IDE",
-    "close_ag_desc": "Close Agent"
+    "close_ag_desc": "Close Agent",
+    "welcome": "👋 Welcome! Your panel is ready:",
+    "btn_on": "Turn On",
+    "btn_off": "Turn Off"
   },
   "photo": {
     "downloaded": "✅ File downloaded and forwarding to agent...",
@@ -261,18 +277,27 @@
   "app": {
     "select_prompt": "Please select the application you want to control. Both applications can run simultaneously and are controlled via independent ports:\n",
     "auto_starting": "🚀 {appName} appears to be closed. Auto-starting...",
-    "started": "✅ {appName} started successfully."
+    "started": "✅ {appName} started successfully.",
+    "updated_preference": "App preference updated to '{app}'!"
   },
   "shortcuts": {
     "scanning": "⏳ Scanning and updating desktop shortcuts, please wait...",
     "error": "❌ Error occurred while updating shortcuts:\n<code>{error}</code>",
     "not_found": "Not found on desktop or could not be changed",
     "success": "\n✨ <b>Success!</b> A total of <b>{count}</b> shortcuts updated. The bot will now be able to automatically connect when you launch applications from the desktop.",
-    "start_error": "❌ Process could not be started: {error}"
+    "start_error": "❌ Process could not be started: {error}",
+    "updated_header": "Shortcuts updated:\n"
   },
   "update": {
     "checking": "🔍 Checking for updates...",
     "error": "❌ Update error: {error}",
-    "success": "✅ Code updated and dependencies installed.\nBot is restarting now..."
+    "success": "✅ Code updated and dependencies installed.\nBot is restarting now...",
+    "bot_updated": "🚀 Antigravity Bot successfully updated!"
+  },
+  "error": {
+    "start_error": "❌ Start error: {error}"
+  },
+  "agent": {
+    "swipe_to_reply": "<i>(Swipe message to the left to reply to this agent)</i>"
   }
 }

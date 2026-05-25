@@ -4,7 +4,9 @@
     "polling": "Antigravity Bot aktif olarak dinliyor!"
   },
   "auth": {
-    "unauthorized": "❌ Yetkisiz erişim."
+    "unauthorized": "❌ Yetkisiz erişim.",
+    "unauthorized_attempt": "⚠️ <b>Yetkisiz Erişim Denemesi!</b>\n\n👤 <b>Kişi:</b> {name}\n🔖 <b>Kullanıcı Adı:</b> {username}\n🆔 <b>ID:</b> <code>{id}</code>\n💬 <b>{details}</b>",
+    "anonymous": "İsimsiz"
   },
   "help": {
     "title": "🤖 <b>Mevcut Komutlar:</b>",
@@ -32,13 +34,24 @@
   },
   "status": {
     "title": "📊 <b>Sistem Durumu:</b>\n",
-    "ide_running": "🟢 IDE: Çalışıyor",
+    "ide_running": "💻 <b>Antigravity IDE (Classic):</b> {status}\n",
     "ide_stopped": "🔴 IDE: Kapalı",
-    "cdp_active": "🟢 CDP Bağlantısı: Aktif",
-    "cdp_inactive": "🔴 CDP Bağlantısı: Yok",
+    "cdp_active": "⚡ <b>CDP Otomasyonu:</b> 🟢 AKTİF\n",
+    "cdp_inactive": "⚡ <b>CDP Otomasyonu:</b> 🔴 PASİF (CDP bağlantısı kurulamadı)\n",
     "bot_running": "🟢 Bot: Çalışıyor",
     "autoaccept_on": "✅ ON",
-    "autoaccept_off": "❌ OFF"
+    "autoaccept_off": "❌ OFF",
+    "standalone_running": "🤖 <b>Antigravity Standalone:</b> {status}\n",
+    "running_status": "🟢 ÇALIŞIYOR",
+    "stopped_status": "🔴 KAPALI",
+    "telegram_bot": "🤖 <b>Telegram Bot:</b> 🟢 AKTİF\n",
+    "active_chat": "\n💬 <b>Aktif Sohbet Detayları:</b>\n",
+    "project_area": "- Proje Alanı: <code>{workspace}</code>\n",
+    "agent_title": "- Ajan Başlığı: <code>{name}</code>\n",
+    "selected_model": "- Seçili Model: <code>{model}</code>\n",
+    "agent_status": "- Ajan Durumu: <b>{status}</b>\n",
+    "agent_working": "🔄 Çalışıyor (Meşgul)",
+    "agent_idle": "💤 Beklemede (Idle)"
   },
   "latest": {
     "title": "📝 Son Yanıt:\n\n",
@@ -141,7 +154,10 @@
     "btn_latest": "💬 Son Yanıt",
     "start_ag_desc": "Ajanı başlatır",
     "close_ide_desc": "IDE'yi kapatır",
-    "close_ag_desc": "Ajanı kapatır"
+    "close_ag_desc": "Ajanı kapatır",
+    "welcome": "👋 Hoşgeldin! Panelin hazır:",
+    "btn_on": "Aç",
+    "btn_off": "Kapat"
   },
   "photo": {
     "downloaded": "✅ Dosya indirildi ve ajana yönlendiriliyor...",
@@ -261,18 +277,27 @@
   "app": {
     "select_prompt": "Please select the application you want to control. Both applications can run simultaneously and are controlled via independent ports:\n",
     "auto_starting": "🚀 {appName} appears to be closed. Auto-starting...",
-    "started": "✅ {appName} started successfully."
+    "started": "✅ {appName} started successfully.",
+    "updated_preference": "Uygulama tercihi '{app}' olarak güncellendi!"
   },
   "shortcuts": {
     "scanning": "⏳ Scanning and updating desktop shortcuts, please wait...",
     "error": "❌ Error occurred while updating shortcuts:\n<code>{error}</code>",
     "not_found": "Not found on desktop or could not be changed",
     "success": "\n✨ <b>Success!</b> A total of <b>{count}</b> shortcuts updated. The bot will now be able to automatically connect when you launch applications from the desktop.",
-    "start_error": "❌ Process could not be started: {error}"
+    "start_error": "❌ Process could not be started: {error}",
+    "updated_header": "Kısayollar güncellendi:\n"
   },
   "update": {
     "checking": "🔍 Checking for updates...",
     "error": "❌ Update error: {error}",
-    "success": "✅ Code updated and dependencies installed.\nBot is restarting now..."
+    "success": "✅ Code updated and dependencies installed.\nBot is restarting now...",
+    "bot_updated": "🚀 Antigravity Bot başarıyla güncellendi!"
+  },
+  "error": {
+    "start_error": "❌ Başlatma hatası: {error}"
+  },
+  "agent": {
+    "swipe_to_reply": "<i>(Bu ajanı yanıtlamak için mesajı sola kaydırın)</i>"
   }
 }
