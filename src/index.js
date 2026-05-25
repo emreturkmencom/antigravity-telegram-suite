@@ -2097,6 +2097,56 @@ bot.on('text', (ctx) => {
 
 // ===== PHOTO & DOCUMENT HANDLER =====
 
+const mediaGroupCache = new Map();
+
+async function processAgentRequest(ctx, query, explicitTargetId, explicitThreadName, originalCaption) {
+    await ctx.reply(t('photo.downloaded'));
+    if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
+    const targetId = await sendViaCDP(query, CDP_PORT, explicitTargetId);
+
+    // Wait briefly for message to render in DOM before anchoring state
+    await new Promise(r => setTimeout(r, 1500));
+    await snapshotChatState(CDP_PORT, targetId).catch(() => {});
+    
+    const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx), targetId);
+    if (isDone) {
+        let text = await getFullLatestResponse(CDP_PORT, targetId);
+        text = stripQueryFromResponse(text, query);
+        if (originalCaption) {
+            text = stripQueryFromResponse(text, originalCaption);
+        }
+        if (!text) text = t('ask.done_empty');
+        const header = await getChatHeader(targetId, t('ask.done'));
+        
+        const buttons = await buildMainMenu(null, null, targetId);
+        
+        const sentIds = await sendLongMessage(ctx, text, header, buttons, ctx.message.message_id);
+        if (sentIds && sentIds.length > 0 && targetId) {
+            const activeInfo = await getActiveThreadInfo(CDP_PORT, targetId).catch(() => null);
+            const currentThreadName = activeInfo ? activeInfo.name : null;
+            sentIds.forEach(id => messageTargetMap.set(id, { targetId, threadName: currentThreadName }));
+            saveMessageTargetMap(messageTargetMap);
+        }
+    } else {
+        await ctx.reply(t('ask.timeout'));
+    }
+}
+
+async function processMediaGroup(group) {
+    const ctx = group.ctx;
+    const paths = group.files.map(p => `\`${p}\``).join(', ');
+    const combinedCaption = group.captions.join('\n');
+    
+    const query = `[System: The user has uploaded ${group.files.length} files. You MUST use your \`view_file\` tool to examine ALL files at these absolute paths: ${paths} . Do not say you cannot see them. Use the tool!]${combinedCaption ? `\nUser's message: ${combinedCaption}` : ''}`;
+    
+    try {
+        await processAgentRequest(ctx, query, group.explicitTargetId, group.explicitThreadName, combinedCaption);
+    } catch(err) {
+        const errorMsg = err.message === 'no_chat_input' ? t('ask.no_chat_input') : err.message;
+        ctx.reply(t('photo.error', { error: errorMsg })).catch(() => {});
+    }
+}
+
 bot.on(['photo', 'document'], (ctx) => {
     (async () => {
         try {
@@ -2129,8 +2179,7 @@ bot.on(['photo', 'document'], (ctx) => {
                 });
             });
             
-            const caption = ctx.message.caption ? `\nUser's message: ${ctx.message.caption}` : "";
-            const query = `[System: The user has uploaded an image or file. You MUST use your \`view_file\` tool to examine the file at this absolute path: ${dest} . Do not say you cannot see it. Use the tool!]${caption}`;
+            const caption = ctx.message.caption ? ctx.message.caption : "";
             
             let explicitTargetId = null;
             let explicitThreadName = null;
@@ -2143,36 +2192,34 @@ bot.on(['photo', 'document'], (ctx) => {
                 explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
             }
             
-            await ctx.reply(t('photo.downloaded'));
-            if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
-            const targetId = await sendViaCDP(query, CDP_PORT, explicitTargetId);
-
-            // Wait briefly for message to render in DOM before anchoring state
-            await new Promise(r => setTimeout(r, 1500));
-            await snapshotChatState(CDP_PORT, targetId).catch(() => {});
-            
-            const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx), targetId);
-            if (isDone) {
-                let text = await getFullLatestResponse(CDP_PORT, targetId);
-                text = stripQueryFromResponse(text, query);
-                if (caption) {
-                    text = stripQueryFromResponse(text, caption);
+            const mediaGroupId = ctx.message.media_group_id;
+            if (mediaGroupId) {
+                if (!mediaGroupCache.has(mediaGroupId)) {
+                    mediaGroupCache.set(mediaGroupId, {
+                        files: [],
+                        captions: [],
+                        timer: null,
+                        ctx: ctx,
+                        explicitTargetId,
+                        explicitThreadName
+                    });
                 }
-                if (!text) text = t('ask.done_empty');
-                const header = await getChatHeader(targetId, t('ask.done'));
+                const group = mediaGroupCache.get(mediaGroupId);
+                group.files.push(dest);
+                if (caption) group.captions.push(caption);
                 
-                const buttons = await buildMainMenu(null, null, targetId);
-                
-                const sentIds = await sendLongMessage(ctx, text, header, buttons, ctx.message.message_id);
-                if (sentIds && sentIds.length > 0 && targetId) {
-                    const activeInfo = await getActiveThreadInfo(CDP_PORT, targetId).catch(() => null);
-                    const currentThreadName = activeInfo ? activeInfo.name : null;
-                    sentIds.forEach(id => messageTargetMap.set(id, { targetId, threadName: currentThreadName }));
-                    saveMessageTargetMap(messageTargetMap);
-                }
-            } else {
-                await ctx.reply(t('ask.timeout'));
+                clearTimeout(group.timer);
+                group.timer = setTimeout(() => {
+                    mediaGroupCache.delete(mediaGroupId);
+                    processMediaGroup(group);
+                }, 1500);
+                return;
             }
+            
+            const query = `[System: The user has uploaded an image or file. You MUST use your \`view_file\` tool to examine the file at this absolute path: ${dest} . Do not say you cannot see it. Use the tool!]${caption ? `\nUser's message: ${caption}` : ''}`;
+            
+            await processAgentRequest(ctx, query, explicitTargetId, explicitThreadName, caption);
+            
         } catch(err) {
             const errorMsg = err.message === 'no_chat_input' ? t('ask.no_chat_input') : err.message;
             ctx.reply(t('photo.error', { error: errorMsg })).catch(() => {});
