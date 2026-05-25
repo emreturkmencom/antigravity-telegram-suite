@@ -3,7 +3,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-
+const { t } = require('./i18n');
 
 
 // ===== MULTI-WINDOW SUPPORT =====
@@ -195,7 +195,10 @@ const CHAT_EXTRACT_EXPR = `
                 text = text.replace(/Worked for \\d+s/gi, '');
                 text = text.replace(/(?<!\\d)\\d{1,2}:\\d{2}(?:\\s*(?:AM|PM))?(?!\\d)/ig, '');
                 text = text.replace(/Thinking.../g, "").replace(/Gelişim App Dev/g, "");
-                text = text.replace(/Bu ajanı yanıtlamak için mesajı sola kaydırın/gi, "");
+                const swipeText = t('agent.swipe_to_reply').replace(/<[^>]+>/g, '');
+                if (swipeText) {
+                    text = text.replace(new RegExp(swipeText.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'), 'gi'), "");
+                }
 
                 text = text.replace(/^\\s*(Plan|Execute|Review|Task|Walkthrough|Implementation Plan)\\s*$/gm, '');
                 text = text.replace(/undo/g, '');
