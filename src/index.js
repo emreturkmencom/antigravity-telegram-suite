@@ -2035,9 +2035,29 @@ bot.hears(/^🤖/i, async (ctx) => {
 });
 bot.hears(/^🧠/i, handleModel);
 
+function extractQuotedContext(ctx) {
+    if (!ctx.message.reply_to_message) return "";
+    const msg = ctx.message.reply_to_message;
+    let quotedText = msg.text || msg.caption || "";
+    if (!quotedText) return "";
+    
+    quotedText = quotedText.replace(/✅ Completed!/g, '');
+    quotedText = quotedText.replace(/📁[^\n]+/g, '');
+    quotedText = quotedText.replace(/🤖[^\n]+/g, '');
+    quotedText = quotedText.replace(/\(Bu ajanı yanıtlamak için mesajı sola kaydırın\)/g, '');
+    quotedText = quotedText.replace(/🤖 Agent:/g, '');
+    quotedText = quotedText.trim();
+    
+    if (quotedText.length > 500) {
+        quotedText = quotedText.substring(0, 500) + '...';
+    }
+    
+    return quotedText ? `[Replying to Agent's message: "${quotedText}"]\n\n` : "";
+}
+
 bot.on('text', (ctx) => {
     if (ctx.message.text.startsWith('/')) return;
-    const query = ctx.message.text;
+    let query = ctx.message.text;
     
     let explicitTargetId = null;
     let explicitThreadName = null;
@@ -2045,6 +2065,8 @@ bot.on('text', (ctx) => {
         const val = messageTargetMap.get(ctx.message.reply_to_message.message_id);
         if (typeof val === 'string') explicitTargetId = val;
         else if (val) { explicitTargetId = val.targetId; explicitThreadName = val.threadName; }
+        
+        query = extractQuotedContext(ctx) + query;
     }
     if (!explicitTargetId && ctx.message.reply_to_message?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data?.startsWith('focus_')) {
         explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
@@ -2183,13 +2205,20 @@ bot.on(['photo', 'document'], (ctx) => {
             
             let explicitTargetId = null;
             let explicitThreadName = null;
+            let quotedContext = "";
             if (ctx.message.reply_to_message) {
                 const val = messageTargetMap.get(ctx.message.reply_to_message.message_id);
                 if (typeof val === 'string') explicitTargetId = val;
                 else if (val) { explicitTargetId = val.targetId; explicitThreadName = val.threadName; }
+                
+                quotedContext = extractQuotedContext(ctx);
             }
             if (!explicitTargetId && ctx.message.reply_to_message?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data?.startsWith('focus_')) {
                 explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
+            }
+            
+            if (quotedContext) {
+                caption = caption ? quotedContext + caption : quotedContext.trim();
             }
             
             const mediaGroupId = ctx.message.media_group_id;
