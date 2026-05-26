@@ -187,11 +187,11 @@ function startUpdateChecker(bot, chatIds) {
         try {
             const result = await checkForUpdates();
             if (result.available) {
-                const msg = `🔄 <b>Güncelleme Mevcut! / Update Available!</b>\n\n` +
-                    `Mevcut: v${result.localVersion} (${result.localCommit})\n` +
-                    `Yeni: v${result.remoteVersion} (${result.remoteCommit})\n` +
-                    (result.remoteCommitMessage ? `📝 <b>Changelog:</b> <i>${result.remoteCommitMessage}</i>\n\n` : `\n`) +
-                    `Güncellemek için /update komutunu kullanabilirsiniz.`;
+                const msg = t('update.available') +
+                    t('update.current_version', { version: result.localVersion, commit: result.localCommit }) +
+                    t('update.new_version_info', { version: result.remoteVersion, commit: result.remoteCommit }) +
+                    (result.remoteCommitMessage ? t('update.changelog', { message: result.remoteCommitMessage }) : `\n`) +
+                    t('update.click_to_download');
                 for (const chatId of chatIds) {
                     bot.telegram.sendMessage(chatId, msg, { parse_mode: 'HTML' }).catch(() => {});
                 }
