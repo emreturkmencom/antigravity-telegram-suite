@@ -18,3 +18,9 @@ const missing = t('this.key.does.not.exist');
 assert.strictEqual(missing, 'this.key.does.not.exist', 'Missing key should return the key itself');
 
 console.log('✅ All i18n tests passed successfully!');
+
+// Test new strings
+loadLocale('en');
+assert.strictEqual(t('app.error_save'), 'Error: Could not save preference.', 'English error_save missing');
+loadLocale('tr');
+assert.strictEqual(t('app.error_save'), 'Hata: Tercih kaydedilemedi.', 'Turkish error_save missing');

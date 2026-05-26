@@ -1326,13 +1326,13 @@ bot.command('app', async (ctx) => {
     const appName = currentApp === 'ide' ? '💻 Classic Monaco IDE' : '🤖 Standalone Agent (2.0)';
     const currentPort = CDP_PORT;
     
-    let msg = `🤖 <b>Antigravity Uygulama Seçimi</b>\n\n`;
-    msg += `Tercih Edilen Uygulama: <b>${appName}</b>\n`;
-    msg += `Aktif CDP Bağlantı Portu: <code>${currentPort}</code>\n\n`;
-    msg += t('app.select_prompt');
+    let msg = t('app.selection_title') || `🤖 <b>Antigravity Uygulama Seçimi</b>\n\n`;
+    msg += t('app.preferred_app', { appName }) + '\n';
+    msg += t('app.active_port', { port: currentPort }) + '\n\n';
+    msg += t('app.select_prompt') + '\n';
     msg += `• <b>Standalone Agent:</b> CDP Port 9333\n`;
     msg += `• <b>Monaco IDE:</b> CDP Port 9334\n\n`;
-    msg += `⚡ <i>Seçiminiz kalıcı olarak .env dosyasına kaydedilir ve botu yeniden başlatmadan anında uygulanır.</i>`;
+    msg += t('app.persistent_selection') || `⚡ <i>Seçiminiz kalıcı olarak .env dosyasına kaydedilir ve botu yeniden başlatmadan anında uygulanır.</i>`;
 
     const buttons = [
         [{ text: '🤖 Standalone Agent (Port: 9333)', callback_data: 'pref_app_agent' }],
@@ -1355,10 +1355,10 @@ bot.action(/pref_app_(.+)/, async (ctx) => {
         ctx.answerCbQuery(t('app.updated_preference', { app: selectedApp }));
         
         const appName = selectedApp === 'ide' ? '💻 Classic Monaco IDE' : '🤖 Standalone Agent (2.0)';
-        let msg = `✅ <b>Uygulama Tercihi Güncellendi!</b>\n\n`;
-        msg += `Tercih Edilen: <b>${appName}</b>\n`;
-        msg += `Yeni Bağlantı Portu: <code>${CDP_PORT}</code>\n\n`;
-        msg += `Bot şimdi tüm mesaj ve komutlarınızı bu uygulamaya yönlendirecektir.`;
+        let msg = t('app.updated_title');
+        msg += t('app.preferred_app', { appName });
+        msg += t('app.new_port', { port: CDP_PORT });
+        msg += t('app.redirect_info');
         
         ctx.reply(msg, { parse_mode: 'HTML' });
         
@@ -1381,9 +1381,9 @@ bot.action(/pref_app_(.+)/, async (ctx) => {
             autoaccept.enable(CDP_PORT).catch(() => {});
         }
         
-        await sendMainMenu(ctx, `🕹️ Kontrol Paneli (${selectedApp === 'ide' ? 'IDE' : 'Agent'}):`);
+        await sendMainMenu(ctx, t('app.control_panel', { app: selectedApp === 'ide' ? 'IDE' : 'Agent' }));
     } else {
-        ctx.answerCbQuery('Hata: Tercih kaydedilemedi.');
+        ctx.answerCbQuery(t('app.error_save'));
     }
 });
 
@@ -1421,7 +1421,7 @@ bot.command('fix_shortcuts', async (ctx) => {
                 status += `• 💻 <b>Antigravity IDE</b> -> <code>--remote-debugging-port=9334</code> ✅\n`;
                 fixedCount++;
             } else {
-                status += `• 💻 <i>Antigravity IDE</i> (${t('shortcuts.binary_not_found') || 'binary bulunamadı'})\n`;
+                status += `• 💻 <i>Antigravity IDE</i> (${t('shortcuts.binary_not_found')})\n`;
             }
 
             // --- 2. Standalone Agent (Port 9333) ---
@@ -1439,7 +1439,7 @@ bot.command('fix_shortcuts', async (ctx) => {
                 status += `• 🤖 <b>Antigravity Standalone</b> -> <code>--remote-debugging-port=9333</code> ✅\n`;
                 fixedCount++;
             } else {
-                status += `• 🤖 <i>Antigravity Standalone</i> (${t('shortcuts.binary_not_found') || 'binary bulunamadı'})\n`;
+                status += `• 🤖 <i>Antigravity Standalone</i> (${t('shortcuts.binary_not_found')})\n`;
             }
 
             status += t('shortcuts.success', { count: fixedCount });
@@ -1939,18 +1939,18 @@ bot.command('update', async (ctx) => {
         const result = await updater.checkForUpdates();
         if (!result.available) {
             ctx.reply(
-                `✅ Güncelsiniz!\n\nv${result.localVersion} (${result.localCommit})`,
+                t('update.up_to_date', { version: result.localVersion, commit: result.localCommit }),
                 { parse_mode: 'HTML' }
             );
             return;
         }
         await ctx.reply(
-            `🔄 <b>Güncelleme Mevcut!</b>\n\n` +
-            `Mevcut: v${result.localVersion} (${result.localCommit})\n` +
-            `Yeni: v${result.remoteVersion} (${result.remoteCommit})\n` +
-            (result.remoteCommitMessage ? `📝 <b>Changelog:</b> <i>${result.remoteCommitMessage}</i>\n\n` : `\n`) +
-            `<i>💡 Not: Antigravity 2.0 (Standalone App) desteklenir, fakat Antigravity IDE önerilir.</i>\n\n` +
-            `Güncelleniyor...`,
+            t('update.available') +
+            t('update.current_version', { version: result.localVersion, commit: result.localCommit }) +
+            t('update.new_version_info', { version: result.remoteVersion, commit: result.remoteCommit }) +
+            (result.remoteCommitMessage ? t('update.changelog', { message: result.remoteCommitMessage }) : `\\n`) +
+            t('update.update_note') +
+            t('update.updating'),
             { parse_mode: 'HTML' }
         );
         const updateResult = await updater.performUpdate();
@@ -2372,7 +2372,7 @@ async function init() {
             try { fs.unlinkSync(updateFlagPath); } catch (e) {}
         } else {
             // Sadece sessizce menüyü güncelle
-            pushMainMenuToUser('🔄 Bot yeniden başlatıldı.', true).catch(console.error);
+            pushMainMenuToUser(t('bot.restarted'), true).catch(console.error);
         }
     }, 3000);
 
