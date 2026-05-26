@@ -1,7 +1,8 @@
 {
   "bot": {
     "started": "🚀 Antigravity Uzaktan Bot Başlatıldı!\nChat ID: {chatId}\nTüm komutları görmek için /help yazabilirsiniz.",
-    "polling": "Antigravity Bot aktif olarak dinliyor!"
+    "polling": "Antigravity Bot aktif olarak dinliyor!",
+    "restarted": "🔄 Bot yeniden başlatıldı."
   },
   "auth": {
     "unauthorized": "❌ Yetkisiz erişim.",
@@ -278,7 +279,16 @@
     "select_prompt": "Please select the application you want to control. Both applications can run simultaneously and are controlled via independent ports:\n",
     "auto_starting": "🚀 {appName} appears to be closed. Auto-starting...",
     "started": "✅ {appName} started successfully.",
-    "updated_preference": "Uygulama tercihi '{app}' olarak güncellendi!"
+    "updated_preference": "Uygulama tercihi '{app}' olarak güncellendi!",
+    "selection_title": "🤖 <b>Antigravity Uygulama Seçimi</b>\n\n",
+    "preferred_app": "Tercih Edilen Uygulama: <b>{appName}</b>\n",
+    "active_port": "Aktif CDP Bağlantı Portu: <code>{port}</code>\n\n",
+    "persistent_selection": "⚡ <i>Seçiminiz kalıcı olarak .env dosyasına kaydedilir ve botu yeniden başlatmadan anında uygulanır.</i>",
+    "updated_title": "✅ <b>Uygulama Tercihi Güncellendi!</b>\n\n",
+    "new_port": "Yeni Bağlantı Portu: <code>{port}</code>\n\n",
+    "redirect_info": "Bot şimdi tüm mesaj ve komutlarınızı bu uygulamaya yönlendirecektir.",
+    "control_panel": "🕹️ Kontrol Paneli ({app}):",
+    "error_save": "Hata: Tercih kaydedilemedi."
   },
   "shortcuts": {
     "scanning": "⏳ Scanning and updating desktop shortcuts, please wait...",
@@ -286,13 +296,23 @@
     "not_found": "Not found on desktop or could not be changed",
     "success": "\n✨ <b>Success!</b> A total of <b>{count}</b> shortcuts updated. The bot will now be able to automatically connect when you launch applications from the desktop.",
     "start_error": "❌ Process could not be started: {error}",
-    "updated_header": "Kısayollar güncellendi:\n"
+    "updated_header": "Kısayollar güncellendi:\n",
+    "binary_not_found": "binary bulunamadı"
   },
   "update": {
     "checking": "🔍 Checking for updates...",
     "error": "❌ Update error: {error}",
     "success": "✅ Code updated and dependencies installed.\nBot is restarting now...",
-    "bot_updated": "🚀 Antigravity Bot başarıyla güncellendi!"
+    "bot_updated": "🚀 Antigravity Bot başarıyla güncellendi!",
+    "up_to_date": "✅ Güncelsiniz!\n\nv{version} ({commit})",
+    "available": "🔄 <b>Güncelleme Mevcut!</b>\n\n",
+    "new_version": "🚀 Yeni sürüm: <code>{remote}</code>",
+    "click_to_download": "⬇️ İndirmek için tıklayın: /update",
+    "current_version": "Mevcut: v{version} ({commit})\n",
+    "new_version_info": "Yeni: v{version} ({commit})\n",
+    "changelog": "📝 <b>Changelog:</b> <i>{message}</i>\n\n",
+    "update_note": "<i>💡 Not: Antigravity 2.0 (Standalone App) desteklenir, fakat Antigravity IDE önerilir.</i>\n\n",
+    "updating": "Güncelleniyor..."
   },
   "error": {
     "start_error": "❌ Başlatma hatası: {error}"

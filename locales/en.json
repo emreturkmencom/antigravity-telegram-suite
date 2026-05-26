@@ -1,7 +1,8 @@
 {
   "bot": {
     "started": "🚀 Antigravity Remote Bot Started!\nChat ID: {chatId}\nType /help to see all available commands.",
-    "polling": "Antigravity Bot is actively polling!"
+    "polling": "Antigravity Bot is actively polling!",
+    "restarted": "🔄 Bot restarted."
   },
   "auth": {
     "unauthorized": "❌ Unauthorized.",
@@ -278,7 +279,16 @@
     "select_prompt": "Please select the application you want to control. Both applications can run simultaneously and are controlled via independent ports:\n",
     "auto_starting": "🚀 {appName} appears to be closed. Auto-starting...",
     "started": "✅ {appName} started successfully.",
-    "updated_preference": "App preference updated to '{app}'!"
+    "updated_preference": "App preference updated to '{app}'!",
+    "selection_title": "🤖 <b>Antigravity App Selection</b>\n\n",
+    "preferred_app": "Preferred App: <b>{appName}</b>\n",
+    "active_port": "Active CDP Connection Port: <code>{port}</code>\n\n",
+    "persistent_selection": "⚡ <i>Your selection is permanently saved to the .env file and applied instantly without restarting the bot.</i>",
+    "updated_title": "✅ <b>App Preference Updated!</b>\n\n",
+    "new_port": "New Connection Port: <code>{port}</code>\n\n",
+    "redirect_info": "The bot will now redirect all your messages and commands to this app.",
+    "control_panel": "🕹️ Control Panel ({app}):",
+    "error_save": "Error: Could not save preference."
   },
   "shortcuts": {
     "scanning": "⏳ Scanning and updating desktop shortcuts, please wait...",
@@ -286,13 +296,23 @@
     "not_found": "Not found on desktop or could not be changed",
     "success": "\n✨ <b>Success!</b> A total of <b>{count}</b> shortcuts updated. The bot will now be able to automatically connect when you launch applications from the desktop.",
     "start_error": "❌ Process could not be started: {error}",
-    "updated_header": "Shortcuts updated:\n"
+    "updated_header": "Shortcuts updated:\n",
+    "binary_not_found": "binary not found"
   },
   "update": {
     "checking": "🔍 Checking for updates...",
     "error": "❌ Update error: {error}",
     "success": "✅ Code updated and dependencies installed.\nBot is restarting now...",
-    "bot_updated": "🚀 Antigravity Bot successfully updated!"
+    "bot_updated": "🚀 Antigravity Bot successfully updated!",
+    "up_to_date": "✅ You are up to date!\n\nv{version} ({commit})",
+    "available": "🔄 <b>Update Available!</b>\n\n",
+    "new_version": "🚀 New version: <code>{remote}</code>",
+    "click_to_download": "⬇️ Click to download: /update",
+    "current_version": "Current: v{version} ({commit})\n",
+    "new_version_info": "New: v{version} ({commit})\n",
+    "changelog": "📝 <b>Changelog:</b> <i>{message}</i>\n\n",
+    "update_note": "<i>💡 Note: Antigravity 2.0 (Standalone App) is supported, but Antigravity IDE is recommended.</i>\n\n",
+    "updating": "Updating..."
   },
   "error": {
     "start_error": "❌ Start error: {error}"
