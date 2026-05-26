@@ -31,7 +31,8 @@
     "window_closed": "✅ Pencere başarıyla kapatıldı.",
     "window_close_failed": "❌ Pencere kapatılamadı. Açık pencere yok mu?",
     "closed": "✅ IDE tamamen kapatıldı! (Tüm process ve lock dosyaları temizlendi)",
-    "not_installed": "❌ Antigravity IDE bulunamadı. Lütfen önce yükleyin.\nBkz: https://antigravity.google/"
+    "not_installed": "❌ Antigravity IDE bulunamadı. Lütfen önce yükleyin.\nBkz: https://antigravity.google/",
+    "init_error": "❌ Başlatma hatası: {error}"
   },
   "status": {
     "title": "📊 <b>Sistem Durumu:</b>\n",
@@ -52,12 +53,15 @@
     "selected_model": "- Seçili Model: <code>{model}</code>\n",
     "agent_status": "- Ajan Durumu: <b>{status}</b>\n",
     "agent_working": "🔄 Çalışıyor (Meşgul)",
-    "agent_idle": "💤 Beklemede (Idle)"
+    "agent_idle": "💤 Beklemede (Idle)",
+    "report_title": "📊 <b>Antigravity Bot Durum Raporu</b>\n\n",
+    "preferred_app_status": "🎯 <b>Tercih Edilen Uygulama:</b> <code>{app}</code>\n\n"
   },
   "latest": {
     "title": "📝 Son Yanıt:\n\n",
     "no_new": "[Yeni mesaj yok]",
-    "error": "❌ Hata: {error}\n(Antigravity açık mı?)"
+    "error": "❌ Hata: {error}\n(Antigravity açık mı?)",
+    "last_agent_reply": "📋 Son Agent Yanıtı:"
   },
   "screenshot": {
     "taking": "📸 IDE ekran görüntüsü alınıyor (CDP üzerinden)...",
@@ -297,7 +301,8 @@
     "success": "\n✨ <b>Success!</b> A total of <b>{count}</b> shortcuts updated. The bot will now be able to automatically connect when you launch applications from the desktop.",
     "start_error": "❌ Process could not be started: {error}",
     "updated_header": "Kısayollar güncellendi:\n",
-    "binary_not_found": "binary bulunamadı"
+    "binary_not_found": "binary bulunamadı",
+    "updated": "Kısayollar güncellendi:\n"
   },
   "update": {
     "checking": "🔍 Checking for updates...",

@@ -390,7 +390,7 @@ bot.command('start_ag', async (ctx) => {
         if (err.message === 'IDE_NOT_INSTALLED') {
             ctx.reply(t('standalone.not_installed'));
         } else {
-            ctx.reply(`❌ Başlatma hatası: ${err.message}`);
+            ctx.reply(t('ide.init_error', { error: err.message }));
         }
     }
 });
@@ -434,7 +434,7 @@ bot.command('close_window', async (ctx) => {
 });
 
 const handleStatus = async (ctx) => {
-    let msg = '📊 <b>Antigravity Bot Durum Raporu</b>\n\n';
+    let msg = t('status.report_title');
     
     const agentCheck = await isIDERunning('agent');
     const ideCheck = await isIDERunning('ide');
@@ -445,7 +445,7 @@ const handleStatus = async (ctx) => {
     msg += t('status.ide_running', { status: ideCheckStr });
     
     const activeApp = process.env.ANTIGRAVITY_PREFERRED_APP || 'agent';
-    msg += `🎯 <b>Tercih Edilen Uygulama:</b> <code>${activeApp === 'agent' ? 'Standalone' : 'Classic IDE'}</code>\n\n`;
+    msg += t('status.preferred_app_status', { app: activeApp === 'agent' ? 'Standalone' : 'Classic IDE' });
     
     try {
         await getActiveThreadId(CDP_PORT);
@@ -1511,7 +1511,7 @@ if (Test-Path $lnkIDE) {
             const { execSync } = require('child_process');
             const desktop = path.join(os.homedir(), 'Desktop');
             let fixedCount = 0;
-            let status = 'Kısayollar güncellendi:\n';
+            let status = t('shortcuts.updated');
             
             // 1. Standalone Agent (Port 9333)
             const agentBinary = getAppBinary('agent'); // Uygulamanın .app dizinini döndürür
@@ -1617,7 +1617,7 @@ bot.action(/wn_(.+)/, (ctx) => {
             let buttons = typeof _latestRes === 'string' ? null : _latestRes.buttons;
             
             if (text && !text.startsWith('[No previous')) {
-                const header = await getChatHeader(null, '📋 Son Agent Yanıtı:');
+                const header = await getChatHeader(null, t('latest.last_agent_reply'));
                 await sendLongMessage(ctx, text, header, buttons);
             }
         } catch(_) {}
@@ -1948,7 +1948,7 @@ bot.command('update', async (ctx) => {
             t('update.available') +
             t('update.current_version', { version: result.localVersion, commit: result.localCommit }) +
             t('update.new_version_info', { version: result.remoteVersion, commit: result.remoteCommit }) +
-            (result.remoteCommitMessage ? t('update.changelog', { message: result.remoteCommitMessage }) : `\\n`) +
+            (result.remoteCommitMessage ? t('update.changelog', { message: result.remoteCommitMessage }) : `\n`) +
             t('update.update_note') +
             t('update.updating'),
             { parse_mode: 'HTML' }
@@ -1973,10 +1973,10 @@ async function handleTurbo(ctx) {
             turboPinnedMsgId = null;
         }
         saveTurboState();
-        await sendMainMenu(ctx, t('turbo.off') || '🛑 Turbo Mod Kapatıldı.\nNormal asistan moduna dönüldü.');
+        await sendMainMenu(ctx, t('turbo.off'));
     } else {
         const msg = await ctx.reply(
-            t('turbo.on_msg') || '⚡ <b>TURBO MOD AKTİF</b> ⚡\n\n⚠️ <b>Dikkat:</b> Bu modda gönderdiğiniz talepler Claude ve Gemini tarafından sırayla (Planlama -> Kodlama -> İnceleme) işlenecektir. Kodlar kendi aralarında düzenlenip inceleneceği için <b>daha fazla token harcanır.</b>\n\nBu modu kapatmak için tekrar <code>/turbo</code> yazabilir veya menüdeki butona tıklayabilirsiniz.', 
+            t('turbo.on_msg'), 
             { parse_mode: 'HTML' }
         );
         turboPinnedMsgId = msg.message_id;
@@ -2055,7 +2055,10 @@ function extractQuotedContext(ctx) {
     quotedText = quotedText.replace(/✅ Completed!/g, '');
     quotedText = quotedText.replace(/📁[^\n]+/g, '');
     quotedText = quotedText.replace(/🤖[^\n]+/g, '');
-    quotedText = quotedText.replace(/\(Bu ajanı yanıtlamak için mesajı sola kaydırın\)/g, '');
+    const swipeText = t('agent.swipe_to_reply').replace(/<[^>]+>/g, '');
+    if (swipeText) {
+        quotedText = quotedText.replace(new RegExp(swipeText.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'), 'gi'), '');
+    }
     quotedText = quotedText.replace(/🤖 Agent:/g, '');
     quotedText = quotedText.trim();
     

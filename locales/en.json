@@ -31,7 +31,8 @@
     "window_closed": "✅ Window closed successfully.",
     "window_close_failed": "❌ Failed to close window. Is there an open window?",
     "closed": "✅ IDE fully closed! (All processes and lock files cleaned)",
-    "not_installed": "❌ Antigravity IDE not found. Please install it first.\nSee: https://antigravity.google/"
+    "not_installed": "❌ Antigravity IDE not found. Please install it first.\nSee: https://antigravity.google/",
+    "init_error": "❌ Initialization error: {error}"
   },
   "status": {
     "title": "📊 <b>System Status:</b>\n",
@@ -52,12 +53,15 @@
     "selected_model": "- Selected Model: <code>{model}</code>\n",
     "agent_status": "- Agent Status: <b>{status}</b>\n",
     "agent_working": "🔄 Working (Busy)",
-    "agent_idle": "💤 Idle"
+    "agent_idle": "💤 Idle",
+    "report_title": "📊 <b>Antigravity Bot Status Report</b>\n\n",
+    "preferred_app_status": "🎯 <b>Preferred App:</b> <code>{app}</code>\n\n"
   },
   "latest": {
     "title": "📝 Latest Response:\n\n",
     "no_new": "[No new messages]",
-    "error": "❌ Error: {error}\n(Is Antigravity open?)"
+    "error": "❌ Error: {error}\n(Is Antigravity open?)",
+    "last_agent_reply": "📋 Last Agent Reply:"
   },
   "screenshot": {
     "taking": "📸 Taking IDE screenshot (via CDP)...",
@@ -230,7 +234,7 @@
   },
   "turbo": {
     "off": "🛑 Turbo Mode Disabled.\nReturned to normal assistant mode.",
-    "on_msg": "⚡ <b>TURBO MODE ACTIVE</b> ⚡\n\n⚠️ <b>Note:</b> In this mode, your requests will be processed sequentially by Claude and Gemini (Planning -> Coding -> Review). Since codes will be reviewed and edited between agents, <b>more tokens will be consumed.</b>\n\nTo disable this mode, type <code>/turbo</code> again or click the menu button.",
+    "on_msg": "⚡ <b>TURBO MODE ACTIVE</b> ⚡\n\n⚠️ <b>Attention:</b> In this mode, your requests will be processed sequentially by Claude and Gemini (Planning -> Coding -> Review). Because the models will edit and review each other's code, <b>more tokens will be consumed.</b>\n\nTo disable this mode, you can type <code>/turbo</code> again or click the button in the menu.",
     "on_toast": "🚀 Turbo Mode enabled!",
     "btn_on": "🚀 Turbo ✅",
     "btn_off": "🚀 Turbo",
@@ -297,7 +301,8 @@
     "success": "\n✨ <b>Success!</b> A total of <b>{count}</b> shortcuts updated. The bot will now be able to automatically connect when you launch applications from the desktop.",
     "start_error": "❌ Process could not be started: {error}",
     "updated_header": "Shortcuts updated:\n",
-    "binary_not_found": "binary not found"
+    "binary_not_found": "binary not found",
+    "updated": "Shortcuts updated:\n"
   },
   "update": {
     "checking": "🔍 Checking for updates...",
