@@ -491,7 +491,7 @@ async function getInteractiveModalState(port, specificTargetId = null) {
                     
                     const container = document.querySelector('.antigravity-agent-side-panel, .modal, [role="dialog"], .interactive-session') || document;
                     const headerEl = container.querySelector('h2, h3.font-medium, .modal-header');
-                    const header = (headerEl && headerEl.textContent.trim()) || 'Ajan Onay / Soru Bekliyor:';
+                    const header = (headerEl && headerEl.textContent.trim()) || t('interactive_modal.default_header');
                     
                     const labels = Array.from(container.querySelectorAll('label'));
                     const options = labels.map(l => (l.innerText || l.textContent).trim().replace(/^\\d+\\s*\\n?/, '')).filter(t => t && !t.match(/^(Other|Other \\(write your answer\\)|\\d+)$/i));
@@ -520,17 +520,17 @@ async function getFullLatestResponse(port, specificTargetId = null, threadName =
         if (modalState) {
             modalText = `\n\n⚠️ **${modalState.header}**\n`;
             if (modalState.options && modalState.options.length > 0) {
-                modalText += `\n_(Aşağıdaki butonlardan birini seçebilir veya yazabilirsiniz)_`;
+                modalText += `\n${t('interactive_modal.options_prompt')}`;
                 modalButtons = {
                     reply_markup: {
                         inline_keyboard: modalState.options.map((opt, i) => ([{ text: `${i + 1}️⃣ ${opt}`, callback_data: `ans_${i + 1}` }]))
                     }
                 };
             } else {
-                modalText += `\n_(Lütfen onaylamak için 'onayla' veya iptal etmek için 'reddet' butonunu kullanın)_`;
+                modalText += `\n${t('interactive_modal.confirm_prompt')}`;
                 modalButtons = {
                     reply_markup: {
-                        inline_keyboard: [ [{ text: 'Onayla', callback_data: 'ans_Onayla' }, { text: 'Reddet', callback_data: 'ans_Reddet' }] ]
+                        inline_keyboard: [ [{ text: t('interactive_modal.btn_confirm'), callback_data: 'ans_Onayla' }, { text: t('interactive_modal.btn_reject'), callback_data: 'ans_Reddet' }] ]
                     }
                 };
             }

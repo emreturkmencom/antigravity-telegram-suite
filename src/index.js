@@ -2115,7 +2115,7 @@ bot.action(/^ans_(.+)$/, async (ctx) => {
             saveMessageTargetMap(messageTargetMap);
         }
     } catch (e) {
-        ctx.reply('Error: ' + e.message).catch(()=>{});
+        ctx.reply(t('error.general_error', { error: e.message })).catch(()=>{});
     }
 });
 

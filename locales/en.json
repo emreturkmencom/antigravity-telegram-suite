@@ -320,9 +320,17 @@
     "updating": "Updating..."
   },
   "error": {
-    "start_error": "❌ Start error: {error}"
+    "start_error": "❌ Start error: {error}",
+    "general_error": "❌ Error: {error}"
   },
   "agent": {
     "swipe_to_reply": "<i>(Swipe message to the left to reply to this agent)</i>"
+  },
+  "interactive_modal": {
+    "default_header": "Agent Pending Approval / Question:",
+    "options_prompt": "_(You can select one of the buttons below or type your answer)_",
+    "confirm_prompt": "_(Please use the 'confirm' button to approve or 'reject' to cancel)_",
+    "btn_confirm": "Confirm",
+    "btn_reject": "Reject"
   }
 }

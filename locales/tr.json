@@ -320,9 +320,17 @@
     "updating": "Güncelleniyor..."
   },
   "error": {
-    "start_error": "❌ Başlatma hatası: {error}"
+    "start_error": "❌ Başlatma hatası: {error}",
+    "general_error": "❌ Hata: {error}"
   },
   "agent": {
     "swipe_to_reply": "<i>(Bu ajanı yanıtlamak için mesajı sola kaydırın)</i>"
+  },
+  "interactive_modal": {
+    "default_header": "Ajan Onay / Soru Bekliyor:",
+    "options_prompt": "_(Aşağıdaki butonlardan birini seçebilir veya yazabilirsiniz)_",
+    "confirm_prompt": "_(Lütfen onaylamak için 'onayla' veya iptal etmek için 'reddet' butonunu kullanın)_",
+    "btn_confirm": "Onayla",
+    "btn_reject": "Reddet"
   }
 }
