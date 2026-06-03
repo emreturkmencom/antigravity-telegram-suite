@@ -410,68 +410,77 @@ async function snapshotChatState(port, specificTargetId = null, threadName = nul
         console.log(`[snapshot] threadName "${threadName}" could not be resolved via findConversationIdByTitle — trying DOM snippet`);
     }
     
-    // Strategy 1.5: Extract a unique content snippet from the IDE's active chat DOM,
-    // then search brain transcripts for that snippet. This works because the actual
-    // response text is unique per conversation, unlike titles which are AI-generated.
+    // Strategy 1.5: Extract chat content from IDE DOM using CHAT_EXTRACT_EXPR (same
+    // approach as _domLatestExtraction), then find a unique snippet in transcripts.
     if (threadName && specificTargetId) {
         try {
-            const candidates = await resolveTargets(port, false);
-            const target = candidates.find(c => c.id === specificTargetId) || candidates[0];
-            if (target) {
-                const client = await withTimeout(CDP({ target: target.webSocketDebuggerUrl }), 3000, "CDP timeout");
-                const { Runtime } = client;
-                await Runtime.enable();
-                const snippetRes = await withTimeout(Runtime.evaluate({
-                    expression: `(function() {
-                        // Get a unique snippet from the last model response in chat
-                        var blocks = document.querySelectorAll('.markdown-container, .message-content, [data-message-author="model"], .relative.flex.flex-col.gap-y-3 > div');
-                        if (blocks.length === 0) return null;
-                        var lastBlock = blocks[blocks.length - 1];
-                        var text = (lastBlock.textContent || '').trim();
-                        // Get a 60-char snippet from the middle (avoids headers/boilerplate)
-                        if (text.length > 120) {
-                            var mid = Math.floor(text.length / 2);
-                            return text.substring(mid - 30, mid + 30).trim();
-                        }
-                        return text.length > 20 ? text.substring(0, 60).trim() : null;
-                    })()`,
-                    returnByValue: true
-                }), 3000, "Snippet extract timeout");
-                await client.close();
-                
-                const snippet = snippetRes.result?.value;
-                if (snippet && snippet.length > 15) {
-                    const appDataName = (process.env.ANTIGRAVITY_PREFERRED_APP || 'agent') === 'ide' ? 'antigravity-ide' : 'antigravity';
-                    const brainPath = path.join(os.homedir(), '.gemini', appDataName, 'brain');
-                    if (fs.existsSync(brainPath)) {
-                        const dirs = fs.readdirSync(brainPath, { withFileTypes: true });
-                        for (const dir of dirs) {
-                            if (!dir.isDirectory()) continue;
-                            const tp = path.join(brainPath, dir.name, '.system_generated', 'logs', 'transcript.jsonl');
-                            if (!fs.existsSync(tp)) continue;
-                            try {
-                                // Read last 30KB of file (where the most recent responses are)
-                                const stats = fs.statSync(tp);
-                                const readSize = Math.min(30000, stats.size);
-                                const fd = fs.openSync(tp, 'r');
-                                const buffer = Buffer.alloc(readSize);
-                                fs.readSync(fd, buffer, 0, readSize, Math.max(0, stats.size - readSize));
-                                fs.closeSync(fd);
-                                const tail = buffer.toString('utf8');
-                                if (tail.includes(snippet)) {
-                                    lastResolvedThreadId = dir.name;
-                                    threadNameToIdCache.set(threadName, dir.name);
-                                    console.log(`[snapshot] Anchored via DOM snippet match → ${dir.name}`);
-                                    return;
-                                }
-                            } catch (_) {}
+            const candidates = await resolveTargets(port, true);
+            const targetCandidates = candidates.filter(c => c.id === specificTargetId);
+            // Also include iframe/webview variants that belong to the same window
+            if (targetCandidates.length === 0) targetCandidates.push(...candidates.slice(0, 2));
+            
+            for (const target of targetCandidates) {
+                try {
+                    const client = await withTimeout(CDP({ target: target.webSocketDebuggerUrl }), 3000, "CDP timeout");
+                    const { Runtime } = client;
+                    await Runtime.enable();
+                    const chatRes = await withTimeout(Runtime.evaluate({
+                        expression: CHAT_EXTRACT_EXPR,
+                        returnByValue: true
+                    }), 5000, "Chat extract timeout");
+                    await client.close();
+                    
+                    const chatText = chatRes.result?.value;
+                    if (!chatText || chatText.trim().length < 30) continue;
+                    
+                    // Extract a unique snippet — use last agent response
+                    const parts = chatText.split('🤖 Agent:');
+                    let snippet = null;
+                    if (parts.length > 1) {
+                        const lastResponse = parts[parts.length - 1].trim();
+                        // Take a 50-char snippet from near the start (skip first 20 chars to avoid common patterns)
+                        if (lastResponse.length > 70) {
+                            snippet = lastResponse.substring(20, 70).trim();
+                        } else if (lastResponse.length > 20) {
+                            snippet = lastResponse.substring(0, 50).trim();
                         }
                     }
-                    console.log(`[snapshot] DOM snippet "${snippet.substring(0, 30)}..." did not match any transcript`);
+                    
+                    if (snippet && snippet.length > 15) {
+                        // Search transcripts for this snippet
+                        const appDataName = (process.env.ANTIGRAVITY_PREFERRED_APP || 'agent') === 'ide' ? 'antigravity-ide' : 'antigravity';
+                        const brainPath = path.join(os.homedir(), '.gemini', appDataName, 'brain');
+                        if (fs.existsSync(brainPath)) {
+                            const dirs = fs.readdirSync(brainPath, { withFileTypes: true });
+                            for (const dir of dirs) {
+                                if (!dir.isDirectory()) continue;
+                                const tp = path.join(brainPath, dir.name, '.system_generated', 'logs', 'transcript.jsonl');
+                                if (!fs.existsSync(tp)) continue;
+                                try {
+                                    const stats = fs.statSync(tp);
+                                    const readSize = Math.min(50000, stats.size);
+                                    const fd = fs.openSync(tp, 'r');
+                                    const buffer = Buffer.alloc(readSize);
+                                    fs.readSync(fd, buffer, 0, readSize, Math.max(0, stats.size - readSize));
+                                    fs.closeSync(fd);
+                                    const tail = buffer.toString('utf8');
+                                    if (tail.includes(snippet)) {
+                                        lastResolvedThreadId = dir.name;
+                                        threadNameToIdCache.set(threadName, dir.name);
+                                        console.log(`[snapshot] Anchored via DOM content match → ${dir.name}`);
+                                        return;
+                                    }
+                                } catch (_) {}
+                            }
+                        }
+                        console.log(`[snapshot] DOM content snippet "${snippet.substring(0, 30)}..." did not match any transcript`);
+                    }
+                } catch (e) {
+                    // Try next candidate
                 }
             }
         } catch (e) {
-            console.log(`[snapshot] DOM snippet strategy failed: ${e.message}`);
+            console.log(`[snapshot] DOM content strategy failed: ${e.message}`);
         }
     }
     
