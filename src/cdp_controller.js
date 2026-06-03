@@ -937,9 +937,20 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                             // Use setTimeout instead of requestAnimationFrame so it doesn't hang when minimized!
                             await new Promise(r => setTimeout(r, 150));
 
+                            // Dismiss any autocomplete/suggestion popups that may have appeared
+                            // (e.g., when text starts with '/' the IDE opens a slash command popup)
+                            editor.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape', code: 'Escape', keyCode: 27 }));
+                            editor.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Escape', code: 'Escape', keyCode: 27 }));
+                            await new Promise(r => setTimeout(r, 100));
+
                             // Find the submit button near the editor (within same panel)
                             const panelContainer = editor.closest('#antigravity') || editor.closest('#conversation') || document;
-                            let submit = panelContainer.querySelector("svg.lucide-arrow-right, svg.lucide-arrow-up, svg[class*='arrow-right'], svg[class*='arrow-up'], svg[class*='send']")?.closest("button");
+                            // Primary: aria-label based search (most reliable in newer IDE)
+                            let submit = panelContainer.querySelector("button[aria-label='Submit'], button[aria-label='Gönder'], button[aria-label='send']");
+                            // Secondary: SVG icon search
+                            if (!submit) {
+                                submit = panelContainer.querySelector("svg.lucide-arrow-right, svg.lucide-arrow-up, svg[class*='arrow-right'], svg[class*='arrow-up'], svg[class*='send']")?.closest("button");
+                            }
                             if (!submit) {
                                 const allBtns = Array.from(panelContainer.querySelectorAll('button')).filter(b => b.offsetParent !== null);
                                 submit = allBtns.find(b => {
