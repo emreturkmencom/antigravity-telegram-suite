@@ -669,6 +669,38 @@ async function getFullLatestResponse(port, specificTargetId = null, threadName =
         const domResult = await _domLatestExtraction(port, targetIdToUse);
         if (domResult && domResult.trim().length > 10) {
             console.log(`[getFullLatestResponse] ✓ DOM extraction successful (${domResult.length} chars) | Target: ${targetIdToUse || 'auto'}`);
+            
+            // Side-effect: resolve conversation UUID from the DOM content so that
+            // /artifacts and other filesystem-dependent commands know which thread is active
+            try {
+                const snippet = domResult.length > 80 ? domResult.substring(20, 70).trim() : domResult.substring(0, 40).trim();
+                if (snippet.length > 15) {
+                    const appDataName = (process.env.ANTIGRAVITY_PREFERRED_APP || 'agent') === 'ide' ? 'antigravity-ide' : 'antigravity';
+                    const brainPath = path.join(os.homedir(), '.gemini', appDataName, 'brain');
+                    if (fs.existsSync(brainPath)) {
+                        const dirs = fs.readdirSync(brainPath, { withFileTypes: true })
+                            .filter(d => d.isDirectory());
+                        for (const dir of dirs) {
+                            const tp = path.join(brainPath, dir.name, '.system_generated', 'logs', 'transcript.jsonl');
+                            if (!fs.existsSync(tp)) continue;
+                            try {
+                                const stats = fs.statSync(tp);
+                                const readSize = Math.min(50000, stats.size);
+                                const fd = fs.openSync(tp, 'r');
+                                const buffer = Buffer.alloc(readSize);
+                                fs.readSync(fd, buffer, 0, readSize, Math.max(0, stats.size - readSize));
+                                fs.closeSync(fd);
+                                if (buffer.toString('utf8').includes(snippet)) {
+                                    lastResolvedThreadId = dir.name;
+                                    console.log(`[getFullLatestResponse] Resolved thread from DOM content → ${dir.name.substring(0, 8)}`);
+                                    break;
+                                }
+                            } catch (_) {}
+                        }
+                    }
+                }
+            } catch (_) {}
+            
             return { text: domResult + modalText, buttons: modalButtons };
         }
     } catch (e) {

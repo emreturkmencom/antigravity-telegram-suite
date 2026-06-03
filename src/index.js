@@ -820,19 +820,8 @@ bot.hears(/^\/agents_(\d+)$/, async (ctx) => {
 
 const handleArtifacts = async (ctx) => {
     try {
-        // Use lastResolvedThreadId (set by thread switching) first, then fall back to DOM detection
-        const activeId = getLastResolvedThreadId() || await getActiveThreadId(CDP_PORT, getPreferredTargetId());
-        if (!activeId) {
-            return ctx.reply(t('artifacts.no_active_thread') || '⚠️ No active thread found. Please select a thread in the IDE first.');
-        }
-
         const appDataName = (process.env.ANTIGRAVITY_PREFERRED_APP || 'agent') === 'ide' ? 'antigravity-ide' : 'antigravity';
-        const conversationDir = path.join(os.homedir(), '.gemini', appDataName, 'brain', activeId);
-        if (!fs.existsSync(conversationDir)) {
-            return ctx.reply(t('artifacts.no_artifacts') || 'ℹ️ No artifacts found for the current thread.');
-        }
-
-        cachedArtifacts = [];
+        const brainPath = path.join(os.homedir(), '.gemini', appDataName, 'brain');
         
         // Helper to check if a file should be listed as an artifact
         const ARTIFACT_EXTENSIONS = ['.md', '.png', '.jpg', '.jpeg', '.webp', '.mp4', '.mov', '.gif', '.pdf', '.txt', '.json', '.csv', '.html'];
@@ -840,13 +829,74 @@ const handleArtifacts = async (ctx) => {
             if (name.includes('.metadata.json') || name.includes('.resolved') || name.startsWith('.sys') || name.startsWith('.')) return false;
             return ARTIFACT_EXTENSIONS.some(ext => name.endsWith(ext));
         };
-
-        // Helper to get file mtime safely
         const getMtime = (filePath) => {
             try { return fs.statSync(filePath).mtimeMs; } catch (_) { return 0; }
         };
 
-        // 1. Primary: Scan artifacts/ subdirectory (new Antigravity UI structure)
+        // Try to get the active thread info for workspace filtering
+        let threadInfo = null;
+        try { threadInfo = await getActiveThreadInfo(CDP_PORT, getPreferredTargetId()); } catch (_) {}
+        const workspaceName = threadInfo?.workspace?.split(' - ')?.[0]?.trim()?.toLowerCase() || null;
+        
+        // Strategy: Try known thread ID first, then scan all conversations
+        let conversationId = getLastResolvedThreadId();
+        let conversationDir = conversationId ? path.join(brainPath, conversationId) : null;
+        
+        // Quick check: does this conversation actually have artifacts?
+        let hasArtifacts = false;
+        if (conversationDir && fs.existsSync(conversationDir)) {
+            const items = fs.readdirSync(conversationDir, { withFileTypes: true });
+            hasArtifacts = items.some(i => !i.isDirectory() && isArtifactFile(i.name)) || 
+                           fs.existsSync(path.join(conversationDir, 'artifacts'));
+        }
+        
+        // If no artifacts found via lastResolvedThreadId, scan ALL conversations
+        // filtered by workspace name, sorted by most recently modified
+        if (!hasArtifacts && fs.existsSync(brainPath)) {
+            console.log(`[handleArtifacts] lastResolvedThreadId ${conversationId?.substring(0, 8) || 'null'} has no artifacts — scanning brain...`);
+            const normalize = (s) => (s || '').toLowerCase().replace(/[-_]/g, ' ');
+            const dirs = fs.readdirSync(brainPath, { withFileTypes: true })
+                .filter(d => d.isDirectory())
+                .map(d => {
+                    const dir = path.join(brainPath, d.name);
+                    const tp = path.join(dir, '.system_generated', 'logs', 'transcript.jsonl');
+                    let mtime = 0;
+                    try { if (fs.existsSync(tp)) mtime = fs.statSync(tp).mtimeMs; } catch (_) {}
+                    return { name: d.name, dir, mtime };
+                })
+                .filter(d => d.mtime > 0)
+                .sort((a, b) => b.mtime - a.mtime);
+            
+            for (const dir of dirs) {
+                // Check if this conversation has artifacts
+                const items = fs.readdirSync(dir.dir, { withFileTypes: true });
+                const dirHasArtifacts = items.some(i => !i.isDirectory() && isArtifactFile(i.name)) ||
+                                        fs.existsSync(path.join(dir.dir, 'artifacts'));
+                if (!dirHasArtifacts) continue;
+                
+                // If we have a workspace filter, check that the transcript mentions this workspace
+                if (workspaceName) {
+                    const tp = path.join(dir.dir, '.system_generated', 'logs', 'transcript.jsonl');
+                    try {
+                        const head = fs.readFileSync(tp, 'utf8').substring(0, 5000);
+                        if (!normalize(head).includes(normalize(workspaceName))) continue;
+                    } catch (_) { continue; }
+                }
+                
+                conversationId = dir.name;
+                conversationDir = dir.dir;
+                console.log(`[handleArtifacts] Found artifacts in conversation ${dir.name.substring(0, 8)} (workspace: ${workspaceName || 'any'})`);
+                break;
+            }
+        }
+        
+        if (!conversationDir || !fs.existsSync(conversationDir)) {
+            return ctx.reply(t('artifacts.no_active_thread') || '⚠️ No active thread found. Please select a thread in the IDE first.');
+        }
+
+        cachedArtifacts = [];
+
+        // 1. Scan artifacts/ subdirectory
         const artifactsSubDir = path.join(conversationDir, 'artifacts');
         if (fs.existsSync(artifactsSubDir)) {
             const items = fs.readdirSync(artifactsSubDir, { withFileTypes: true });
@@ -859,7 +909,7 @@ const handleArtifacts = async (ctx) => {
             }
         }
 
-        // 2. Also scan conversation root for stray files (e.g. browser recordings)
+        // 2. Scan conversation root
         const rootItems = fs.readdirSync(conversationDir, { withFileTypes: true });
         for (const item of rootItems) {
             if (item.isDirectory()) continue;
