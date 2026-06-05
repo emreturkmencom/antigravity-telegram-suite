@@ -2399,7 +2399,7 @@ bot.on(['photo', 'document'], (ctx) => {
                 });
             });
             
-            const caption = ctx.message.caption ? ctx.message.caption : "";
+            let caption = ctx.message.caption ? ctx.message.caption : "";
             
             let explicitTargetId = null;
             let explicitThreadName = null;
