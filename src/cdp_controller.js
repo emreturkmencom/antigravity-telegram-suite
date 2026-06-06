@@ -16,6 +16,13 @@ let windowCache = [];
 let lastResolvedThreadId = null;
 function getLastResolvedThreadId() { return lastResolvedThreadId; }
 
+// Hook for external subscribers (e.g., TaskWatcher) to be notified when thread ID changes
+let _onThreadResolved = null;
+function setOnThreadResolved(cb) { _onThreadResolved = cb; }
+function _notifyThreadResolved(threadId) {
+    if (_onThreadResolved && threadId) _onThreadResolved(threadId);
+}
+
 /**
  * Shared target resolver — fetches CDP targets, filters, and sorts.
  * If a preferred window is set, that window is prioritised.
@@ -404,6 +411,7 @@ async function snapshotChatState(port, specificTargetId = null, threadName = nul
             const hasLogs = fs.existsSync(path.join(logsDir, 'overview.txt')) || fs.existsSync(path.join(logsDir, 'transcript.jsonl'));
             if (hasLogs) {
                 lastResolvedThreadId = resolvedId;
+                _notifyThreadResolved(resolvedId);
                 console.log(`[snapshot] Anchored via threadName "${threadName}" → ${resolvedId}`);
                 return;
             }
@@ -467,6 +475,7 @@ async function snapshotChatState(port, specificTargetId = null, threadName = nul
                                     const tail = buffer.toString('utf8');
                                     if (tail.includes(snippet)) {
                                         lastResolvedThreadId = dir.name;
+                                        _notifyThreadResolved(dir.name);
                                         threadNameToIdCache.set(threadName, dir.name);
                                         console.log(`[snapshot] Anchored via DOM content match → ${dir.name}`);
                                         return;
@@ -497,6 +506,7 @@ async function snapshotChatState(port, specificTargetId = null, threadName = nul
         // Persist the resolved thread ID so /latest can use it directly
         // instead of re-guessing which window/thread is active
         lastResolvedThreadId = activeId;
+        _notifyThreadResolved(activeId);
         console.log(`[snapshot] Anchored file-based thread: ${activeId}`);
         return;
     } catch (e) {
@@ -692,6 +702,7 @@ async function getFullLatestResponse(port, specificTargetId = null, threadName =
                                 fs.closeSync(fd);
                                 if (buffer.toString('utf8').includes(snippet)) {
                                     lastResolvedThreadId = dir.name;
+                                    _notifyThreadResolved(dir.name);
                                     console.log(`[getFullLatestResponse] Resolved thread from DOM content → ${dir.name.substring(0, 8)}`);
                                     break;
                                 }
@@ -835,6 +846,7 @@ async function captureAgentScreenshot(port) {
 async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null, specificTargetId = null) {
     const startTime = Date.now();
     let consecutiveIdleCount = 0;
+    let spinnerOnlyCount = 0;
     let lastProgressTime = 0;
     const GRACE_PERIOD_MS = 6000; // Wait at least 6s before accepting idle — gives IDE time to start generating
 
@@ -856,6 +868,7 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null,
         let foundChat = false;
         let isIdle = false;
         let isGenerating = false;
+        let lastEvalVal = null;
 
         for (const target of candidates) {
             try {
@@ -895,11 +908,19 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null,
 
                 if (val && val.hasChat) {
                     foundChat = true;
+                    lastEvalVal = val; // Store for debug logging
                     if (val.isGenerating) isGenerating = true;
                     if (val.isIdle && !val.isGenerating) isIdle = true;
                     break;
                 }
             } catch(e) { console.debug(`[waitForAgent] target ${target.title}: ${e.message}`); }
+        }
+        
+        // Debug: log state every ~10 seconds (every 5th iteration since loop sleeps 2s)
+        const loopElapsed = Date.now() - startTime;
+        if (Math.floor(loopElapsed / 10000) !== Math.floor((loopElapsed - 2000) / 10000)) {
+            const extra = lastEvalVal ? ` spin=${lastEvalVal.isSpinning} pendBtn=${lastEvalVal.hasPendingButton}` : '';
+            console.log(`[waitForAgent] ${Math.round(loopElapsed/1000)}s | foundChat=${foundChat} idle=${isIdle} gen=${isGenerating} idleCount=${consecutiveIdleCount}${extra} | candidates=${candidates?.length || 0} target=${specificTargetId || 'auto'}`);
         }
         
         if (foundChat) {
@@ -910,8 +931,20 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null,
                     consecutiveIdleCount++;
                     if (consecutiveIdleCount >= 4) return true;
                 }
+            } else if (!isGenerating && lastEvalVal && lastEvalVal.isSpinning && !lastEvalVal.hasPendingButton) {
+                // Spinner-only state: agent is not generating but IDE shows a spinner
+                // This happens when agent sets a timer/schedule and is waiting
+                // After enough consecutive checks, consider agent done
+                if (elapsed > GRACE_PERIOD_MS) {
+                    spinnerOnlyCount = (spinnerOnlyCount || 0) + 1;
+                    if (spinnerOnlyCount >= 6) { // ~12 seconds of spinner-only
+                        console.log(`[waitForAgent] Spinner-only idle detected after ${Math.round(elapsed/1000)}s — treating as done`);
+                        return true;
+                    }
+                }
             } else {
                 consecutiveIdleCount = 0;
+                spinnerOnlyCount = 0;
             }
         }
 
@@ -1922,7 +1955,8 @@ module.exports = {
     getActiveThreadInfo,
     setActiveWorkspace,
     switchStandaloneWorkspace,
-    getLastResolvedThreadId
+    getLastResolvedThreadId,
+    setOnThreadResolved
 };
 
 async function captureFullIDEScreenshot(port) {

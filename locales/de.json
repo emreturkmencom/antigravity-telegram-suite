@@ -18,6 +18,8 @@
     "title": "🤖 <b>Verfügbare Befehle:</b>",
     "messaging_title": "📝 <i>Nachrichten & Interaktion:</i>",
     "messaging_text": "- Text eingeben → Mit dem Agenten sprechen\n- 📎 Bild/Datei senden → An Agenten weiterleiten\n- /stop → Laufenden Agenten stoppen\n- /file → Datei-Explorer öffnen\n- /turbo → Turbo-Planungsmodus umschalten\n- /panel → Bedienfeld zurückholen",
+    "agent_title": "🎯 <i>Agenten-Modi:</i>",
+    "agent_text": "- /goal &lt;Aufgabe&gt; → Autonomes Ziel (arbeitet bis fertig)\n- /plan &lt;Aufgabe&gt; → Implementierungsplan erstellen\n- /schedule_task &lt;Aufgabe&gt; → Wiederkehrende Aufgabe planen",
     "status_title": "👁️ <i>Status & Info:</i>",
     "status_text": "- /latest → Letzte Antwort abrufen\n- /screenshot → IDE-Screenshot aufnehmen\n- /status → Systemstatus\n- /quota → KI-Kontingente prüfen\n- /version → Bot-Version anzeigen\n- /update → Nach Updates suchen",
     "ide_title": "🛠️ <i>Systemsteuerung:</i>",
@@ -169,7 +171,11 @@
     "welcome": "👋 Willkommen! Dein Panel ist bereit:",
     "btn_on": "Einschalten",
     "btn_off": "Ausschalten",
-    "btn_status": "📊 Status"
+    "btn_status": "📊 Status",
+    "goal_desc": "Autonomes Ziel für den Agent festlegen",
+    "plan_desc": "Implementierungsplan erstellen",
+    "schedule_task_desc": "Aufgabe in der IDE planen",
+    "browser_desc": "Browser in der IDE starten"
   },
   "photo": {
     "downloaded": "✅ Datei heruntergeladen und wird an den Agenten weitergeleitet...",
@@ -342,5 +348,18 @@
     "btn_confirm": "Bestätigen",
     "btn_reject": "Ablehnen",
     "answer_sent": "Ihre Auswahl wurde gesendet: {answer}"
+  },
+  "native_cmd": {
+    "goal_empty": "🎯 Verwendung: /goal <Beschreibung>\nEin langfristiges autonomes Ziel für den Agent festlegen.",
+    "goal_started": "🎯 Zielmodus aktiviert! Der Agent arbeitet autonom, bis das Ziel erreicht ist.",
+    "plan_empty": "📋 Verwendung: /plan <Beschreibung>\nDen Agent bitten, einen Implementierungsplan zu erstellen.",
+    "plan_started": "📋 Planerstellung gestartet!",
+    "schedule_empty": "⏰ Verwendung: /schedule_task <Beschreibung>\nWiederkehrende oder einmalige Aufgabe planen.",
+    "schedule_started": "⏰ Aufgabe geplant!",
+    "browser_started": "🌐 Browser in der IDE gestartet.",
+    "error": "❌ Fehler: {error}"
+  },
+  "task_watcher": {
+    "proactive_msg": "Der Agent hat eine proaktive Benachrichtigung gesendet:"
   }
 }

@@ -12,7 +12,7 @@ Telefonunuzdan mesaj gönderin, yapay zeka modellerini değiştirin, çalışma 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.1.0-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.5.0-orange.svg)]()
 
 \* *Bazı özelliklerin Standalone (Bağımsız) Uygulamada kısıtlamaları olabilir. [Bilinen Sorunlar](#-bilinen-sorunlar) kısmına göz atın.*
 
@@ -35,10 +35,14 @@ Telefonunuzdan mesaj gönderin, yapay zeka modellerini değiştirin, çalışma 
 | 💬 **Thread Yönetimi** | Sohbet oturumlarını (thread) listeleyin, değiştirin ve yönetin |
 | ⚡ **Oto-Onay (Auto-Accept)** | DOM MutationObserver ile Run, Accept, Allow butonlarına otomatik tıklayın |
 | 🚀 **Turbo Mod** | Çoklu ajan orkestrasyonu: Claude planlar → Gemini kodlar → Claude inceler → Gemini düzeltir |
+| 🎯 **Goal Modu** | Otonom uzun süreli görevler — ajan hedef tamamlanıncaya kadar çalışır |
+| 📋 **Plan Modu** | Kodlamadan önce uygulama planı oluşturur |
+| 🔔 **Proaktif Bildirimler** | TaskWatcher, ajanın kendiliğinden gönderdiği mesajları (timer, alt-ajan) Telegram’a iletir |
+| 🤔 **Mesaj Reaksiyonları** | İşlem sırasında 🤔 gösterir, tamamlanınca temizler |
 | 🔄 **Oto-Güncelleme** | Tek bir komutla güncellemeleri kontrol edin ve botu güncelleyin |
 | 🌐 **Çoklu Dil** | 5 dil desteği: İngilizce, Türkçe, Almanca, İspanyolca, Fransızca |
-| ⌨️ **Yazıyor Göstergesi** | Ajan çalışırken Telegram'da "yazıyor..." durumunu gösterir |
-| 🖥️ **Çapraz Platform** | Linux, macOS (Intel & Apple Silicon) ve Windows'ta çalışır |
+| ⌨️ **Yazıyor Göstergesi** | Ajan çalışırken Telegram’da "yazıyor..." durumunu gösterir |
+| 🖥️ **Çapraz Platform** | Linux, macOS (Intel & Apple Silicon) ve Windows’ta çalışır |
 | 🔀 **Çift Uygulama Desteği** | Antigravity IDE ve Standalone App arasında sorunsuzca geçiş yapın |
 
 ---
@@ -169,6 +173,9 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 |---|---|
 | `/model` | Yapay zeka modelini (Gemini, Claude vb.) değiştirir |
 | `/turbo` | **Turbo Modu** aç/kapat — çoklu ajan orkestrasyonu |
+| `/goal <görev>` | **Goal Modu** — ajan görev tamamlanıncaya kadar otonom çalışır |
+| `/plan <görev>` | Kodlamadan önce **uygulama planı** oluşturur |
+| `/schedule_task <görev>` | IDE’de tekrarlayan veya tek seferlik görev planlar |
 | `/agents` | Sohbet oturumlarını (thread) listeler ve geçiş yapar |
 | `/quota` | AI kredilerini ve model kullanım limitlerini kontrol eder |
 
@@ -227,6 +234,25 @@ Turbo Mod, birden fazla AI modelini otomatik koordine eden bir **Ajan Konseyi** 
 
 ---
 
+## 🎯 Goal Modu vs 🚀 Turbo Mod
+
+| | Goal Modu (`/goal`) | Turbo Mod (`/turbo`) |
+|---|---|---|
+| **Nasıl çalışır** | Ajan tek oturumda otonom çalışır, bitene kadar durur | Bot dışarıdan çoklu model hattını yönetir |
+| **Kullanılan modeller** | O an seçili olan model | Claude (plan/inceleme) + Gemini (kod/düzeltme) — otomatik geçiş |
+| **Temel avantaj** | Basit, güvenilir, IDE’ye entegre | Çoklu model işbirliği: farklı modeller birbirini kontrol eder |
+| **Token kullanımı** | Tek context penceresi (verimli) | Birden fazla round-trip (daha fazla token) |
+| **İlerleme** | 🤔 reaksiyon → sonuç | Gerçek zamanlı pinned mesaj ile aşama güncellemeleri |
+| **En uygun** | Tek model ile uzun görevler | Çoklu model incelemesi gerektiren karmaşık görevler |
+| **Mimari** | IDE-native (`/goal` slash komutu) | Dış orkestrasyon: CDP + `turbo_orchestrator.js` |
+
+**Hangisini ne zaman kullanmalı:**
+- **Basit uzun görev** (ör. "bu modülü refactor et") → `/goal`
+- **Çoklu model incelemesi gereken görev** (ör. "özellik yap, güvenlik incele, sorunları düzelt") → `/turbo`
+- **Planlama** → `/plan` (plan oluşturur, sonra siz karar verirsiniz)
+
+---
+
 ## 🏗️ Mimari
 
 ```
@@ -236,6 +262,7 @@ antigravity-telegram-suite/
 │   ├── cdp_controller.js     # Chrome DevTools Protocol iletişimi
 │   ├── autoaccept.js         # DOM MutationObserver tabanlı oto-onay botu
 │   ├── turbo_orchestrator.js # Çoklu ajan (Turbo Mod) orkestrasyonu
+│   ├── task_watcher.js       # Proaktif bildirim izleyici (transcript.jsonl)
 │   ├── updater.js            # Oto-güncelleme modülü (git pull + pm2 restart)
 │   ├── ui_locators.js        # Arayüz ile etkileşim için DOM seçicileri
 │   ├── i18n.js               # Çoklu dil (yerelleştirme) modülü
@@ -284,6 +311,20 @@ Bot eşzamanlı çalışan **iki Antigravity uygulamasını** destekler:
 | **Turbo Mod Model Erişimi** | Turbo Mod, hem Claude hem de Gemini modellerine erişim gerektirir. Biri eksikse işlem başarısız olur. |
 
 > 💡 Bir geliştirici olarak odak noktam IDE desteğini kusursuz tutmaktır. Standalone uygulamaya entegrasyon "elimizden geldiğince" desteklenmektedir.
+
+---
+
+## 🙏 Teşekkürler
+
+- **[yvg](https://github.com/yvg/antigravity-telegram-suite)** — Çoklu Pencere Desteği özelliği
+- **[achshar](https://github.com/achshar/antigravity-telegram-suite)** — Thread yönetimi için Agent Manager UI Locators
+- **[mine260309](https://github.com/mine260309)** — Sabit kodlanmış mesajlar için i18n çevirileri
+- **[acmavirus/antigravity-telegram-control](https://github.com/acmavirus/antigravity-telegram-control)** — Bu projenin temelini oluşturan açık kaynak Telegram entegrasyonu
+- **[yazanbaker94/AntiGravity-AutoAccept](https://github.com/yazanbaker94/AntiGravity-AutoAccept)** — Auto-Accept modülünde DOM observer deseni ilham kaynağı
+
+## 🌟 Krediler & İlham Kaynakları
+
+Çoklu ajan **Turbo Mod** orkestrasyonu, Interdesigncorp Lab'ın [Agents-Council](https://github.com/interdesigncorp-lab/Agents-Council) deposundan ilham alınarak geliştirilmiştir.
 
 ---
 

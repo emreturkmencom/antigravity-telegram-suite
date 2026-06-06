@@ -18,6 +18,8 @@
     "title": "🤖 <b>Mevcut Komutlar:</b>",
     "messaging_title": "📝 <i>Mesajlaşma & Etkileşim:</i>",
     "messaging_text": "- Sadece yazı yazarak → Ajanla konuşur\n- 📎 Dosya göndererek → Ajana dosya iletir\n- /stop → Çalışan ajanı durdurur\n- /file → Dosya gezginini açar\n- /turbo → Turbo planlama modunu açar\n- /panel → Kontrol klavyesini geri getirir",
+    "agent_title": "🎯 <i>Ajan Modları:</i>",
+    "agent_text": "- /goal &lt;görev&gt; → Otonom hedef (bitene kadar çalışır)\n- /plan &lt;görev&gt; → Uygulama planı oluşturur\n- /schedule_task &lt;görev&gt; → Zamanlanmış görev kurar",
     "status_title": "👁️ <i>Durum & Bilgi:</i>",
     "status_text": "- /latest → Son yanıtı getirir\n- /screenshot → IDE ekran görüntüsü alır\n- /status → Sistem durumunu gösterir\n- /quota → Kalan AI kotalarını gösterir\n- /version → Mevcut bot sürümünü gösterir\n- /update → Bot için güncellemeleri kontrol eder",
     "ide_title": "🛠️ <i>Sistem Kontrolleri:</i>",
@@ -169,7 +171,11 @@
     "welcome": "👋 Hoşgeldin! Panelin hazır:",
     "btn_on": "Aç",
     "btn_off": "Kapat",
-    "btn_status": "📊 Durum"
+    "btn_status": "📊 Durum",
+    "goal_desc": "Ajanın otonom hedef belirle",
+    "plan_desc": "Uygulama planı oluştur",
+    "schedule_task_desc": "IDE'de görev zamanla",
+    "browser_desc": "IDE'de tarayıcı aç"
   },
   "photo": {
     "downloaded": "✅ Dosya indirildi ve ajana yönlendiriliyor...",
@@ -342,5 +348,18 @@
     "btn_confirm": "Onayla",
     "btn_reject": "Reddet",
     "answer_sent": "Seçiminiz iletildi: {answer}"
+  },
+  "native_cmd": {
+    "goal_empty": "🎯 Kullanım: /goal <açıklama>\nAjan için uzun süreli otonom hedef belirle.",
+    "goal_started": "🎯 Hedef modu aktif! Ajan hedefe ulaşılana kadar otonom çalışacak.",
+    "plan_empty": "📋 Kullanım: /plan <açıklama>\nAjandan bir uygulama planı hazırlamasını iste.",
+    "plan_started": "📋 Plan oluşturma başlatıldı!",
+    "schedule_empty": "⏰ Kullanım: /schedule_task <açıklama>\nTekrarlı veya tek seferlik görev zamanla.",
+    "schedule_started": "⏰ Görev zamanlandı!",
+    "browser_started": "🌐 IDE'de tarayıcı açıldı.",
+    "error": "❌ Hata: {error}"
+  },
+  "task_watcher": {
+    "proactive_msg": "Ajan proaktif bir bildirim gönderdi:"
   }
 }

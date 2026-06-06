@@ -12,7 +12,7 @@ Send messages, switch AI models, manage workspaces, take screenshots, and run mu
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.1.0-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.5.0-orange.svg)]()
 
 \* *Some features may have limitations on the Standalone App. See [Known Issues](#-known-issues).*
 
@@ -35,6 +35,10 @@ Send messages, switch AI models, manage workspaces, take screenshots, and run mu
 | 💬 **Thread Management** | List, switch, and manage chat threads (agent conversations) |
 | ⚡ **Auto-Accept** | Automatically click Run, Accept, Allow, Continue buttons via a DOM MutationObserver |
 | 🚀 **Turbo Mode** | Multi-agent orchestration: Claude plans → Gemini codes → Claude reviews → Gemini fixes |
+| 🎯 **Goal Mode** | Autonomous long-running tasks — agent works until the goal is fully achieved |
+| 📋 **Plan Mode** | Generate implementation plans before coding |
+| 🔔 **Proactive Notifications** | TaskWatcher detects unsolicited agent messages (timers, sub-agents) and forwards to Telegram |
+| 🤔 **Message Reactions** | Shows 🤔 while processing, clears when done |
 | 🔄 **Auto-Update** | Check for updates and self-update with one command |
 | 🌐 **Multi-Language** | 5 languages supported: English, Turkish, German, Spanish, French |
 | ⌨️ **Typing Indicator** | Shows "typing..." in Telegram while the agent is working |
@@ -169,6 +173,9 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 |---|---|
 | `/model` | Switch AI model (Gemini, Claude, etc.) |
 | `/turbo` | Toggle **Turbo Mode** — multi-agent orchestration (see below) |
+| `/goal <task>` | Start **Goal Mode** — agent works autonomously until done |
+| `/plan <task>` | Generate an **implementation plan** before coding |
+| `/schedule_task <task>` | Schedule a recurring or one-time task in the IDE |
 | `/agents` | List and switch between chat threads |
 | `/quota` | Check AI credits and model usage limits |
 
@@ -227,6 +234,25 @@ Turbo Mode runs an **Agents Council** workflow that coordinates multiple AI mode
 
 ---
 
+## 🎯 Goal Mode vs 🚀 Turbo Mode
+
+| | Goal Mode (`/goal`) | Turbo Mode (`/turbo`) |
+|---|---|---|
+| **How it works** | Agent works autonomously in a single session until done | Bot orchestrates multi-model pipeline externally |
+| **Models used** | Whichever model is currently selected | Claude (plan/review) + Gemini (code/fix) — automatic switching |
+| **Key advantage** | Simple, reliable, native IDE feature | Multi-model collaboration: different models cross-check each other |
+| **Token usage** | Single context window (efficient) | Multiple round-trips (more tokens) |
+| **Progress** | 🤔 reaction → final result | Real-time pinned message with phase updates |
+| **Best for** | Long tasks with a single model | Complex tasks benefiting from multi-model review |
+| **Architecture** | IDE-native (`/goal` slash command) | External orchestration via CDP + `turbo_orchestrator.js` |
+
+**When to use which:**
+- **Simple long task** (e.g., "refactor this module") → `/goal` 
+- **Complex task needing cross-model review** (e.g., "build this feature, review security, fix issues") → `/turbo`
+- **Planning** → `/plan` (generates plan, then you decide)
+
+---
+
 ## 🏗️ Architecture
 
 ```
@@ -236,6 +262,7 @@ antigravity-telegram-suite/
 │   ├── cdp_controller.js     # Chrome DevTools Protocol communication
 │   ├── autoaccept.js         # Auto-accept button clicker via CDP MutationObserver
 │   ├── turbo_orchestrator.js # Multi-agent Turbo Mode (Agents Council) orchestration
+│   ├── task_watcher.js       # Proactive notification watcher (transcript.jsonl monitor)
 │   ├── updater.js            # Self-update module (git pull + pm2 restart)
 │   ├── ui_locators.js        # DOM element locators for IDE/Agent UI interaction
 │   ├── i18n.js               # Internationalization module
@@ -317,6 +344,7 @@ Use `/app` to switch the bot's focus between apps. The `ANTIGRAVITY_PREFERRED_AP
 
 - **[yvg](https://github.com/yvg/antigravity-telegram-suite)** — Multi-Window Support feature
 - **[achshar](https://github.com/achshar/antigravity-telegram-suite)** — Agent Manager UI locators for thread management
+- **[mine260309](https://github.com/mine260309)** — i18n translations for hardcoded messages
 - **[acmavirus/antigravity-telegram-control](https://github.com/acmavirus/antigravity-telegram-control)** — The open-source Telegram integration that served as the foundation for this project
 - **[yazanbaker94/AntiGravity-AutoAccept](https://github.com/yazanbaker94/AntiGravity-AutoAccept)** — DOM observer pattern inspiration for the Auto-Accept module
 

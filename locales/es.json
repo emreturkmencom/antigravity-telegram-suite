@@ -18,6 +18,8 @@
     "title": "🤖 <b>Comandos disponibles:</b>",
     "messaging_title": "📝 <i>Mensajes e Interacción:</i>",
     "messaging_text": "- Escribe texto → Habla con el agente\n- 📎 Enviar imagen/archivo → Reenviar al agente\n- /stop → Detener el agente actual\n- /file → Abrir explorador de archivos\n- /turbo → Alternar modo turbo de planificación\n- /panel → Mostrar el panel de control",
+    "agent_title": "🎯 <i>Modos del Agente:</i>",
+    "agent_text": "- /goal &lt;tarea&gt; → Objetivo autónomo (trabaja hasta terminar)\n- /plan &lt;tarea&gt; → Generar plan de implementación\n- /schedule_task &lt;tarea&gt; → Programar tarea recurrente",
     "status_title": "👁️ <i>Estado e Info:</i>",
     "status_text": "- /latest → Obtener la última respuesta\n- /screenshot → Captura de pantalla de la IDE\n- /status → Estado del sistema\n- /quota → Consultar cuota de IA\n- /version → Mostrar versión del bot\n- /update → Buscar actualizaciones",
     "ide_title": "🛠️ <i>Controles del Sistema:</i>",
@@ -169,7 +171,11 @@
     "welcome": "👋 ¡Bienvenido! Tu panel está listo:",
     "btn_on": "Encender",
     "btn_off": "Apagar",
-    "btn_status": "📊 Estado"
+    "btn_status": "📊 Estado",
+    "goal_desc": "Establecer objetivo autónomo para el agente",
+    "plan_desc": "Generar plan de implementación",
+    "schedule_task_desc": "Programar tarea en el IDE",
+    "browser_desc": "Abrir navegador en el IDE"
   },
   "photo": {
     "downloaded": "✅ Archivo descargado y enviando al agente...",
@@ -342,5 +348,18 @@
     "btn_confirm": "Confirmar",
     "btn_reject": "Rechazar",
     "answer_sent": "Su selección ha sido enviada: {answer}"
+  },
+  "native_cmd": {
+    "goal_empty": "🎯 Uso: /goal <descripción>\nEstablecer un objetivo autónomo a largo plazo para el agente.",
+    "goal_started": "🎯 ¡Modo objetivo activado! El agente trabajará de forma autónoma hasta alcanzar el objetivo.",
+    "plan_empty": "📋 Uso: /plan <descripción>\nPedir al agente que cree un plan de implementación.",
+    "plan_started": "📋 ¡Generación de plan iniciada!",
+    "schedule_empty": "⏰ Uso: /schedule_task <descripción>\nProgramar una tarea recurrente o única.",
+    "schedule_started": "⏰ ¡Tarea programada!",
+    "browser_started": "🌐 Navegador abierto en el IDE.",
+    "error": "❌ Error: {error}"
+  },
+  "task_watcher": {
+    "proactive_msg": "El agente envió una notificación proactiva:"
   }
 }

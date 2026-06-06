@@ -12,7 +12,7 @@ Envoyez des messages, changez de modèle d'IA, gérez les espaces de travail, pr
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.1.0-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.5.0-orange.svg)]()
 
 \* *Certaines fonctionnalités peuvent être limitées sur l'application autonome (Standalone). Voir [Known Issues (Problèmes connus)](#-problèmes-connus-known-issues).*
 
@@ -35,6 +35,10 @@ Envoyez des messages, changez de modèle d'IA, gérez les espaces de travail, pr
 | 💬 **Gestion des discussions (Threads)** | Listez, basculez et gérez les discussions (conversations de l'agent) |
 | ⚡ **Auto-Accept** | Cliquez automatiquement sur Run, Accept, Allow, Continue via un MutationObserver |
 | 🚀 **Mode Turbo** | Orchestration multi-agents : Claude planifie → Gemini code → Claude vérifie → Gemini corrige |
+| 🎯 **Mode Goal** | Tâches autonomes de longue durée — l'agent travaille jusqu'à atteindre l'objectif |
+| 📋 **Mode Plan** | Génère des plans d'implémentation avant le codage |
+| 🔔 **Notifications Proactives** | TaskWatcher détecte les messages non sollicités de l'agent (timers, sous-agents) et les transmet à Telegram |
+| 🤔 **Réactions aux Messages** | Affiche 🤔 pendant le traitement, efface à la fin |
 | 🔄 **Mise à jour automatique** | Vérifiez et installez les mises à jour avec une seule commande |
 | 🌐 **Multilingue** | 5 langues supportées : Anglais, Turc, Allemand, Espagnol, Français |
 | ⌨️ **Indicateur de frappe** | Affiche "en train d'écrire..." dans Telegram pendant que l'agent travaille |
@@ -169,6 +173,9 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 |---|---|
 | `/model` | Changer le modèle IA (Gemini, Claude, etc.) |
 | `/turbo` | Basculer en **Mode Turbo** — orchestration multi-agents (voir ci-dessous) |
+| `/goal <tâche>` | **Mode Goal** — l'agent travaille de manière autonome jusqu'à la fin |
+| `/plan <tâche>` | Générer un **plan d'implémentation** avant le codage |
+| `/schedule_task <tâche>` | Planifier une tâche récurrente ou ponctuelle dans l'IDE |
 | `/agents` | Lister et basculer entre les fils de discussion (threads) |
 | `/quota` | Vérifier les crédits IA et les limites d'utilisation du modèle |
 
@@ -227,6 +234,25 @@ Le Mode Turbo exécute un flux de travail **Agents Council (Conseil d'Agents)** 
 
 ---
 
+## 🎯 Mode Goal vs 🚀 Mode Turbo
+
+| | Mode Goal (`/goal`) | Mode Turbo (`/turbo`) |
+|---|---|---|
+| **Fonctionnement** | L'agent travaille de manière autonome en une seule session | Le bot orchestre un pipeline multi-modèles en externe |
+| **Modèles utilisés** | Le modèle actuellement sélectionné | Claude (plan/vérification) + Gemini (code/correction) — changement auto |
+| **Avantage principal** | Simple, fiable, intégré à l'IDE | Collaboration multi-modèles : différents modèles se vérifient mutuellement |
+| **Utilisation de tokens** | Fenêtre de contexte unique (efficace) | Plusieurs aller-retours (plus de tokens) |
+| **Progression** | Réaction 🤔 → résultat final | Message épinglé avec mises à jour en temps réel |
+| **Idéal pour** | Tâches longues avec un seul modèle | Tâches complexes nécessitant une révision multi-modèles |
+| **Architecture** | Natif IDE (commande `/goal`) | Orchestration externe : CDP + `turbo_orchestrator.js` |
+
+**Quand utiliser lequel :**
+- **Tâche longue simple** (ex. "refactoriser ce module") → `/goal`
+- **Tâche complexe avec révision multi-modèles** (ex. "construire cette fonctionnalité, vérifier la sécurité, corriger les erreurs") → `/turbo`
+- **Planification** → `/plan` (génère le plan, vous décidez ensuite)
+
+---
+
 ## 🏗️ Architecture
 
 ```
@@ -236,6 +262,7 @@ antigravity-telegram-suite/
 │   ├── cdp_controller.js     # Communication avec le Chrome DevTools Protocol
 │   ├── autoaccept.js         # Clic automatique via CDP MutationObserver
 │   ├── turbo_orchestrator.js # Orchestration Mode Turbo multi-agents
+│   ├── task_watcher.js       # Surveillant de notifications proactives (transcript.jsonl)
 │   ├── updater.js            # Module de mise à jour (git pull + pm2 restart)
 │   ├── ui_locators.js        # Sélecteurs DOM pour l'interaction IDE/Agent UI
 │   ├── i18n.js               # Module d'internationalisation (i18n)
@@ -317,6 +344,7 @@ Utilisez `/app` pour basculer le bot entre les applications. Le paramètre `ANTI
 
 - **[yvg](https://github.com/yvg/antigravity-telegram-suite)** — Pour la prise en charge multi-fenêtres !
 - **[achshar](https://github.com/achshar/antigravity-telegram-suite)** — Pour les localisateurs UI de l'Agent Manager !
+- **[mine260309](https://github.com/mine260309)** — Traductions i18n pour les messages en dur
 - **[acmavirus/antigravity-telegram-control](https://github.com/acmavirus/antigravity-telegram-control)** — L'intégration Telegram open-source propre qui a servi de base à ce projet.
 - **[yazanbaker94/AntiGravity-AutoAccept](https://github.com/yazanbaker94/AntiGravity-AutoAccept)** — Inspiration pour le modèle d'observateur DOM dans le module Auto-Accept.
 

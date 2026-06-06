@@ -18,6 +18,8 @@
     "title": "🤖 <b>Available Commands:</b>",
     "messaging_title": "📝 <i>Messaging &amp; Interaction:</i>",
     "messaging_text": "- Just type text → Talk to the agent\n- 📎 Send image/file → Forward to agent\n- /stop → Stop running agent\n- /file → Open file explorer\n- /turbo → Toggle turbo planning mode\n- /panel → Bring back control panel",
+    "agent_title": "🎯 <i>Agent Modes:</i>",
+    "agent_text": "- /goal &lt;task&gt; → Autonomous goal (works until done)\n- /plan &lt;task&gt; → Generate implementation plan\n- /schedule_task &lt;task&gt; → Schedule a recurring task",
     "status_title": "👁️ <i>Status &amp; Info:</i>",
     "status_text": "- /latest → Get latest response\n- /screenshot → Take IDE screenshot\n- /status → System status\n- /quota → Check AI quotas\n- /version → Show bot version\n- /update → Check for bot updates",
     "ide_title": "🛠️ <i>System Controls:</i>",
@@ -169,7 +171,11 @@
     "welcome": "👋 Welcome! Your panel is ready:",
     "btn_on": "Turn On",
     "btn_off": "Turn Off",
-    "btn_status": "📊 Status"
+    "btn_status": "📊 Status",
+    "goal_desc": "Set autonomous goal for agent",
+    "plan_desc": "Generate implementation plan",
+    "schedule_task_desc": "Schedule a task in IDE",
+    "browser_desc": "Launch browser in IDE"
   },
   "photo": {
     "downloaded": "✅ File downloaded and forwarding to agent...",
@@ -342,5 +348,18 @@
     "btn_confirm": "Confirm",
     "btn_reject": "Reject",
     "answer_sent": "Your selection has been sent: {answer}"
+  },
+  "native_cmd": {
+    "goal_empty": "🎯 Usage: /goal <description>\nDefine a long-running autonomous goal for the agent.",
+    "goal_started": "🎯 Goal mode activated! The agent will work autonomously until the goal is achieved.",
+    "plan_empty": "📋 Usage: /plan <description>\nAsk the agent to create an implementation plan.",
+    "plan_started": "📋 Plan generation started!",
+    "schedule_empty": "⏰ Usage: /schedule_task <description>\nSchedule a recurring or one-time task.",
+    "schedule_started": "⏰ Task scheduled!",
+    "browser_started": "🌐 Browser launched in IDE.",
+    "error": "❌ Error: {error}"
+  },
+  "task_watcher": {
+    "proactive_msg": "The agent sent a proactive notification:"
   }
 }

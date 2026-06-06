@@ -18,6 +18,8 @@
     "title": "🤖 <b>Commandes disponibles :</b>",
     "messaging_title": "📝 <i>Messagerie & Interaction :</i>",
     "messaging_text": "- Saisir du texte → Parler à l'agent\n- 📎 Envoyer une image/un fichier → Transférer à l'agent\n- /stop → Arrêter l'agent en cours\n- /file → Ouvrir l'explorateur de fichiers\n- /turbo → Activer le mode planification turbo\n- /panel → Afficher le panneau de contrôle",
+    "agent_title": "🎯 <i>Modes de l'Agent :</i>",
+    "agent_text": "- /goal &lt;tâche&gt; → Objectif autonome (travaille jusqu'à finir)\n- /plan &lt;tâche&gt; → Générer un plan d'implémentation\n- /schedule_task &lt;tâche&gt; → Planifier une tâche récurrente",
     "status_title": "👁️ <i>Statut & Info :</i>",
     "status_text": "- /latest → Obtenir la dernière réponse\n- /screenshot → Capture d'écran de l'IDE\n- /status → Statut du système\n- /quota → Vérifier les quotas de l'IA\n- /version → Afficher la version du bot\n- /update → Rechercher des mises à jour",
     "ide_title": "🛠️ <i>Contrôles du système :</i>",
@@ -169,7 +171,11 @@
     "welcome": "👋 Bienvenue ! Votre panneau est prêt :",
     "btn_on": "Activer",
     "btn_off": "Désactiver",
-    "btn_status": "📊 Statut"
+    "btn_status": "📊 Statut",
+    "goal_desc": "Définir un objectif autonome pour l'agent",
+    "plan_desc": "Générer un plan d'implémentation",
+    "schedule_task_desc": "Planifier une tâche dans l'IDE",
+    "browser_desc": "Ouvrir le navigateur dans l'IDE"
   },
   "photo": {
     "downloaded": "✅ Fichier téléchargé et transmission à l'agent en cours...",
@@ -342,5 +348,18 @@
     "btn_confirm": "Confirmer",
     "btn_reject": "Rejeter",
     "answer_sent": "Votre sélection a été envoyée : {answer}"
+  },
+  "native_cmd": {
+    "goal_empty": "🎯 Utilisation : /goal <description>\nDéfinir un objectif autonome à long terme pour l'agent.",
+    "goal_started": "🎯 Mode objectif activé ! L'agent travaillera de manière autonome jusqu'à atteindre l'objectif.",
+    "plan_empty": "📋 Utilisation : /plan <description>\nDemander à l'agent de créer un plan d'implémentation.",
+    "plan_started": "📋 Génération du plan lancée !",
+    "schedule_empty": "⏰ Utilisation : /schedule_task <description>\nPlanifier une tâche récurrente ou ponctuelle.",
+    "schedule_started": "⏰ Tâche planifiée !",
+    "browser_started": "🌐 Navigateur ouvert dans l'IDE.",
+    "error": "❌ Erreur : {error}"
+  },
+  "task_watcher": {
+    "proactive_msg": "L'agent a envoyé une notification proactive :"
   }
 }

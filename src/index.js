@@ -6,10 +6,11 @@ const os = require('os');
 const { exec } = require('child_process');
 const { loadLocale, t, getLang } = require('./i18n');
 const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, trustWorkspaceViaCDP, PLATFORM } = require('./platform');
-const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getPreferredTargetId, getCachedWindows, closeWindow, listAgentThreads, switchAgentThread, getActiveThreadId, getActiveThreadInfo, setActiveWorkspace, switchStandaloneWorkspace, getLastResolvedThreadId } = require('./cdp_controller');
+const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getPreferredTargetId, getCachedWindows, closeWindow, listAgentThreads, switchAgentThread, getActiveThreadId, getActiveThreadInfo, setActiveWorkspace, switchStandaloneWorkspace, getLastResolvedThreadId, setOnThreadResolved } = require('./cdp_controller');
 const autoaccept = require('./autoaccept');
 const updater = require('./updater');
 const { runTurboOrchestration } = require('./turbo_orchestrator');
+const TaskWatcher = require('./task_watcher');
 
 const TURBO_STATE_FILE = path.join(os.homedir(), '.gemini', 'antigravity', 'turbo_state.json');
 
@@ -282,6 +283,33 @@ function stripQueryFromResponse(text, query) {
     return text;
 }
 
+/**
+ * Set an emoji reaction on a message instead of sending a separate info message.
+ * Falls back silently if reaction fails (e.g., old Telegram client or unsupported chat type).
+ * 
+ * Valid Telegram reaction emojis (not all Unicode emojis are allowed):
+ * 👍 👎 ❤ 🔥 🎉 🤔 👀 ⚡ 👌 💯 🏆 😁 (and more, but NOT ✅ ❌)
+ */
+const REACTION = { THINKING: '🤔', SUCCESS: '👍', ERROR: '👎', LOOKING: '👀', FIRE: '🔥' };
+
+async function setReaction(ctx, emoji, messageId = null) {
+    try {
+        const chatId = ctx.chat.id;
+        const msgId = messageId || ctx.message?.message_id;
+        if (!msgId) return;
+        
+        const reaction = emoji ? JSON.stringify([{ type: 'emoji', emoji }]) : '[]';
+        await ctx.telegram.callApi('setMessageReaction', {
+            chat_id: chatId,
+            message_id: msgId,
+            reaction
+        });
+    } catch (e) {
+        // Silently fail — reactions may not be supported in all chat types
+        console.debug(`[setReaction] Failed: ${e.message}`);
+    }
+}
+
 // Typing-aware progress callback factory
 function createProgressHandler(ctx) {
     return (msg) => {
@@ -343,6 +371,12 @@ async function cleanupAll() {
 
 bot.command('restart', async (ctx) => {
     await ctx.reply(t('restart.closing'));
+    try {
+        await Promise.race([
+            bot.stop('SIGTERM'),
+            new Promise(r => setTimeout(r, 2000))
+        ]);
+    } catch (_) {}
     process.exit(0);
 });
 
@@ -352,6 +386,9 @@ ${t('help.title')}
 
 ${t('help.messaging_title')}
 ${t('help.messaging_text')}
+
+${t('help.agent_title')}
+${t('help.agent_text')}
 
 ${t('help.status_title')}
 ${t('help.status_text')}
@@ -627,10 +664,12 @@ bot.hears(/^💬/i, handleLatest);
 
 const handleScreenshot = async (ctx) => {
     try {
-        ctx.reply(t('screenshot.taking'));
+        setReaction(ctx, REACTION.THINKING);
         const buffer = await captureFullIDEScreenshot(CDP_PORT);
         await ctx.replyWithPhoto({ source: buffer });
+        setReaction(ctx, null);
     } catch (err) {
+        setReaction(ctx, null);
         ctx.reply(t('screenshot.error', { error: err.message }));
     }
 };
@@ -639,7 +678,7 @@ bot.hears(/^📸/i, handleScreenshot);
 
 bot.command('quota', async (ctx) => {
     try {
-        ctx.reply(t('quota.checking'));
+        setReaction(ctx, REACTION.THINKING);
         const quotaInfo = await getQuota(CDP_PORT, t);
         if (quotaInfo) {
             ctx.reply(quotaInfo);
@@ -661,26 +700,33 @@ bot.command('ask', (ctx) => {
     (async () => {
         try {
             const targetId = await sendViaCDP(query, CDP_PORT);
-            await ctx.reply(t('ask.sent'));
+            setReaction(ctx, REACTION.THINKING);
 
             // Wait briefly for message to render in DOM before anchoring state
             await new Promise(r => setTimeout(r, 1500));
             await snapshotChatState(CDP_PORT, targetId).catch(() => {});
             
-            const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx));
-            if (isDone) {
-                let _latestRes = await getFullLatestResponse(CDP_PORT);
-                let text = typeof _latestRes === 'string' ? _latestRes : _latestRes.text;
-                let buttons = typeof _latestRes === 'string' ? null : _latestRes.buttons;
-                
-                text = stripQueryFromResponse(text, query);
-                if (!text) text = t('ask.done_empty');
-                const header = await getChatHeader(null, t('ask.done'));
-                await sendLongMessage(ctx, text, header, buttons);
-            } else {
-                await ctx.reply(t('ask.timeout'));
+            if (global.__taskWatcher) global.__taskWatcher.setBusy(true);
+            try {
+                const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx));
+                if (isDone) {
+                    let _latestRes = await getFullLatestResponse(CDP_PORT);
+                    let text = typeof _latestRes === 'string' ? _latestRes : _latestRes.text;
+                    let buttons = typeof _latestRes === 'string' ? null : _latestRes.buttons;
+                    
+                    text = stripQueryFromResponse(text, query);
+                    if (!text) text = t('ask.done_empty');
+                    setReaction(ctx, null);
+                    const header = await getChatHeader(null, t('ask.done'));
+                    await sendLongMessage(ctx, text, header, buttons);
+                } else {
+                    await ctx.reply(t('ask.timeout'));
+                }
+            } finally {
+                if (global.__taskWatcher) global.__taskWatcher.setBusy(false);
             }
         } catch (err) {
+            setReaction(ctx, null);
             ctx.reply(t('ask.send_error', { error: err.message })).catch(() => {});
         }
     })();
@@ -709,7 +755,7 @@ bot.command('cmd', async (ctx) => {
 
 bot.command('stop', async (ctx) => {
     try {
-        ctx.reply(t('stop.stopping'));
+        setReaction(ctx, REACTION.THINKING);
         const stopped = await stopAgent(CDP_PORT);
         if (stopped) {
             ctx.reply(t('stop.stopped'));
@@ -718,6 +764,63 @@ bot.command('stop', async (ctx) => {
         }
     } catch(e) {
         ctx.reply(t('stop.error', { error: e.message }));
+    }
+});
+
+// ===== IDE NATIVE COMMANDS =====
+
+bot.command('goal', async (ctx) => {
+    const parts = ctx.message.text.split(' ');
+    parts.shift();
+    const goalText = parts.join(' ').trim();
+    
+    if (!goalText) return ctx.reply(t('native_cmd.goal_empty'));
+    
+    setReaction(ctx, REACTION.THINKING);
+    try {
+        await sendViaCDP('/goal ' + goalText, CDP_PORT);
+        setReaction(ctx, null);
+        await ctx.reply(t('native_cmd.goal_started'));
+    } catch (err) {
+        setReaction(ctx, null);
+        ctx.reply(t('native_cmd.error', { error: err.message }));
+    }
+});
+
+bot.command('plan', async (ctx) => {
+    const parts = ctx.message.text.split(' ');
+    parts.shift();
+    const planText = parts.join(' ').trim();
+    
+    if (!planText) return ctx.reply(t('native_cmd.plan_empty'));
+    
+    setReaction(ctx, REACTION.THINKING);
+    try {
+        await sendViaCDP('/plan ' + planText, CDP_PORT);
+        setReaction(ctx, null);
+        await ctx.reply(t('native_cmd.plan_started'));
+    } catch (err) {
+        setReaction(ctx, null);
+        ctx.reply(t('native_cmd.error', { error: err.message }));
+    }
+});
+
+bot.command('schedule_task', async (ctx) => {
+    const parts = ctx.message.text.split(' ');
+    parts.shift();
+    const scheduleText = parts.join(' ').trim();
+    
+    if (!scheduleText) return ctx.reply(t('native_cmd.schedule_empty'));
+    
+    setReaction(ctx, REACTION.THINKING);
+    try {
+        // Send as /schedule to IDE — the IDE recognizes this native command
+        await sendViaCDP('/schedule ' + scheduleText, CDP_PORT);
+        setReaction(ctx, null);
+        await ctx.reply(t('native_cmd.schedule_started'));
+    } catch (err) {
+        setReaction(ctx, null);
+        ctx.reply(t('native_cmd.error', { error: err.message }));
     }
 });
 
@@ -849,12 +952,33 @@ const handleArtifacts = async (ctx) => {
         let conversationId = getLastResolvedThreadId();
         let conversationDir = conversationId ? path.join(brainPath, conversationId) : null;
         
-        // Quick check: does this conversation actually have artifacts?
+        // Quick check: does this conversation actually have RECENT artifacts?
+        // We also verify the conversation is recent (active within last 2 hours)
+        // to avoid showing stale artifacts from old conversations.
         let hasArtifacts = false;
         if (conversationDir && fs.existsSync(conversationDir)) {
             const items = fs.readdirSync(conversationDir, { withFileTypes: true });
-            hasArtifacts = items.some(i => !i.isDirectory() && isArtifactFile(i.name)) || 
+            const hasFiles = items.some(i => !i.isDirectory() && isArtifactFile(i.name)) || 
                            fs.existsSync(path.join(conversationDir, 'artifacts'));
+            
+            if (hasFiles) {
+                // Check if this conversation is still recent — avoid showing artifacts
+                // from a weeks-old conversation just because lastResolvedThreadId points to it
+                const tp = path.join(conversationDir, '.system_generated', 'logs', 'transcript.jsonl');
+                let isRecent = false;
+                try {
+                    if (fs.existsSync(tp)) {
+                        const mtime = fs.statSync(tp).mtimeMs;
+                        isRecent = (Date.now() - mtime) < 2 * 60 * 60 * 1000; // 2 hours
+                    }
+                } catch (_) {}
+                
+                if (isRecent) {
+                    hasArtifacts = true;
+                } else {
+                    console.log(`[handleArtifacts] lastResolvedThreadId ${conversationId?.substring(0, 8)} has artifacts but is stale — scanning brain...`);
+                }
+            }
         }
         
         // If no artifacts found via lastResolvedThreadId, scan ALL conversations
@@ -1030,7 +1154,7 @@ const handleModel = async (ctx) => {
     
     if (modelName) {
         try {
-            ctx.reply(t('model.selecting', { model: modelName }));
+            setReaction(ctx, REACTION.THINKING);
             const success = await selectModel(CDP_PORT, modelName);
             if (success) ctx.reply(t('model.changed', { model: modelName }));
             else ctx.reply(t('model.not_found'));
@@ -1946,7 +2070,10 @@ function getMenuCommands() {
         { command: 'menu', description: t('menu.menu_desc') },
         { command: 'app', description: t('menu.app_desc') || 'Select active application' },
         { command: 'fix_shortcuts', description: t('menu.fix_shortcuts_desc') || 'Fix desktop shortcuts' },
-        { command: 'restart', description: t('menu.restart_desc') || 'Restart the bot' }
+        { command: 'restart', description: t('menu.restart_desc') || 'Restart the bot' },
+        { command: 'goal', description: t('menu.goal_desc') || 'Set autonomous goal for agent' },
+        { command: 'plan', description: t('menu.plan_desc') || 'Generate implementation plan' },
+        { command: 'schedule_task', description: t('menu.schedule_task_desc') || 'Schedule a task in IDE' }
     ];
     return cmds.sort((a, b) => a.command.localeCompare(b.command));
 }
@@ -2207,7 +2334,7 @@ bot.action(/^ans_(.+)$/, async (ctx) => {
     
     try {
         if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
-        await ctx.reply(t('ask.sent') + ` [${answer}]`);
+        setReaction(ctx, REACTION.THINKING, ctx.callbackQuery.message?.message_id);
         targetId = await sendViaCDP(answer, CDP_PORT, targetId);
         
         await new Promise(r => setTimeout(r, 1500));
@@ -2276,21 +2403,27 @@ bot.on('text', (ctx) => {
                 }
             } else {
                 targetId = await sendViaCDP(query, CDP_PORT, explicitTargetId);
-                await ctx.reply(t('ask.sent'));
+                setReaction(ctx, REACTION.THINKING);
 
                 // Wait briefly for message to render in DOM before anchoring state
                 await new Promise(r => setTimeout(r, 1500));
                 await snapshotChatState(CDP_PORT, targetId).catch(() => {});
                 
-                const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx), targetId);
-                if (isDone) {
-                    let _latestRes = await getFullLatestResponse(CDP_PORT, targetId, explicitThreadName);
-                    text = typeof _latestRes === 'string' ? _latestRes : _latestRes.text;
-                    interactiveButtons = typeof _latestRes === 'string' ? null : _latestRes.buttons;
-                    
-                    text = stripQueryFromResponse(text, query);
-                } else {
-                    return await ctx.reply(t('ask.timeout'));
+                // Mark TaskWatcher as busy during agent response wait
+                if (global.__taskWatcher) global.__taskWatcher.setBusy(true);
+                try {
+                    const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx), targetId);
+                    if (isDone) {
+                        let _latestRes = await getFullLatestResponse(CDP_PORT, targetId, explicitThreadName);
+                        text = typeof _latestRes === 'string' ? _latestRes : _latestRes.text;
+                        interactiveButtons = typeof _latestRes === 'string' ? null : _latestRes.buttons;
+                        
+                        text = stripQueryFromResponse(text, query);
+                    } else {
+                        return await ctx.reply(t('ask.timeout'));
+                    }
+                } finally {
+                    if (global.__taskWatcher) global.__taskWatcher.setBusy(false);
                 }
             }
 
@@ -2317,7 +2450,7 @@ bot.on('text', (ctx) => {
 const mediaGroupCache = new Map();
 
 async function processAgentRequest(ctx, query, explicitTargetId, explicitThreadName, originalCaption) {
-    await ctx.reply(t('photo.downloaded'));
+    setReaction(ctx, REACTION.THINKING);
     if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
     const targetId = await sendViaCDP(query, CDP_PORT, explicitTargetId);
 
@@ -2485,7 +2618,7 @@ async function init() {
     });
 
     const launchBot = () => {
-        bot.launch({ dropPendingUpdates: true }).catch(err => {
+        bot.launch({ dropPendingUpdates: false }).catch(err => {
             console.error("Bot launch failed:", err.message || err);
             console.log("Retrying in 30 seconds...");
             setTimeout(launchBot, 30000);
@@ -2508,6 +2641,38 @@ async function init() {
 
     // Start periodic update checker (notifies via Telegram when update is available)
     updater.startUpdateChecker(bot, ALLOWED_CHAT_IDS);
+
+    // Initialize Task Watcher — monitors agent's proactive notifications
+    const preferredApp = (process.env.ANTIGRAVITY_PREFERRED_APP || 'ide').toLowerCase();
+    const appDataName = preferredApp === 'agent' ? 'antigravity' : 'antigravity-ide';
+    
+    const taskWatcher = new TaskWatcher({
+        appDataName,
+        onNotification: async ({ conversationId, text, type }) => {
+            console.log(`[TaskWatcher] 📬 Proactive notification (${type}, conv: ${conversationId?.substring(0, 8)}, ${text.length} chars)`);
+
+            for (const chatId of ALLOWED_CHAT_IDS) {
+                try {
+                    const header = '🔔 <b>' + t('task_watcher.proactive_msg') + '</b>\n\n';
+                    const fakeCtx = {
+                        reply: (msg, opts) => bot.telegram.sendMessage(chatId, msg, opts),
+                        chat: { id: chatId }
+                    };
+                    await sendLongMessage(fakeCtx, text, header);
+                } catch (e) {
+                    console.error('[TaskWatcher] Failed to send notification:', e.message);
+                }
+            }
+        }
+    });
+
+    // Wire thread resolution events to TaskWatcher
+    setOnThreadResolved((threadId) => {
+        taskWatcher.setActiveConversation(threadId);
+    });
+
+    // Expose taskWatcher globally so text handler can set busy/idle
+    global.__taskWatcher = taskWatcher;
 }
 
 init();
@@ -2515,8 +2680,14 @@ init();
 // Enable graceful stop
 const handleExit = async (signal) => {
     console.log(`\nReceived ${signal}. Stopping bot polling...`);
+    if (global.__taskWatcher) global.__taskWatcher.stop();
     try {
+        // Fire-and-forget: bot.stop() may never resolve during long-polling,
+        // but calling it triggers the internal cleanup (webhook delete, offset commit).
+        // We wait a fixed delay to let the HTTP request complete.
         bot.stop(signal);
+        await new Promise(r => setTimeout(r, 1500));
+        console.log('Bot polling stopped cleanly.');
     } catch (_) {}
     // NOTE: We intentionally do NOT call cleanupAll() here.
     // PM2 restarts should not kill running Antigravity apps.
