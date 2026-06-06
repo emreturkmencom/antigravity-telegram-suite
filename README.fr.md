@@ -12,7 +12,7 @@ Envoyez des messages, changez de modèle d'IA, gérez les espaces de travail, pr
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.5.0-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.4.0-orange.svg)]()
 
 \* *Certaines fonctionnalités peuvent être limitées sur l'application autonome (Standalone). Voir [Known Issues (Problèmes connus)](#-problèmes-connus-known-issues).*
 

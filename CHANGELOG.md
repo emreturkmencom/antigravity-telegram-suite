@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-06-07
+
+### Added
+- **Goal Mode** (`/goal <task>`): Send autonomous long-running goals to the IDE agent via the native `/goal` slash command. The agent works independently until the task is complete.
+- **Plan Mode** (`/plan <task>`): Generate an implementation plan before coding via the native `/plan` slash command.
+- **Schedule Task** (`/schedule_task <task>`): Schedule recurring or one-time tasks in the IDE via the native `/schedule` slash command.
+- **TaskWatcher (Proactive Notifications)**: New `task_watcher.js` module monitors the agent's `transcript.jsonl` for unsolicited messages (timer callbacks, sub-agent completions) and forwards them to Telegram as 🔔 notifications.
+- **Message Reactions**: Shows 🤔 thinking reaction on user messages during processing, clears on completion.
+- **Agent Modes in `/help`**: New "🎯 Agent Modes" section added to help text across all 5 languages.
+- **Goal vs Turbo Comparison Table**: All 5 README files now include a detailed comparison between Goal Mode and Turbo Mode.
+- **TR Acknowledgments Section**: Added missing acknowledgments and credits section to the Turkish README.
+
+### Fixed
+- **`/help` HTML Parse Error**: Fixed Telegram `Bad Request: can't parse entities` error caused by `<task>` being interpreted as HTML tags. Escaped with `&lt;` / `&gt;` across all 5 locales.
+- **TaskWatcher False Positives**: Added `USER_INPUT` detection and 10-second busy→idle cooldown to prevent the bot's own responses from being treated as proactive notifications.
+- **TaskWatcher Whitespace Cleanup**: Added `\n{3+}` compression to prevent excessive blank lines in forwarded notifications.
+
+### Removed
+- **`/browser` Command**: Removed the `/browser` command from handler, menu, all locales, and READMEs — unnecessary since the agent opens the browser itself when needed.
+
+### Changed
+- **Acknowledgments**: Added [mine260309](https://github.com/mine260309) (Lei YU) for PR #7 — i18n translations for hardcoded messages.
+- **Architecture Docs**: Added `task_watcher.js` to the architecture section of all 5 READMEs.
+- **GitHub Repo Description**: Updated to "Antigravity Telegram bot — remote-control your AI agent via Telegram."
+
 ## [3.3.1] - 2026-06-03
 
 ### Fixed

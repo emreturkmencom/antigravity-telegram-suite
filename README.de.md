@@ -12,7 +12,7 @@ Sende Nachrichten, wechsle KI-Modelle, verwalte Arbeitsbereiche, nimm Screenshot
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.5.0-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.4.0-orange.svg)]()
 
 \* *Einige Funktionen können in der Standalone-App eingeschränkt sein. Siehe [Known Issues (Bekannte Probleme)](#-known-issues).*
 
