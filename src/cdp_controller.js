@@ -99,6 +99,7 @@ function findConversationIdByTitle(threadName) {
                             if (firstMsg.includes(searchName.substring(0, minMatchLen)) || 
                                 searchName.includes(firstMsg.substring(0, minMatchLen))) {
                                 threadNameToIdCache.set(threadName, dir.name);
+                                if (threadNameToIdCache.size > 500) { threadNameToIdCache.delete(threadNameToIdCache.keys().next().value); }
                                 return dir.name;
                             }
                         }
@@ -477,6 +478,7 @@ async function snapshotChatState(port, specificTargetId = null, threadName = nul
                                         lastResolvedThreadId = dir.name;
                                         _notifyThreadResolved(dir.name);
                                         threadNameToIdCache.set(threadName, dir.name);
+                                        if (threadNameToIdCache.size > 500) { threadNameToIdCache.delete(threadNameToIdCache.keys().next().value); }
                                         console.log(`[snapshot] Anchored via DOM content match → ${dir.name}`);
                                         return;
                                     }
@@ -2335,30 +2337,54 @@ async function closeWindow(port) {
     if (candidates.length === 0) return false;
 
     const target = candidates[0]; // first candidate is the preferred window if set
+    const targetId = target.id;
+
+    // Stage 1: Graceful close via window.close()
+    // This triggers Electron's beforeunload/close event handlers,
+    // which flush state.vscdb (chat history, settings) to disk.
+    // Without this, Target.closeTarget kills the window instantly
+    // and Electron may not persist its internal state.
+    let gracefulOk = false;
     try {
-        const client = await CDP({ port });
-        const { Target } = client;
-        await Target.closeTarget({ targetId: target.id });
+        const client = await CDP({ target: target.webSocketDebuggerUrl });
+        const { Runtime } = client;
+        await Runtime.enable();
+        await Runtime.evaluate({ expression: 'window.close()' });
         await client.close();
-        
-        if (preferredTargetId === target.id) {
-            preferredTargetId = null;
-        }
-        return true;
-    } catch(e) {
-        try {
-            const client = await CDP({ target: target.webSocketDebuggerUrl });
-            const { Runtime } = client;
-            await Runtime.enable();
-            await Runtime.evaluate({ expression: 'window.close()' });
-            await client.close();
-            
-            if (preferredTargetId === target.id) {
-                preferredTargetId = null;
-            }
-            return true;
-        } catch(e2) {
-            return false;
-        }
+        gracefulOk = true;
+        console.log(`[closeWindow] Stage 1: window.close() sent to ${targetId.substring(0, 8)}`);
+    } catch (e) {
+        console.log(`[closeWindow] Stage 1 failed (${e.message}), proceeding to fallback`);
     }
+
+    // Wait for Electron to flush state to disk (state.vscdb write)
+    // 2 seconds is generous — typical flush takes <500ms
+    if (gracefulOk) {
+        await new Promise(r => setTimeout(r, 2000));
+    }
+
+    // Stage 2: Verify the window is gone, force-close if still alive
+    try {
+        const currentTargets = await resolveTargets(port, false).catch(() => []);
+        const stillAlive = currentTargets.some(t => t.id === targetId);
+
+        if (stillAlive) {
+            console.log(`[closeWindow] Stage 2: window still alive, force-closing via Target.closeTarget`);
+            try {
+                const client2 = await CDP({ port });
+                const { Target } = client2;
+                await Target.closeTarget({ targetId });
+                await client2.close();
+            } catch (e2) {
+                console.log(`[closeWindow] Target.closeTarget fallback failed: ${e2.message}`);
+            }
+        } else {
+            console.log(`[closeWindow] Window closed gracefully`);
+        }
+    } catch (_) {}
+
+    if (preferredTargetId === targetId) {
+        preferredTargetId = null;
+    }
+    return true;
 }

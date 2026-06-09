@@ -275,7 +275,7 @@
     "is_running_short": "⏳ Modo Turbo en ejecución, espere."
   },
   "restart": {
-    "closing": "🔄 Cerrando ventanas de Antigravity y reiniciando el bot..."
+    "closing": "🔄 Reiniciando el bot..."
   },
   "standalone": {
     "already_running": "🤖 ¡Antigravity Standalone ya está en ejecución!",

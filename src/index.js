@@ -14,6 +14,7 @@ const TaskWatcher = require('./task_watcher');
 const scheduleClient = require('./schedule_client');
 
 const TURBO_STATE_FILE = path.join(os.homedir(), '.gemini', 'antigravity', 'turbo_state.json');
+const RESTART_FLAG_FILE = path.join(os.homedir(), '.gemini', 'antigravity', '.restart_pending');
 
 function loadTurboState() {
     try {
@@ -393,6 +394,9 @@ async function cleanupAll() {
 
 bot.command('restart', async (ctx) => {
     await ctx.reply(t('restart.closing'));
+    // Write flag file so next boot knows to drop pending updates
+    // (prevents the /restart command from being re-processed → infinite loop)
+    try { fs.writeFileSync(RESTART_FLAG_FILE, Date.now().toString()); } catch (_) {}
     try {
         await Promise.race([
             bot.stop('SIGTERM'),
@@ -2834,8 +2838,19 @@ async function init() {
         console.error(`[Bot Error] for ${ctx.updateType}:`, err.message || err);
     });
 
+    // Check if this boot is after an explicit /restart command.
+    // If so, drop pending updates to prevent the /restart from being re-processed (infinite loop).
+    let shouldDropPending = false;
+    try {
+        if (fs.existsSync(RESTART_FLAG_FILE)) {
+            shouldDropPending = true;
+            fs.unlinkSync(RESTART_FLAG_FILE);
+            console.log('[init] Restart flag detected — dropping pending updates to prevent /restart loop');
+        }
+    } catch (_) {}
+
     const launchBot = () => {
-        bot.launch({ dropPendingUpdates: false }).catch(err => {
+        bot.launch({ dropPendingUpdates: shouldDropPending }).catch(err => {
             console.error("Bot launch failed:", err.message || err);
             console.log("Retrying in 30 seconds...");
             setTimeout(launchBot, 30000);

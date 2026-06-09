@@ -275,7 +275,7 @@
     "is_running_short": "⏳ Turbo Mod çalışıyor, lütfen bekleyin."
   },
   "restart": {
-    "closing": "🔄 Closing Antigravity windows and restarting bot..."
+    "closing": "🔄 Bot yeniden başlatılıyor..."
   },
   "standalone": {
     "already_running": "🤖 Antigravity Standalone is already running!",

@@ -73,15 +73,28 @@ function buildObserverScript() {
     window.__AA_BOT_OBSERVER_ACTIVE = true;
 
     function isAgentPanel() {
-        return true; // Auto-accept is globally scoped to targeted webview contexts
+        // Only activate in agent chat/conversation panels — NOT in Settings, Explorer, Notes, etc.
+        return !!(
+            document.querySelector('#conversation, #chat, #cascade, .interactive-session') ||
+            document.querySelector('.antigravity-agent-side-panel') ||
+            document.querySelector('[class*="chat-container"], [class*="Conversation"]') ||
+            document.querySelector('[contenteditable="true"][data-placeholder*="message"], [contenteditable="true"][data-placeholder*="Send"]')
+        );
     }
 
     var AMBIGUOUS_TEXTS = { 'run': true, 'accept': true, 'allow': true, 'retry': true, 'continue': true, 'çalıştır': true, 'kabul et': true, 'izin ver': true, 'yeniden dene': true, 'devam et': true };
     var SIDEBAR_SELECTORS = '[role="tree"], [role="treeitem"], [role="listbox"], [role="option"], .monaco-list, .conversation-list, .chat-list, .sidebar-list';
+    // Containers where we should NEVER click buttons (Settings, Notes, Explorer, Preferences, etc.)
+    var EXCLUDED_SELECTORS = '.settings-editor, .settings-body, .preferences-editor, .explorer-viewlet, .notifications-center, .menubar, .statusbar, .editor-group-container, .notes-editor, [class*="SettingsEditor"], [class*="settings-widget"], [role="tabpanel"][aria-label*="Settings"], [role="tabpanel"][aria-label*="Ayarlar"], .dialog-shadow, .quick-input-widget';
 
     function isSidebarElement(el) {
         if (!el || !el.closest) return false;
         return !!el.closest(SIDEBAR_SELECTORS);
+    }
+
+    function isExcludedArea(el) {
+        if (!el || !el.closest) return false;
+        return !!el.closest(EXCLUDED_SELECTORS);
     }
 
     var BUTTON_TEXTS = ${JSON.stringify(buttonTexts)};
@@ -138,6 +151,7 @@ function buildObserverScript() {
             }
             var testId = (wNode.getAttribute('data-testid') || wNode.getAttribute('data-action') || '').toLowerCase();
             if (testId.includes('alwaysallow') || testId.includes('always-allow') || testId.includes('allow')) {
+                if (isExcludedArea(wNode)) continue;
                 var tag1 = (wNode.tagName || '').toLowerCase();
                 if (tag1 === 'button' || tag1.includes('button') || wNode.getAttribute('role') === 'button' || tag1.includes('btn')) {
                     var allowIdx = texts.indexOf('allow');
@@ -166,6 +180,7 @@ function buildObserverScript() {
                 var tag2 = (clickable.tagName || '').toLowerCase();
 
                 if (AMBIGUOUS_TEXTS[text] && isSidebarElement(clickable)) continue;
+                if (isExcludedArea(clickable)) continue;
 
                 if (tag2 === 'button' || tag2 === 'a' || tag2.includes('button') || tag2.includes('btn') ||
                     clickable.getAttribute('role') === 'button' || clickable.getAttribute('role') === 'link' ||
@@ -306,19 +321,19 @@ function buildObserverScript() {
         __SCAN_QUEUED = true;
         setTimeout(function() {
             try { scanAndClick(); } catch(e) {} finally { __SCAN_QUEUED = false; }
-        }, 50);
+        }, 300);
     });
 
     observer.observe(document.documentElement, {
         childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-expanded', 'data-state']
     });
 
-    // Fallback scan every 10s
+    // Fallback scan every 20s
     if (window.__AA_BOT_FALLBACK_INTERVAL) clearInterval(window.__AA_BOT_FALLBACK_INTERVAL);
     window.__AA_BOT_FALLBACK_INTERVAL = setInterval(function() {
         if (window.__AA_BOT_PAUSED) return;
         setTimeout(function() { try { scanAndClick(); } catch(e) {} }, 0);
-    }, 10000);
+    }, 20000);
 
     window.__AA_BOT_OBSERVER = observer;
     return 'observer-installed';
