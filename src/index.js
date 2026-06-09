@@ -104,7 +104,7 @@ const TURBO_SAFE_COMMANDS = [
     '/turbo', '/stop', '/screenshot', '/latest', '/status',
     '/quota', '/help', '/version', '/panel', '/menu',
     '/file', '/cmd', '/autoaccept', '/lang', '/window',
-    '/artifacts', '/start', '/restart'
+    '/artifacts'
 ];
 const TURBO_SAFE_BUTTONS = [
     '📸', '💬', '📦', '📊', '🚀'
@@ -117,6 +117,10 @@ bot.use(async (ctx, next) => {
         const cbData = ctx.callbackQuery?.data || '';
         
         if (text) {
+            // Check exact match for /start to prevent bypassing with /start_ide and /start_ag
+            if (text.trim() === '/start') {
+                return next();
+            }
             const isSafeCmd = TURBO_SAFE_COMMANDS.some(cmd => text.startsWith(cmd));
             const isSafeBtn = TURBO_SAFE_BUTTONS.some(btn => text.startsWith(btn));
             if (isSafeCmd || isSafeBtn) {
@@ -128,6 +132,9 @@ bot.use(async (ctx, next) => {
                 return next();
             }
             return ctx.answerCbQuery(t('turbo.is_running_short') || '⏳ Please wait', { show_alert: true }).catch(()=>{});
+        } else if (ctx.message?.photo || ctx.message?.document) {
+            // Block file/photo uploads during turbo as they trigger sendViaCDP paste
+            return ctx.reply(t('turbo.is_running') || '⏳ Turbo Mode is running!');
         }
     }
     return next();
