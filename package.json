@@ -1,38 +1,43 @@
 {
-    "name": "antigravity-telegram-suite",
-    "version": "3.4.0",
-    "description": "Control your Antigravity IDE remotely via Telegram. Send messages, switch models, manage workspaces, take screenshots — all from your phone.",
-    "main": "src/index.js",
-    "scripts": {
-        "start": "node src/index.js",
-        "dev": "node src/index.js",
-        "setup": "bash scripts/install.sh",
-        "setup:win": "powershell -ExecutionPolicy Bypass -File scripts/install.ps1",
-        "test": "node test/i18n.test.js",
-        "test:smoke": "node test/smoke.test.js",
-        "test:all": "npm test && npm run test:smoke"
-    },
-    "keywords": [
-        "telegram",
-        "bot",
-        "antigravity",
-        "ide",
-        "remote-control",
-        "cdp",
-        "chrome-devtools-protocol"
-    ],
-    "author": "Emre Türkmen",
-    "license": "MIT",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/emreturkmencom/antigravity-telegram-suite"
-    },
-    "engines": {
-        "node": ">=18.0.0"
-    },
-    "dependencies": {
-        "chrome-remote-interface": "^0.34.0",
-        "dotenv": "^17.4.2",
-        "telegraf": "^4.16.3"
-    }
+  "name": "antigravity-telegram-suite",
+  "version": "3.4.0",
+  "description": "Control your Antigravity IDE remotely via Telegram. Send messages, switch models, manage workspaces, take screenshots — all from your phone.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js",
+    "setup": "bash scripts/install.sh",
+    "setup:win": "powershell -ExecutionPolicy Bypass -File scripts/install.ps1",
+    "test": "node test/i18n.test.js",
+    "test:smoke": "node test/smoke.test.js",
+    "test:all": "npm test && npm run test:smoke",
+    "i18n:validate": "node scripts/validate_i18n.js",
+    "prepare": "husky"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "antigravity",
+    "ide",
+    "remote-control",
+    "cdp",
+    "chrome-devtools-protocol"
+  ],
+  "author": "Emre Türkmen",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/emreturkmencom/antigravity-telegram-suite"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "chrome-remote-interface": "^0.34.0",
+    "dotenv": "^17.4.2",
+    "telegraf": "^4.16.3"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
 }

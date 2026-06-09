@@ -2915,9 +2915,20 @@ async function init() {
                     }
 
                     // Send a new message
-                    const sent = await bot.telegram.sendMessage(chatId, fullMsg, { parse_mode: 'HTML' });
-                    proactiveMessageIds.set(chatId, { messageId: sent.message_id, timestamp: now });
-                    console.log(`[TaskWatcher] Sent new notification msg ${sent.message_id}`);
+                    try {
+                        const sent = await bot.telegram.sendMessage(chatId, fullMsg, { parse_mode: 'HTML' });
+                        proactiveMessageIds.set(chatId, { messageId: sent.message_id, timestamp: now });
+                        console.log(`[TaskWatcher] Sent new notification msg ${sent.message_id}`);
+                    } catch (err) {
+                        if (err.message.includes("parse entities")) {
+                            const plain = fullMsg.replace(/<[^>]*>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+                            const sent = await bot.telegram.sendMessage(chatId, plain);
+                            proactiveMessageIds.set(chatId, { messageId: sent.message_id, timestamp: now });
+                            console.log(`[TaskWatcher] Sent plain text fallback ${sent.message_id}`);
+                        } else {
+                            throw err;
+                        }
+                    }
                 } catch (e) {
                     console.error('[TaskWatcher] Failed to send notification:', e.message);
                 }
