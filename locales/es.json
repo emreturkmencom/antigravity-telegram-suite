@@ -270,7 +270,9 @@
     "error_title": "❌ <b>Error del Modo Turbo:</b>\n\n{error}",
     "p5_summarizing": "⏳ Fase 5: Preparando resumen...",
     "done_summary": "✨ Modo Turbo Completado (Resumen listo)",
-    "p5_error": "Tiempo de espera agotado durante la fase de resumen."
+    "p5_error": "Tiempo de espera agotado durante la fase de resumen.",
+    "is_running": "⏳ ¡El Modo Turbo está en ejecución! Espera a que termine o escribe /turbo para cancelar.",
+    "is_running_short": "⏳ Modo Turbo en ejecución, espere."
   },
   "restart": {
     "closing": "🔄 Cerrando ventanas de Antigravity y reiniciando el bot..."

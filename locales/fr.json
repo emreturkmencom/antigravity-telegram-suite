@@ -270,7 +270,9 @@
     "error_title": "❌ <b>Erreur du Mode Turbo :</b>\n\n{error}",
     "p5_summarizing": "⏳ Phase 5 : Préparation du résumé...",
     "done_summary": "✨ Mode Turbo Terminé (Résumé prêt)",
-    "p5_error": "Délai d'attente dépassé lors de la phase de résumé."
+    "p5_error": "Délai d'attente dépassé lors de la phase de résumé.",
+    "is_running": "⏳ Le Mode Turbo est en cours ! Veuillez patienter ou tapez /turbo pour annuler.",
+    "is_running_short": "⏳ Mode Turbo en cours, veuillez patienter."
   },
   "restart": {
     "closing": "🔄 Fermeture des fenêtres Antigravity et redémarrage du bot..."

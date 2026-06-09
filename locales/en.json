@@ -270,7 +270,9 @@
     "error_title": "❌ <b>Turbo Mode Error:</b>\n\n{error}",
     "p5_summarizing": "⏳ Phase 5: Preparing summary...",
     "done_summary": "✨ Turbo Mode Completed (Summary ready)",
-    "p5_error": "Timed out during the summary phase."
+    "p5_error": "Timed out during the summary phase.",
+    "is_running": "⏳ Turbo Mode is running! Please wait for it to finish, or type /turbo to cancel.",
+    "is_running_short": "⏳ Turbo Mode is running, please wait."
   },
   "restart": {
     "closing": "🔄 Closing Antigravity windows and restarting bot..."
@@ -361,5 +363,41 @@
   },
   "task_watcher": {
     "proactive_msg": "The agent sent a proactive notification:"
+  },
+  "schedule": {
+    "not_configured": "⚠️ CronCrew is not configured yet.\n\nSetup: /schedule_setup <server_url> <license_key>\nExample: /schedule_setup https://agp.emreturkmen.com CC-XXXX-XXXX-XXXX-XXXX",
+    "setup_usage": "⚙️ Usage: /schedule_setup <server_url> <license_key>\n\nExample:\n<code>/schedule_setup https://agp.emreturkmen.com CC-XXXX-XXXX-XXXX-XXXX</code>",
+    "setup_success": "✅ CronCrew connected!\n\n🎫 Tier: <b>{tier}</b>\n📡 Server: <code>{url}</code>\n\nUse /schedule_list to manage your schedules.",
+    "setup_error": "❌ Connection error: {error}",
+    "status_title": "📊 <b>CronCrew Status</b>\n\n",
+    "status_tier": "🎫 Tier: <b>{tier}</b>\n",
+    "status_license": "📋 Status: <b>{status}</b>\n",
+    "status_usage": "📈 Today: {today} executions\n",
+    "status_schedules": "📅 Active Schedules: {count}\n",
+    "status_changes": "🔄 Device Changes: {used}/{max}\n",
+    "status_expires": "⏰ Expires: {date}\n",
+    "list_title": "📅 <b>Schedule List:</b>\n\n",
+    "list_empty": "ℹ️ No schedules created yet.\n\nUse /schedule_add to create a new schedule.",
+    "list_item": "{icon} <b>{name}</b>\n   ⏰ <code>{cron}</code> → {workspace}\n   📊 Ran {runCount}x | Last: {lastResult}\n",
+    "add_usage": "➕ Add a new schedule:\n\n<code>/schedule_add Name | cron_expression | workspace | prompt</code>\n\nExample:\n<code>/schedule_add Daily Test | 0 9 * * * | antigravity-bot | Run all tests</code>",
+    "add_success": "✅ Schedule created!\n\n📝 <b>{name}</b>\n⏰ <code>{cron}</code>\n📁 {workspace}\n🤖 {model}",
+    "add_error": "❌ Creation error: {error}",
+    "delete_usage": "🗑️ Delete a schedule:\n\n<code>/schedule_del <schedule_id></code>",
+    "delete_success": "✅ Schedule deleted.",
+    "delete_error": "❌ Deletion error: {error}",
+    "pause_success": "⏸️ Schedule paused: <b>{name}</b>",
+    "resume_success": "▶️ Schedule resumed: <b>{name}</b>",
+    "run_success": "🚀 Schedule executed!\n\n📁 Workspace: <b>{workspace}</b>\n🤖 Model: {model}\n📝 Prompt sent.",
+    "run_error": "❌ Execution error: {error}",
+    "error": "❌ Error: {error}",
+    "btn_pause": "⏸️ Pause",
+    "btn_resume": "▶️ Resume",
+    "btn_delete": "🗑️ Delete",
+    "btn_run": "▶️ Run Now",
+    "btn_back": "◀️ Back to List",
+    "menu_schedule_setup_desc": "Setup CronCrew connection",
+    "menu_schedule_list_desc": "List scheduled tasks",
+    "menu_schedule_add_desc": "Add a new scheduled task",
+    "menu_schedule_status_desc": "Show CronCrew status"
   }
 }

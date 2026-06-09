@@ -19,7 +19,7 @@
     "messaging_title": "📝 <i>Mesajlaşma & Etkileşim:</i>",
     "messaging_text": "- Sadece yazı yazarak → Ajanla konuşur\n- 📎 Dosya göndererek → Ajana dosya iletir\n- /stop → Çalışan ajanı durdurur\n- /file → Dosya gezginini açar\n- /turbo → Turbo planlama modunu açar\n- /panel → Kontrol klavyesini geri getirir",
     "agent_title": "🎯 <i>Ajan Modları:</i>",
-    "agent_text": "- /goal &lt;görev&gt; → Otonom hedef (bitene kadar çalışır)\n- /plan &lt;görev&gt; → Uygulama planı oluşturur\n- /schedule_task &lt;görev&gt; → Zamanlanmış görev kurar",
+    "agent_text": "- /goal &lt;görev&gt; → Otonom hedef (bitene kadar çalışır)\n- /plan &lt;görev&gt; → Uygulama planı oluşturur\n- /schedule_task &lt;görev&gt; → Zamanlanmış görev kurar\n- /schedule_list → Zamanlanmış görevleri listeler\n- /schedule_add → Yeni schedule ekler\n- /schedule_status → CronCrew durumunu gösterir",
     "status_title": "👁️ <i>Durum & Bilgi:</i>",
     "status_text": "- /latest → Son yanıtı getirir\n- /screenshot → IDE ekran görüntüsü alır\n- /status → Sistem durumunu gösterir\n- /quota → Kalan AI kotalarını gösterir\n- /version → Mevcut bot sürümünü gösterir\n- /update → Bot için güncellemeleri kontrol eder",
     "ide_title": "🛠️ <i>Sistem Kontrolleri:</i>",
@@ -270,7 +270,9 @@
     "error_title": "❌ <b>Turbo Mod Hatası:</b>\n\n{error}",
     "p5_summarizing": "⏳ Faz 5: Sonuç özeti hazırlanıyor...",
     "done_summary": "✨ Turbo Mod Tamamlandı (Özet hazır)",
-    "p5_error": "Özet aşamasında zaman aşımına uğradı."
+    "p5_error": "Özet aşamasında zaman aşımına uğradı.",
+    "is_running": "⏳ Turbo Mod çalışıyor! Lütfen işlemin bitmesini bekleyin veya /turbo ile iptal edin.",
+    "is_running_short": "⏳ Turbo Mod çalışıyor, lütfen bekleyin."
   },
   "restart": {
     "closing": "🔄 Closing Antigravity windows and restarting bot..."
@@ -361,5 +363,41 @@
   },
   "task_watcher": {
     "proactive_msg": "Ajan proaktif bir bildirim gönderdi:"
+  },
+  "schedule": {
+    "not_configured": "⚠️ CronCrew henüz yapılandırılmamış.\n\nKurulum: /schedule_setup <sunucu_url> <lisans_anahtarı>\nÖrnek: /schedule_setup https://agp.emreturkmen.com CC-XXXX-XXXX-XXXX-XXXX",
+    "setup_usage": "⚙️ Kullanım: /schedule_setup <sunucu_url> <lisans_anahtarı>\n\nÖrnek:\n<code>/schedule_setup https://agp.emreturkmen.com CC-XXXX-XXXX-XXXX-XXXX</code>",
+    "setup_success": "✅ CronCrew bağlantısı kuruldu!\n\n🎫 Tier: <b>{tier}</b>\n📡 Sunucu: <code>{url}</code>\n\n/schedule_list ile schedule'larınızı yönetebilirsiniz.",
+    "setup_error": "❌ Bağlantı hatası: {error}",
+    "status_title": "📊 <b>CronCrew Durumu</b>\n\n",
+    "status_tier": "🎫 Tier: <b>{tier}</b>\n",
+    "status_license": "📋 Durum: <b>{status}</b>\n",
+    "status_usage": "📈 Bugün: {today} çalıştırma\n",
+    "status_schedules": "📅 Aktif Schedule: {count}\n",
+    "status_changes": "🔄 Cihaz Değişikliği: {used}/{max}\n",
+    "status_expires": "⏰ Bitiş: {date}\n",
+    "list_title": "📅 <b>Schedule Listesi:</b>\n\n",
+    "list_empty": "ℹ️ Henüz schedule oluşturulmamış.\n\n/schedule_add ile yeni schedule ekleyebilirsiniz.",
+    "list_item": "{icon} <b>{name}</b>\n   ⏰ <code>{cron}</code> → {workspace}\n   📊 {runCount}x çalıştı | Son: {lastResult}\n",
+    "add_usage": "➕ Yeni schedule ekle:\n\n<code>/schedule_add İsim | cron_ifadesi | workspace | prompt</code>\n\nÖrnek:\n<code>/schedule_add Günlük Test | 0 9 * * * | antigravity-bot | Tüm testleri çalıştır</code>",
+    "add_success": "✅ Schedule oluşturuldu!\n\n📝 <b>{name}</b>\n⏰ <code>{cron}</code>\n📁 {workspace}\n🤖 {model}",
+    "add_error": "❌ Oluşturma hatası: {error}",
+    "delete_usage": "🗑️ Schedule sil:\n\n<code>/schedule_del <schedule_id></code>",
+    "delete_success": "✅ Schedule silindi.",
+    "delete_error": "❌ Silme hatası: {error}",
+    "pause_success": "⏸️ Schedule duraklatıldı: <b>{name}</b>",
+    "resume_success": "▶️ Schedule devam ettirildi: <b>{name}</b>",
+    "run_success": "🚀 Schedule çalıştırıldı!\n\n📁 Workspace: <b>{workspace}</b>\n🤖 Model: {model}\n📝 Prompt gönderildi.",
+    "run_error": "❌ Çalıştırma hatası: {error}",
+    "error": "❌ Hata: {error}",
+    "btn_pause": "⏸️ Duraklat",
+    "btn_resume": "▶️ Devam",
+    "btn_delete": "🗑️ Sil",
+    "btn_run": "▶️ Şimdi Çalıştır",
+    "btn_back": "◀️ Listeye Dön",
+    "menu_schedule_setup_desc": "CronCrew sunucu bağlantısını kur",
+    "menu_schedule_list_desc": "Zamanlanmış görevleri listele",
+    "menu_schedule_add_desc": "Yeni zamanlanmış görev ekle",
+    "menu_schedule_status_desc": "CronCrew durumunu göster"
   }
 }

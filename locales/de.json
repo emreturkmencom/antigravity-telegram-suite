@@ -270,7 +270,9 @@
     "error_title": "❌ <b>Turbo-Modus Fehler:</b>\n\n{error}",
     "p5_summarizing": "⏳ Phase 5: Zusammenfassung wird vorbereitet...",
     "done_summary": "✨ Turbo-Modus abgeschlossen (Zusammenfassung bereit)",
-    "p5_error": "Zeitüberschreitung in der Zusammenfassungsphase."
+    "p5_error": "Zeitüberschreitung in der Zusammenfassungsphase.",
+    "is_running": "⏳ Turbo-Modus läuft! Bitte warten oder mit /turbo abbrechen.",
+    "is_running_short": "⏳ Turbo-Modus läuft, bitte warten."
   },
   "restart": {
     "closing": "🔄 Schließe Antigravity-Fenster und starte Bot neu..."

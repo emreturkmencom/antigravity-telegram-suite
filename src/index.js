@@ -11,6 +11,7 @@ const autoaccept = require('./autoaccept');
 const updater = require('./updater');
 const { runTurboOrchestration } = require('./turbo_orchestrator');
 const TaskWatcher = require('./task_watcher');
+const scheduleClient = require('./schedule_client');
 
 const TURBO_STATE_FILE = path.join(os.homedir(), '.gemini', 'antigravity', 'turbo_state.json');
 
@@ -98,21 +99,35 @@ const bot = new Telegraf(process.env.BOT_TOKEN, { handlerTimeout: 900000 }); // 
 
 let isTurboRunning = false;
 
+// Safe commands/buttons that can pass through during turbo execution
+const TURBO_SAFE_COMMANDS = [
+    '/turbo', '/stop', '/screenshot', '/latest', '/status',
+    '/quota', '/help', '/version', '/panel', '/menu',
+    '/file', '/cmd', '/autoaccept', '/lang', '/window',
+    '/artifacts', '/start', '/restart'
+];
+const TURBO_SAFE_BUTTONS = [
+    '📸', '💬', '📦', '📊', '🚀'
+];
+
 // Middleware to prevent project switching or concurrent tasks while Turbo Mode is executing
 bot.use(async (ctx, next) => {
     if (isTurboRunning) {
         const text = ctx.message?.text || '';
         const cbData = ctx.callbackQuery?.data || '';
         
-        // Allow the user to toggle off turbo mode, but block everything else
-        if (text.startsWith('/turbo') || text.startsWith('🚀')) {
-            return next();
-        }
-        
         if (text) {
-            return ctx.reply(t('turbo.is_running') || '⏳ Turbo Mod şu anda çalışıyor! Lütfen işlemin bitmesini bekleyin veya iptal etmek için Turbo modunu kapatın.');
+            const isSafeCmd = TURBO_SAFE_COMMANDS.some(cmd => text.startsWith(cmd));
+            const isSafeBtn = TURBO_SAFE_BUTTONS.some(btn => text.startsWith(btn));
+            if (isSafeCmd || isSafeBtn) {
+                return next();
+            }
+            return ctx.reply(t('turbo.is_running') || '⏳ Turbo Mode is running!');
         } else if (cbData) {
-            return ctx.answerCbQuery(t('turbo.is_running_short') || '⏳ Lütfen Turbo Modun bitmesini bekleyin.', { show_alert: true }).catch(()=>{});
+            if (cbData.startsWith('file_') || cbData.startsWith('artifact_') || cbData.startsWith('turbo_')) {
+                return next();
+            }
+            return ctx.answerCbQuery(t('turbo.is_running_short') || '⏳ Please wait', { show_alert: true }).catch(()=>{});
         }
     }
     return next();
@@ -821,6 +836,197 @@ bot.command('schedule_task', async (ctx) => {
     } catch (err) {
         setReaction(ctx, null);
         ctx.reply(t('native_cmd.error', { error: err.message }));
+    }
+});
+
+// ===== CRONCREW SCHEDULE MANAGEMENT =====
+
+bot.command('schedule_setup', async (ctx) => {
+    const parts = ctx.message.text.split(' ');
+    parts.shift();
+    if (parts.length < 2) return ctx.reply(t('schedule.setup_usage'), { parse_mode: 'HTML' });
+    
+    const serverUrl = parts[0];
+    const licenseKey = parts.slice(1).join(' ').trim();
+    
+    setReaction(ctx, REACTION.THINKING);
+    try {
+        const result = await scheduleClient.setup(serverUrl, licenseKey);
+        setReaction(ctx, REACTION.SUCCESS);
+        ctx.reply(t('schedule.setup_success', { tier: result.tier, url: serverUrl }), { parse_mode: 'HTML' });
+    } catch (err) {
+        setReaction(ctx, null);
+        ctx.reply(t('schedule.setup_error', { error: err.message }), { parse_mode: 'HTML' });
+    }
+});
+
+bot.command('schedule_status', async (ctx) => {
+    if (!scheduleClient.isConfigured()) return ctx.reply(t('schedule.not_configured'), { parse_mode: 'HTML' });
+    
+    setReaction(ctx, REACTION.THINKING);
+    try {
+        const [status, usage] = await Promise.all([
+            scheduleClient.getStatus(),
+            scheduleClient.getUsage()
+        ]);
+        
+        let msg = t('schedule.status_title');
+        msg += t('schedule.status_tier', { tier: status.tier });
+        msg += t('schedule.status_license', { status: status.status });
+        msg += t('schedule.status_usage', { today: usage.executionsToday });
+        msg += t('schedule.status_schedules', { count: usage.activeSchedules });
+        msg += t('schedule.status_changes', { used: status.changesUsed, max: status.changesMax });
+        if (status.expiresAt) msg += t('schedule.status_expires', { date: status.expiresAt });
+        
+        setReaction(ctx, null);
+        ctx.reply(msg, { parse_mode: 'HTML' });
+    } catch (err) {
+        setReaction(ctx, null);
+        ctx.reply(t('schedule.error', { error: err.message }), { parse_mode: 'HTML' });
+    }
+});
+
+bot.command('schedule_list', async (ctx) => {
+    if (!scheduleClient.isConfigured()) return ctx.reply(t('schedule.not_configured'), { parse_mode: 'HTML' });
+    
+    setReaction(ctx, REACTION.THINKING);
+    try {
+        const schedules = await scheduleClient.listSchedules();
+        setReaction(ctx, null);
+        
+        if (!schedules || schedules.length === 0) {
+            return ctx.reply(t('schedule.list_empty'), { parse_mode: 'HTML' });
+        }
+        
+        let msg = t('schedule.list_title');
+        const buttons = [];
+        
+        for (const s of schedules) {
+            const icon = s.status === 'active' ? '🟢' : '⏸️';
+            const lastResult = s.last_result || '—';
+            msg += t('schedule.list_item', {
+                icon, name: s.name, cron: s.cron_expression,
+                workspace: s.workspace, runCount: s.run_count, lastResult
+            });
+            
+            const row = [];
+            if (s.status === 'active') {
+                row.push(Markup.button.callback(t('schedule.btn_run'), `sch_run_${s.id}`));
+                row.push(Markup.button.callback(t('schedule.btn_pause'), `sch_pause_${s.id}`));
+            } else {
+                row.push(Markup.button.callback(t('schedule.btn_resume'), `sch_resume_${s.id}`));
+            }
+            row.push(Markup.button.callback(t('schedule.btn_delete'), `sch_del_${s.id}`));
+            buttons.push(row);
+        }
+        
+        ctx.reply(msg, { parse_mode: 'HTML', ...Markup.inlineKeyboard(buttons) });
+    } catch (err) {
+        setReaction(ctx, null);
+        ctx.reply(t('schedule.error', { error: err.message }), { parse_mode: 'HTML' });
+    }
+});
+
+bot.command('schedule_add', async (ctx) => {
+    if (!scheduleClient.isConfigured()) return ctx.reply(t('schedule.not_configured'), { parse_mode: 'HTML' });
+    
+    const parts = ctx.message.text.split(' ');
+    parts.shift();
+    const raw = parts.join(' ').trim();
+    
+    if (!raw || !raw.includes('|')) return ctx.reply(t('schedule.add_usage'), { parse_mode: 'HTML' });
+    
+    const segments = raw.split('|').map(s => s.trim());
+    if (segments.length < 4) return ctx.reply(t('schedule.add_usage'), { parse_mode: 'HTML' });
+    
+    const [name, cronExpr, workspace, ...promptParts] = segments;
+    const prompt = promptParts.join('|').trim();
+    
+    setReaction(ctx, REACTION.THINKING);
+    try {
+        const schedule = await scheduleClient.createSchedule({
+            name, cron_expression: cronExpr, workspace, prompt
+        });
+        setReaction(ctx, REACTION.SUCCESS);
+        ctx.reply(t('schedule.add_success', {
+            name: schedule.name, cron: schedule.cron_expression,
+            workspace: schedule.workspace, model: schedule.model
+        }), { parse_mode: 'HTML' });
+    } catch (err) {
+        setReaction(ctx, null);
+        ctx.reply(t('schedule.add_error', { error: err.message }), { parse_mode: 'HTML' });
+    }
+});
+
+bot.command('schedule_del', async (ctx) => {
+    if (!scheduleClient.isConfigured()) return ctx.reply(t('schedule.not_configured'), { parse_mode: 'HTML' });
+    
+    const parts = ctx.message.text.split(' ');
+    parts.shift();
+    const scheduleId = parts.join(' ').trim();
+    
+    if (!scheduleId) return ctx.reply(t('schedule.delete_usage'), { parse_mode: 'HTML' });
+    
+    setReaction(ctx, REACTION.THINKING);
+    try {
+        await scheduleClient.deleteSchedule(scheduleId);
+        setReaction(ctx, REACTION.SUCCESS);
+        ctx.reply(t('schedule.delete_success'), { parse_mode: 'HTML' });
+    } catch (err) {
+        setReaction(ctx, null);
+        ctx.reply(t('schedule.delete_error', { error: err.message }), { parse_mode: 'HTML' });
+    }
+});
+
+// Schedule inline button actions
+bot.action(/^sch_run_(.+)$/, async (ctx) => {
+    const scheduleId = ctx.match[1];
+    ctx.answerCbQuery('Running...');
+    try {
+        const result = await scheduleClient.executeSchedule(scheduleId);
+        
+        // Actually send the prompt to the IDE agent
+        const targetId = getPreferredTargetId() || null;
+        await sendViaCDP(result.prompt, CDP_PORT, targetId);
+        
+        ctx.reply(t('schedule.run_success', {
+            workspace: result.workspace, model: result.model
+        }), { parse_mode: 'HTML' });
+    } catch (err) {
+        ctx.reply(t('schedule.run_error', { error: err.message }), { parse_mode: 'HTML' });
+    }
+});
+
+bot.action(/^sch_pause_(.+)$/, async (ctx) => {
+    const scheduleId = ctx.match[1];
+    ctx.answerCbQuery('Pausing...');
+    try {
+        const result = await scheduleClient.pauseSchedule(scheduleId);
+        ctx.reply(t('schedule.pause_success', { name: result.name || scheduleId }), { parse_mode: 'HTML' });
+    } catch (err) {
+        ctx.reply(t('schedule.error', { error: err.message }), { parse_mode: 'HTML' });
+    }
+});
+
+bot.action(/^sch_resume_(.+)$/, async (ctx) => {
+    const scheduleId = ctx.match[1];
+    ctx.answerCbQuery('Resuming...');
+    try {
+        const result = await scheduleClient.resumeSchedule(scheduleId);
+        ctx.reply(t('schedule.resume_success', { name: result.name || scheduleId }), { parse_mode: 'HTML' });
+    } catch (err) {
+        ctx.reply(t('schedule.error', { error: err.message }), { parse_mode: 'HTML' });
+    }
+});
+
+bot.action(/^sch_del_(.+)$/, async (ctx) => {
+    const scheduleId = ctx.match[1];
+    ctx.answerCbQuery('Deleting...');
+    try {
+        await scheduleClient.deleteSchedule(scheduleId);
+        ctx.reply(t('schedule.delete_success'), { parse_mode: 'HTML' });
+    } catch (err) {
+        ctx.reply(t('schedule.error', { error: err.message }), { parse_mode: 'HTML' });
     }
 });
 
@@ -2073,7 +2279,11 @@ function getMenuCommands() {
         { command: 'restart', description: t('menu.restart_desc') || 'Restart the bot' },
         { command: 'goal', description: t('menu.goal_desc') || 'Set autonomous goal for agent' },
         { command: 'plan', description: t('menu.plan_desc') || 'Generate implementation plan' },
-        { command: 'schedule_task', description: t('menu.schedule_task_desc') || 'Schedule a task in IDE' }
+        { command: 'schedule_task', description: t('menu.schedule_task_desc') || 'Schedule a task in IDE' },
+        { command: 'schedule_setup', description: t('schedule.menu_schedule_setup_desc') || 'Setup CronCrew connection' },
+        { command: 'schedule_list', description: t('schedule.menu_schedule_list_desc') || 'List scheduled tasks' },
+        { command: 'schedule_add', description: t('schedule.menu_schedule_add_desc') || 'Add a new schedule' },
+        { command: 'schedule_status', description: t('schedule.menu_schedule_status_desc') || 'Show CronCrew status' }
     ];
     return cmds.sort((a, b) => a.command.localeCompare(b.command));
 }
