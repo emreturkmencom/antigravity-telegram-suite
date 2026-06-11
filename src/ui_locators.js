@@ -232,7 +232,7 @@ const UI_LOCATORS_SCRIPT = `
          * @returns {HTMLElement[]}
          */
         getWorkspaceCards: () => {
-            return Array.from(document.querySelectorAll('div[data-workspace-card="true"], .workspace-card'));
+            return Array.from(document.querySelectorAll('div[data-project-card="true"], div[data-workspace-card="true"], .workspace-card'));
         },
 
         /**

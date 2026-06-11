@@ -633,10 +633,10 @@ async function getInteractiveModalState(port, specificTargetId = null) {
             await Runtime.enable();
             const res = await Runtime.evaluate({
                 expression: `(() => {
-                    const isModal = !!document.querySelector('textarea[placeholder*="Other"], textarea[placeholder*="answer"], .flex.flex-col.gap-2.border-t button');
+                    const container = document.querySelector('.antigravity-agent-side-panel, .modal, [role="dialog"], .interactive-session') || document;
+                    const isModal = !!container.querySelector('textarea[placeholder*="Other" i], textarea[placeholder*="answer" i], input[type="radio"], input[type="checkbox"], [data-testid="interactive-modal"]');
                     if (!isModal) return null;
                     
-                    const container = document.querySelector('.antigravity-agent-side-panel, .modal, [role="dialog"], .interactive-session') || document;
                     const headerEl = container.querySelector('h2, h3.font-medium, .modal-header');
                     const header = (headerEl && headerEl.textContent.trim()) || t('interactive_modal.default_header');
                     
@@ -1007,6 +1007,23 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                     (async function() {
                         try {
                             const escapedText = ${JSON.stringify(text)};
+                            
+                            // Check for radio/checkbox modal options by index
+                            const optIndex = parseInt(escapedText) - 1;
+                            if (!Number.isNaN(optIndex) && optIndex >= 0 && escapedText.match(/^\\d+$/)) {
+                                const container = document.querySelector('.antigravity-agent-side-panel, [role="dialog"]') || document;
+                                const radios = Array.from(container.querySelectorAll('input[type="radio"], input[type="checkbox"]'));
+                                if (radios.length > 0 && optIndex < radios.length) {
+                                    radios[optIndex].click();
+                                    const allBtns = Array.from(container.querySelectorAll('button'));
+                                    const sb = allBtns.find(b => {
+                                        const t = (b.textContent || '').trim().toLowerCase();
+                                        return t === 'submit' || t.startsWith('submit') || t === 'gönder' || t === 'approve' || t === 'allow';
+                                    });
+                                    if (sb) setTimeout(() => sb.click(), 50);
+                                    return { found: true, method: 'radio', target: '${target.title?.substring(0, 30) || 'unknown'}' };
+                                }
+                            }
                             
                             // Use the robust centralized locator to find the actual chat input
                             const editor = AG_UI.getChatInput();
@@ -1848,6 +1865,10 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
                 }
             }
         } catch(e) { console.debug(`[getActiveThreadInfo] fallback error: ${e.message}`); }
+    }
+
+    if (!workspaceName && activeWorkspaceName) {
+        workspaceName = activeWorkspaceName;
     }
 
     if (threadId || workspaceName) {
