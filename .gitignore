@@ -58,3 +58,8 @@ src/schedule_client.js
 node_version.txt
 scratch/
 
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
