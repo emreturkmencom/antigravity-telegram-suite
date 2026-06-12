@@ -112,7 +112,7 @@
   "workspace": {
     "switching": "🔄 Abriendo ventana de IDE con nuevo entorno: {workspace}",
     "start_failed": "❌ Error al iniciar: {error}",
-    "started": "✅ ¡IDE iniciado con nuevo entorno de trabajo!",
+    "started": "✅ ¡IDE iniciado con nuevo entorno de trabajo: {workspace}!",
     "trusted": "🔓 Entorno marcado como confiable automáticamente.",
     "cdp_warning": "\n⚠️ La conexión CDP puede que no esté lista. Espera unos segundos e inténtalo de nuevo.",
     "select_prompt": "Por favor selecciona el entorno de trabajo al que quieres cambiar:",

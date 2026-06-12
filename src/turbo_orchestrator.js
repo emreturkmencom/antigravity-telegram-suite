@@ -27,7 +27,7 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
         await new Promise(r => setTimeout(r, 800));
 
         await ctx.telegram.editMessageText(
-            ctx.chat.id, statusMsgId, null,
+            ctx.chat.id, statusMsgId, undefined,
             t('turbo.p1_planning') || '🚀 <b>Turbo Mode Started:</b>\n\n⏳ <b>Phase 1:</b> Claude is preparing the plan...',
             { parse_mode: 'HTML' }
         ).catch(() => {});
@@ -47,7 +47,7 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
 
         // Update Telegram Status
         await ctx.telegram.editMessageText(
-            ctx.chat.id, statusMsgId, null,
+            ctx.chat.id, statusMsgId, undefined,
             t('turbo.p2_switching') || '🚀 <b>Turbo Mode Active:</b>\n\n✅ <b>Phase 1:</b> Claude finished the plan.\n⏳ <b>Phase 2:</b> Switching model (Gemini)...',
             { parse_mode: 'HTML' }
         ).catch(() => {});
@@ -57,7 +57,7 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
         await new Promise(r => setTimeout(r, 800));
 
         await ctx.telegram.editMessageText(
-            ctx.chat.id, statusMsgId, null,
+            ctx.chat.id, statusMsgId, undefined,
             t('turbo.p2_coding') || '🚀 <b>Turbo Mode Active:</b>\n\n✅ <b>Phase 1:</b> Claude finished the plan.\n⏳ <b>Phase 2:</b> Gemini is writing code...',
             { parse_mode: 'HTML' }
         ).catch(() => {});
@@ -77,7 +77,7 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
 
         // --- PHASE 3: REVIEW (Claude) ---
         await ctx.telegram.editMessageText(
-            ctx.chat.id, statusMsgId, null,
+            ctx.chat.id, statusMsgId, undefined,
             t('turbo.p3_switching') || '🚀 <b>Turbo Mode Active:</b>\n\n✅ <b>Phase 1:</b> Planning\n✅ <b>Phase 2:</b> Coding\n⏳ <b>Phase 3:</b> Switching model (Claude) - Reviewing...',
             { parse_mode: 'HTML' }
         ).catch(() => {});
@@ -86,7 +86,7 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
         await new Promise(r => setTimeout(r, 800));
 
         await ctx.telegram.editMessageText(
-            ctx.chat.id, statusMsgId, null,
+            ctx.chat.id, statusMsgId, undefined,
             t('turbo.p3_reviewing') || '🚀 <b>Turbo Mode Active:</b>\n\n✅ <b>Phase 1:</b> Planning\n✅ <b>Phase 2:</b> Coding\n⏳ <b>Phase 3:</b> Claude is reviewing the code...',
             { parse_mode: 'HTML' }
         ).catch(() => {});
@@ -111,7 +111,7 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
         if (hasIssues) {
             // --- PHASE 4: FIX (Gemini) ---
             await ctx.telegram.editMessageText(
-                ctx.chat.id, statusMsgId, null,
+                ctx.chat.id, statusMsgId, undefined,
                 t('turbo.p4_switching') || '🚀 <b>Turbo Mode Active:</b>\n\n✅ <b>Phase 1:</b> Planning\n✅ <b>Phase 2:</b> Coding\n⚠️ <b>Phase 3:</b> Issues found!\n⏳ <b>Phase 4:</b> Switching model (Gemini) - Fixing...',
                 { parse_mode: 'HTML' }
             ).catch(() => {});
@@ -120,7 +120,7 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
             await new Promise(r => setTimeout(r, 800));
 
             await ctx.telegram.editMessageText(
-                ctx.chat.id, statusMsgId, null,
+                ctx.chat.id, statusMsgId, undefined,
                 t('turbo.p4_fixing') || '🚀 <b>Turbo Mode Active:</b>\n\n✅ <b>Phase 1:</b> Planning\n✅ <b>Phase 2:</b> Coding\n⚠️ <b>Phase 3:</b> Issues found!\n⏳ <b>Phase 4:</b> Gemini is fixing the issues...',
                 { parse_mode: 'HTML' }
             ).catch(() => {});
@@ -145,7 +145,7 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
         // --- PHASE 5: EXECUTIVE SUMMARY (Gemini) ---
         try {
             await ctx.telegram.editMessageText(
-                ctx.chat.id, statusMsgId, null,
+                ctx.chat.id, statusMsgId, undefined,
                 t('turbo.p5_summarizing') || '⏳ Phase 5: Preparing summary...',
                 { parse_mode: 'HTML' }
             ).catch(() => {});
@@ -192,7 +192,7 @@ Keep it concise (max 10 lines). Use emoji for readability.`;
             summaryText = stripQueryFromResponse(summaryText, summaryPrompt);
 
             await ctx.telegram.editMessageText(
-                ctx.chat.id, statusMsgId, null,
+                ctx.chat.id, statusMsgId, undefined,
                 t('turbo.done_summary') || '✨ Turbo Mode Completed (Summary ready)',
                 { parse_mode: 'HTML' }
             ).catch(() => {});
@@ -203,13 +203,13 @@ Keep it concise (max 10 lines). Use emoji for readability.`;
             // Revert status message to done_issues / done_no_issues
             if (hasIssues) {
                 await ctx.telegram.editMessageText(
-                    ctx.chat.id, statusMsgId, null,
+                    ctx.chat.id, statusMsgId, undefined,
                     t('turbo.done_issues') || '🚀 <b>Turbo Mode Completed:</b>\n\n✅ <b>Phase 1:</b> Planning (Claude)\n✅ <b>Phase 2:</b> Coding (Gemini)\n⚠️ <b>Phase 3:</b> Review (Claude)\n✅ <b>Phase 4:</b> Fixing (Gemini)\n\n✨ Results are coming...',
                     { parse_mode: 'HTML' }
                 ).catch(() => {});
             } else {
                 await ctx.telegram.editMessageText(
-                    ctx.chat.id, statusMsgId, null,
+                    ctx.chat.id, statusMsgId, undefined,
                     t('turbo.done_no_issues') || '🚀 <b>Turbo Mode Completed:</b>\n\n✅ <b>Phase 1:</b> Planning (Claude)\n✅ <b>Phase 2:</b> Coding (Gemini)\n✅ <b>Phase 3:</b> Review - No Issues (Claude)\n\n✨ Results are coming...',
                     { parse_mode: 'HTML' }
                 ).catch(() => {});
@@ -222,7 +222,7 @@ Keep it concise (max 10 lines). Use emoji for readability.`;
         if (statusMsgId) {
             const errTitle = t('turbo.error_title') ? t('turbo.error_title').replace('{error}', err.message) : `❌ <b>Turbo Mode Error:</b>\n\n${err.message}`;
             await ctx.telegram.editMessageText(
-                ctx.chat.id, statusMsgId, null,
+                ctx.chat.id, statusMsgId, undefined,
                 errTitle,
                 { parse_mode: 'HTML' }
             ).catch(() => {});

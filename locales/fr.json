@@ -112,7 +112,7 @@
   "workspace": {
     "switching": "🔄 Ouverture de l'IDE avec le nouvel espace : {workspace}",
     "start_failed": "❌ Échec du démarrage : {error}",
-    "started": "✅ L'IDE a démarré avec le nouvel espace !",
+    "started": "✅ L'IDE a démarré avec le nouvel espace : {workspace}!",
     "trusted": "🔓 Espace marqué automatiquement comme de confiance.",
     "cdp_warning": "\n⚠️ La connexion CDP n'est peut-être pas encore prête. Attendez quelques secondes et réessayez.",
     "select_prompt": "Veuillez sélectionner l'espace de travail vers lequel basculer :",

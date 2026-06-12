@@ -440,10 +440,13 @@ bot.command('start_ide', async (ctx) => {
         return ctx.reply(t('ide.already_running_short'));
     }
     cleanLockFile(app);
-    ctx.reply(t('ide.starting'));
+    let startingMsg = await ctx.reply(t('ide.starting')).catch(()=>{});
     try {
         const appPort = getCDPPort(app);
         await launchIDE(null, appPort, app);
+        if (startingMsg && startingMsg.message_id) {
+            ctx.deleteMessage(startingMsg.message_id).catch(()=>{});
+        }
         ctx.reply(t('ide.started'));
         setTimeout(() => {
             if (autoaccept.isEnabled) autoaccept.enable(appPort).catch(()=>{});
@@ -466,10 +469,13 @@ bot.command('start_ag', async (ctx) => {
         return ctx.reply(t('standalone.already_running'));
     }
     cleanLockFile(app);
-    ctx.reply(t('standalone.starting'));
+    let startingMsg = await ctx.reply(t('standalone.starting')).catch(()=>{});
     try {
         const appPort = getCDPPort(app);
         await launchIDE(null, appPort, app);
+        if (startingMsg && startingMsg.message_id) {
+            ctx.deleteMessage(startingMsg.message_id).catch(()=>{});
+        }
         ctx.reply(t('standalone.started'));
         setTimeout(() => {
             if (autoaccept.isEnabled) autoaccept.enable(appPort).catch(()=>{});
@@ -492,8 +498,11 @@ bot.command('close_ide', async (ctx) => {
         cleanLockFile(app);
         return ctx.reply(t('ide.already_closed'));
     }
-    ctx.reply(t('ide.closing'));
+    let closingMsg = await ctx.reply(t('ide.closing')).catch(()=>{});
     await killIDE(app);
+    if (closingMsg && closingMsg.message_id) {
+        ctx.deleteMessage(closingMsg.message_id).catch(()=>{});
+    }
     ctx.reply(t('ide.closed'));
 });
 
@@ -504,8 +513,11 @@ bot.command('close_ag', async (ctx) => {
         cleanLockFile(app);
         return ctx.reply(t('standalone.already_closed'));
     }
-    ctx.reply(t('standalone.closing'));
+    let closingMsg = await ctx.reply(t('standalone.closing')).catch(()=>{});
     await killIDE(app);
+    if (closingMsg && closingMsg.message_id) {
+        ctx.deleteMessage(closingMsg.message_id).catch(()=>{});
+    }
     ctx.reply(t('standalone.closed'));
 });
 
@@ -514,13 +526,13 @@ bot.command('close', async (ctx) => {
 });
 
 bot.command('close_window', async (ctx) => {
-    ctx.reply(t('ide.closing_window') || '🪟 Closing window...');
+    let closingMsg = await ctx.reply(t('ide.closing_window') || '🪟 Closing window...').catch(()=>{});
     const success = await closeWindow(CDP_PORT);
-    if (success) {
-        ctx.reply(t('ide.window_closed') || '✅ Window closed successfully.');
-    } else {
-        ctx.reply(t('ide.window_close_failed') || '❌ Failed to close window. Is there an open window?');
+    const resultMsg = success ? (t('ide.window_closed') || '✅ Window closed successfully.') : (t('ide.window_close_failed') || '❌ Failed to close window. Is there an open window?');
+    if (closingMsg && closingMsg.message_id) {
+        ctx.deleteMessage(closingMsg.message_id).catch(()=>{});
     }
+    ctx.reply(resultMsg);
 });
 
 const handleStatus = async (ctx) => {
@@ -652,8 +664,20 @@ async function buildMainMenu(overrideThread = null, overrideWorkspace = null, ta
     ]).resize();
 }
 
-async function sendMainMenu(ctx, text = '🕹️ Kontrol Paneli:', overrideThread = null, overrideWorkspace = null, targetId = null) {
+async function sendMainMenu(ctx, text = '🕹️ Kontrol Paneli:', overrideThread = null, overrideWorkspace = null, targetId = null, editMessageId = null) {
     const kb = await buildMainMenu(overrideThread, overrideWorkspace, targetId);
+    
+    if (editMessageId) {
+        // We do NOT pass kb here because kb contains a ReplyKeyboardMarkup, which Telegram API 
+        // rejects for editMessageText (it expects InlineKeyboardMarkup or none).
+        return ctx.telegram.editMessageText(ctx.chat.id, editMessageId, undefined, text, { parse_mode: 'HTML' }).catch(e => {
+            console.error('[sendMainMenu] editMessageText failed:', e.message);
+            if (!e.message.includes('message is not modified')) {
+                return ctx.reply(text, kb);
+            }
+        });
+    }
+
     if (ctx.callbackQuery && ctx.callbackQuery.message) {
         return ctx.editMessageText(text, kb).catch(e => {
             if (!e.message.includes('message is not modified')) {
@@ -1572,9 +1596,20 @@ bot.action('aa_status', async (ctx) => {
 
 // ===== WORKSPACE =====
 
-function doLaunchWorkspace(ctx, workspace) {
-    ctx.reply(t('workspace.switching', { workspace }));
-    (async () => {
+async function doLaunchWorkspace(ctx, workspace) {
+    let switchingMsg;
+    if (ctx.callbackQuery && ctx.callbackQuery.message) {
+        try {
+            await ctx.editMessageText(t('workspace.switching', { workspace })).catch(()=>{});
+            switchingMsg = ctx.callbackQuery.message;
+        } catch(e) {}
+    } else {
+        try {
+            switchingMsg = await ctx.reply(t('workspace.switching', { workspace }));
+        } catch(e) {}
+    }
+
+    try {
         const activeApp = process.env.ANTIGRAVITY_PREFERRED_APP || 'agent';
         const wsName = path.basename(workspace);
         
@@ -1592,7 +1627,11 @@ function doLaunchWorkspace(ctx, workspace) {
                             autoaccept.enable(CDP_PORT).catch(() => {});
                         }
                         await triggerNewChat(CDP_PORT);
-                        await sendMainMenu(ctx, t('workspace.started') || '📁 Workspace switched successfully!');
+                        const successMsg = t('workspace.started', { workspace }) || '📁 Workspace switched successfully!';
+                        if (switchingMsg && switchingMsg.message_id) {
+                            ctx.deleteMessage(switchingMsg.message_id).catch(()=>{});
+                        }
+                        await sendMainMenu(ctx, successMsg);
                         return;
                     }
                 } catch (e) {
@@ -1610,7 +1649,11 @@ function doLaunchWorkspace(ctx, workspace) {
                             autoaccept.enable(CDP_PORT).catch(() => {});
                         }
                         await triggerNewChat(CDP_PORT);
-                        await sendMainMenu(ctx, t('workspace.started') || '📁 Workspace switched successfully!');
+                        const successMsg = t('workspace.started', { workspace }) || '📁 Workspace switched successfully!';
+                        if (switchingMsg && switchingMsg.message_id) {
+                            ctx.deleteMessage(switchingMsg.message_id).catch(()=>{});
+                        }
+                        await sendMainMenu(ctx, successMsg);
                         return;
                     }
                 } catch (e) {
@@ -1657,7 +1700,11 @@ function doLaunchWorkspace(ctx, workspace) {
                 }
             }
             if (cdpReady) {
-                await sendMainMenu(ctx, t('workspace.started'));
+                const successMsg = t('workspace.started', { workspace });
+                if (switchingMsg && switchingMsg.message_id) {
+                    ctx.deleteMessage(switchingMsg.message_id).catch(()=>{});
+                }
+                await sendMainMenu(ctx, successMsg);
                 // trustWorkspaceViaCDP removed — CDP intervention during startup
                 // interrupts Electron's init/sync and prevents state.vscdb from saving
                 
@@ -1669,13 +1716,15 @@ function doLaunchWorkspace(ctx, workspace) {
                     autoaccept.enable(CDP_PORT).catch(() => {});
                 }
             } else {
-                ctx.reply(t('workspace.started') + t('workspace.cdp_warning'));
+                ctx.reply(t('workspace.started', { workspace }) + t('workspace.cdp_warning'));
             }
         } catch (err) {
             console.error('doLaunchWorkspace error:', err);
             ctx.reply(t('workspace.start_failed', { error: err.message }));
         }
-    })();
+    } catch (e) {
+        console.error('doLaunchWorkspace async wrap error:', e);
+    }
 }
 
 const handleWorkspace = (ctx) => {
