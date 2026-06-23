@@ -1230,9 +1230,17 @@ async function sendViaCDP(text, port, specificTargetId = null) {
             if (val && val.found) {
                 await new Promise(r => setTimeout(r, 50));
                 try {
-                    await Input.dispatchKeyEvent({ type: 'rawKeyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' });
-                    await Input.dispatchKeyEvent({ type: 'char', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' });
-                    await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+                    let isMac = process.platform === 'darwin';
+                    try {
+                        const versionInfo = await client.send('Browser.getVersion');
+                        if (versionInfo && versionInfo.userAgent) {
+                            isMac = versionInfo.userAgent.includes('Macintosh') || versionInfo.userAgent.includes('Mac OS X');
+                        }
+                    } catch (_) {}
+                    const nativeEnter = isMac ? 36 : 13;
+
+                    await Input.dispatchKeyEvent({ type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: nativeEnter, text: '\r' });
+                    await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: nativeEnter });
                 } catch(e) {}
                 await client.close();
                 console.log(`sendViaCDP: Successfully sent via ${val.method} on "${target.title?.substring(0, 40)}"`);
