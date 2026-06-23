@@ -348,6 +348,7 @@ Use `/app` to switch the bot's focus between apps. The `ANTIGRAVITY_PREFERRED_AP
 - **[mine260309](https://github.com/mine260309)** — i18n translations for hardcoded messages
 - **[acmavirus/antigravity-telegram-control](https://github.com/acmavirus/antigravity-telegram-control)** — The open-source Telegram integration that served as the foundation for this project
 - **[yazanbaker94/AntiGravity-AutoAccept](https://github.com/yazanbaker94/AntiGravity-AutoAccept)** — DOM observer pattern inspiration for the Auto-Accept module
+- **[vassoz](https://github.com/vassoz)** — PR #12: Fix CDP connection, X11 display auto-detection, and dynamic port shortcuts
 
 ## 🌟 Credits & Inspirations
 
