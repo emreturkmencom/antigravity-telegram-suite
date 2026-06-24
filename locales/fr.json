@@ -276,7 +276,9 @@
     "done_summary": "✨ Mode Turbo Terminé (Résumé prêt)",
     "p5_error": "Délai d'attente dépassé lors de la phase de résumé.",
     "is_running": "⏳ Le Mode Turbo est en cours ! Veuillez patienter ou tapez /turbo pour annuler.",
-    "is_running_short": "⏳ Mode Turbo en cours, veuillez patienter."
+    "is_running_short": "⏳ Mode Turbo en cours, veuillez patienter.",
+    "p1_fallback": "🚀 <b>Turbo Mode Active:</b>\\n\\n⚠️ Claude limit reached.\\n⏳ <b>Phase 1:</b> Falling back to Gemini 3.5 Flash for planning...",
+    "p3_fallback": "🚀 <b>Turbo Mode Active:</b>\\n\\n✅ <b>Phase 1:</b> Planning\\n✅ <b>Phase 2:</b> Coding\\n⚠️ Claude limit reached.\\n⏳ <b>Phase 3:</b> Falling back to Gemini 3.1 Pro for review..."
   },
   "restart": {
     "closing": "🔄 Redémarrage du bot..."

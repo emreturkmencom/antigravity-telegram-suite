@@ -276,7 +276,9 @@
     "done_summary": "✨ Turbo-Modus abgeschlossen (Zusammenfassung bereit)",
     "p5_error": "Zeitüberschreitung in der Zusammenfassungsphase.",
     "is_running": "⏳ Turbo-Modus läuft! Bitte warten oder mit /turbo abbrechen.",
-    "is_running_short": "⏳ Turbo-Modus läuft, bitte warten."
+    "is_running_short": "⏳ Turbo-Modus läuft, bitte warten.",
+    "p1_fallback": "🚀 <b>Turbo Mode Active:</b>\\n\\n⚠️ Claude limit reached.\\n⏳ <b>Phase 1:</b> Falling back to Gemini 3.5 Flash for planning...",
+    "p3_fallback": "🚀 <b>Turbo Mode Active:</b>\\n\\n✅ <b>Phase 1:</b> Planning\\n✅ <b>Phase 2:</b> Coding\\n⚠️ Claude limit reached.\\n⏳ <b>Phase 3:</b> Falling back to Gemini 3.1 Pro for review..."
   },
   "restart": {
     "closing": "🔄 Bot wird neu gestartet..."
