@@ -274,6 +274,15 @@ function killIDE(app = getPreferredApp()) {
             // Clean lock file
             try { fs.unlinkSync(lock); } catch (_) {}
 
+            // Clean Electron SingletonLock/SingletonCookie files
+            // These stale lock files prevent the next IDE instance from properly
+            // initializing its CDP debugging port, causing "CDP connection failed"
+            // errors that previously required a full PC restart to resolve.
+            const dataDir = getAppDataDir(app);
+            try { fs.unlinkSync(path.join(dataDir, 'SingletonLock')); } catch (_) {}
+            try { fs.unlinkSync(path.join(dataDir, 'SingletonCookie')); } catch (_) {}
+            try { fs.unlinkSync(path.join(dataDir, 'SingletonSocket')); } catch (_) {}
+
             // Verification loop: wait until all processes are truly dead (max 5s)
             if (PLATFORM === 'linux' || PLATFORM === 'darwin') {
                 let attempts = 0;
@@ -315,6 +324,11 @@ function cleanLockFile(app = getPreferredApp()) {
     const fs = require('fs');
     const lock = path.join(getAppDataDir(app), 'code.lock');
     try { fs.unlinkSync(lock); } catch (_) {}
+    // Also clean Electron singleton files to prevent CDP connection failures
+    const dataDir = getAppDataDir(app);
+    try { fs.unlinkSync(path.join(dataDir, 'SingletonLock')); } catch (_) {}
+    try { fs.unlinkSync(path.join(dataDir, 'SingletonCookie')); } catch (_) {}
+    try { fs.unlinkSync(path.join(dataDir, 'SingletonSocket')); } catch (_) {}
 }
 
 /**

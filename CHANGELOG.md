@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [3.5.5] - 2026-06-27
+
+### Fixed
+- **CDP Connection Failed — No Longer Requires PC Restart**: Fixed a persistent issue where the bot would report "CDP connection failed" after the IDE was closed or crashed. The root cause was stale Electron `SingletonLock` files left behind in the IDE's data directory, preventing the next instance from properly initializing its debugging port. Both `killIDE()` and `cleanLockFile()` in `platform.js` now automatically clean up `SingletonLock`, `SingletonCookie`, and `SingletonSocket` files.
+  > 💡 **If you encounter "CDP connection failed"**: Run `/close_ide` (or `/close_ag`) followed by `/start_ide` (or `/start_ag`) from Telegram. This will clean up stale lock files and restart the IDE with a fresh CDP connection — no PC restart needed.
+
 ## [3.5.0] - 2026-06-11
 
 ### Added

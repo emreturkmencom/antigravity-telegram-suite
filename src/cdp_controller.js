@@ -2428,7 +2428,7 @@ async function stopAgent(port) {
     return false;
 }
 
-async function getQuota(_port, t) {
+async function getQuota(_port, t, returnRaw = false) {
     const { exec } = require('child_process');
     const { promisify } = require('util');
     const https = require('https');
@@ -2516,6 +2516,7 @@ async function getQuota(_port, t) {
 
         if (!apiData) { console.log('[Quota] No Connect RPC response'); return null; }
         console.log('[Quota] API response received');
+        if (returnRaw) return apiData;
 
         // 4. Format the response
         const userStatus = apiData.userStatus || apiData;
