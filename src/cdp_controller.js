@@ -773,7 +773,7 @@ async function getFullLatestResponse(port, specificTargetId = null, threadName =
     // currently selected thread, regardless of filesystem state or thread IDs.
     try {
         const domResult = await _domLatestExtraction(port, targetIdToUse);
-        if (domResult && domResult.trim().length > 10) {
+        if (domResult && domResult.trim().length > 0) {
             console.log(`[getFullLatestResponse] ✓ DOM extraction successful (${domResult.length} chars) | Target: ${targetIdToUse || 'auto'}`);
             
             // Side-effect: resolve conversation UUID from the DOM content so that
@@ -2123,6 +2123,9 @@ async function getCurrentModel(port) {
                     (function() {
                         const btn = AG_UI.getModelSelectorButton();
                         if (btn) {
+                            const label = btn.getAttribute('aria-label') || '';
+                            const current = label.match(/(?:current|当前)[：:]\\s*(.+)$/i);
+                            if (current && current[1]) return current[1].trim();
                             return btn.textContent.trim();
                         }
                         return null;
@@ -2262,17 +2265,24 @@ async function getAvailableModels(port) {
             const { Runtime } = client;
             await Runtime.enable();
 
-            // Open model menu first
-            await Runtime.evaluate({
+            // Open model menu first, but avoid toggling it closed if already open.
+            const openRes = await Runtime.evaluate({
                 expression: `
                     ${UI_LOCATORS_SCRIPT}
                     (() => {
+                        const existingOptions = AG_UI.getModelOptions().filter(el => el.offsetParent !== null);
+                        if (existingOptions.length > 3) return { alreadyOpen: true };
                         const btn = AG_UI.getModelSelectorButton();
-                        if (btn) { btn.click(); return true; }
-                        return false;
+                        if (btn) { btn.click(); return { clicked: true }; }
+                        return { clicked: false };
                     })()
                 `, returnByValue: true
             });
+            const openVal = openRes.result?.value;
+            if (!openVal || (!openVal.clicked && !openVal.alreadyOpen)) {
+                await client.close();
+                continue;
+            }
 
             // Wait for dropdown to open
             await new Promise(r => setTimeout(r, 500));
@@ -2282,15 +2292,22 @@ async function getAvailableModels(port) {
                 expression: `
                     ${UI_LOCATORS_SCRIPT}
                     (() => {
+                        const cleanModelText = (text) => (text || '')
+                            .replace(/Fla\\s*h/g, 'Flash')
+                            .replace(/Fa\\s*t/g, 'Fast')
+                            .replace(/\\bOpu(?=\\s|[0-9(])/g, 'Opus')
+                            .replace(/\\s*(Fast|New)\\s*$/i, '')
+                            .replace(/\\s+/g, ' ')
+                            .trim();
                         const models = [];
                         const items = AG_UI.getModelOptions();
                         items.forEach(el => {
                             if (el.offsetParent) {
-                                const t = el.textContent.trim().split('\\n')[0].trim();
+                                const t = cleanModelText(el.textContent.trim().split('\\n')[0].trim());
                                 if (t.length > 2 && t.length < 80) models.push(t);
                             }
                         });
-                        return models;
+                        return Array.from(new Set(models));
                     })()
                 `, returnByValue: true
             });
@@ -2349,19 +2366,38 @@ async function selectModel(port, modelName, specificTargetId = null) {
                 expression: `
                     ${UI_LOCATORS_SCRIPT}
                     (() => {
-                        const targetModel = ${JSON.stringify(modelName)}.toLowerCase();
+                        const normalizeModelText = (text) => (text || '')
+                            .toLowerCase()
+                            .replace(/选择模型/g, ' ')
+                            .replace(/select model/g, ' ')
+                            .replace(/current/g, ' ')
+                            .replace(/当前/g, ' ')
+                            .replace(/fla\\s*h/g, 'flash')
+                            .replace(/fa\\s*t/g, 'fast')
+                            .replace(/\\bopu(?=\\s|[0-9(])/g, 'opus')
+                            .replace(/\\bfast\\b/g, ' ')
+                            .replace(/\\bnew\\b/g, ' ')
+                            .replace(/[^a-z0-9]+/g, '');
+                        const cleanModelText = (text) => (text || '')
+                            .replace(/Fla\\s*h/g, 'Flash')
+                            .replace(/Fa\\s*t/g, 'Fast')
+                            .replace(/\\bOpu(?=\\s|[0-9(])/g, 'Opus')
+                            .replace(/\\s*(Fast|New)\\s*$/i, '')
+                            .replace(/\\s+/g, ' ')
+                            .trim();
+                        const targetModel = normalizeModelText(${JSON.stringify(modelName)});
                         const modelOptions = AG_UI.getModelOptions().filter(el => el.offsetParent !== null);
                         
                         // Try exact match first
                         let match = modelOptions.find(b => {
-                            const text = b.textContent.replace(/New$/i, '').trim().toLowerCase();
+                            const text = normalizeModelText(b.textContent);
                             return text === targetModel;
                         });
                         
                         // Try partial/includes match
                         if (!match) {
                             match = modelOptions.find(b => {
-                                const text = b.textContent.replace(/New$/i, '').trim().toLowerCase();
+                                const text = normalizeModelText(b.textContent);
                                 return text.includes(targetModel) || targetModel.includes(text);
                             });
                         }
@@ -2378,7 +2414,7 @@ async function selectModel(port, modelName, specificTargetId = null) {
                         }
                         
                         // Return available models for debugging
-                        const available = modelOptions.map(b => b.textContent.replace(/New$/i, '').trim());
+                        const available = modelOptions.map(b => cleanModelText(b.textContent));
                         return { selected: false, available };
                     })()
                 `, returnByValue: true

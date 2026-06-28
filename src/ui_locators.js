@@ -208,7 +208,20 @@ const UI_LOCATORS_SCRIPT = `
          * @returns {HTMLElement|null}
          */
         getModelSelectorButton: () => {
-            return document.querySelector('[aria-label*="Select model" i], [title*="Select model" i], [aria-label*="model" i]') || null;
+            const direct = document.querySelector(
+                '[aria-label*="Select model" i], [title*="Select model" i], [aria-label*="model" i], [aria-label*="选择模型"], [title*="选择模型"], [aria-label*="当前"]'
+            );
+            if (direct) return direct;
+
+            const modelKeywords = ['gemini', 'claude', 'gpt', 'opus', 'sonnet', 'flash'];
+            const allButtons = Array.from(document.querySelectorAll('button, [role="button"]'));
+            return allButtons.find(el => {
+                const label = ((el.getAttribute('aria-label') || '') + ' ' + (el.getAttribute('title') || '') + ' ' + (el.textContent || '')).toLowerCase();
+                return label.includes('选择模型') ||
+                    label.includes('select model') ||
+                    label.includes('current:') ||
+                    modelKeywords.some(k => label.includes(k));
+            }) || null;
         },
 
         /**
@@ -217,7 +230,7 @@ const UI_LOCATORS_SCRIPT = `
          */
         getModelOptions: () => {
             const modelKeywords = ['gemini', 'claude', 'gpt', 'opus', 'sonnet', 'flash'];
-            const candidates = Array.from(document.querySelectorAll('button.px-2.py-1, [role="option"], [role="menuitemradio"], .model-option'));
+            const candidates = Array.from(document.querySelectorAll('button, [role="option"], [role="menuitem"], [role="menuitemradio"], .model-option'));
             return candidates.filter(el => {
                 const text = (el.textContent || '').toLowerCase();
                 return modelKeywords.some(k => text.includes(k));
