@@ -32,6 +32,16 @@ function _notifyThreadResolved(threadId) {
  */
 const { UI_LOCATORS_SCRIPT } = require('./ui_locators');
 
+const SUBMIT_ACTION_TEXTS = [
+    'submit', 'send', 'send message', 'gönder', 'approve', 'allow', 'confirm',
+    '提交', '发送', '发送消息', '确认', '确定'
+];
+const PENDING_ACTION_TEXTS = [
+    'run', 'accept', 'allow', 'continue', 'retry',
+    'çalıştır', 'kabul et', 'izin ver', 'devam et', 'yeniden dene',
+    '运行', '接受', '允许', '继续', '重试'
+];
+
 // Cache for the active workspace name, refreshed on each resolveTargets call
 let activeWorkspaceName = null;
 const threadNameToIdCache = new Map();
@@ -981,7 +991,7 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null,
                             const aaActive = !!window.__AA_BOT_OBSERVER_ACTIVE && !window.__AA_BOT_PAUSED;
                             let hasPendingButton = false;
                             if (aaActive) {
-                                const texts = ['run', 'accept', 'allow', 'continue', 'retry', 'çalıştır', 'kabul et', 'izin ver', 'devam et', 'yeniden dene'];
+                                const texts = ${JSON.stringify(PENDING_ACTION_TEXTS)};
                                 const btns = Array.from(document.querySelectorAll('button')).filter(b => b.offsetParent !== null);
                                 hasPendingButton = btns.some(b => {
                                     const t = (b.textContent||'').trim().toLowerCase();
@@ -1192,7 +1202,12 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                             // Find the submit button near the editor (within same panel)
                             const panelContainer = editor.closest('#antigravity') || editor.closest('#conversation') || document;
                             // Primary: aria-label based search (most reliable in newer IDE)
-                            let submit = panelContainer.querySelector("button[aria-label='Submit'], button[aria-label='Gönder'], button[aria-label='send']");
+                            const submitTexts = ${JSON.stringify(SUBMIT_ACTION_TEXTS)};
+                            let submit = Array.from(panelContainer.querySelectorAll('button')).find(b => {
+                                if (b.offsetParent === null) return false;
+                                const label = ((b.getAttribute('aria-label') || '') + ' ' + (b.getAttribute('title') || '') + ' ' + (b.textContent || '')).trim().toLowerCase();
+                                return submitTexts.some(text => label === text || label.includes(text));
+                            });
                             // Secondary: SVG icon search
                             if (!submit) {
                                 submit = panelContainer.querySelector("svg.lucide-arrow-right, svg.lucide-arrow-up, svg[class*='arrow-right'], svg[class*='arrow-up'], svg[class*='send']")?.closest("button");
@@ -1201,7 +1216,7 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                                 const allBtns = Array.from(panelContainer.querySelectorAll('button')).filter(b => b.offsetParent !== null);
                                 submit = allBtns.find(b => {
                                     const text = (b.textContent || '').trim().toLowerCase();
-                                    return text === 'submit' || text.startsWith('submit') || text === 'gönder' || text === 'approve' || text === 'allow';
+                                    return submitTexts.some(action => text === action || text.startsWith(action + ' '));
                                 });
                             }
                             
@@ -2193,6 +2208,8 @@ async function switchStandaloneWorkspace(port, wsName) {
 }
 
 module.exports = {
+    PENDING_ACTION_TEXTS,
+    SUBMIT_ACTION_TEXTS,
     findConversationIdByTitle,
     isAgentWorking,
     getFullLatestResponse,
