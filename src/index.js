@@ -1811,7 +1811,8 @@ bot.command('lang', async (ctx) => {
         'tr': '🇹🇷 Türkçe',
         'es': '🇪🇸 Español',
         'fr': '🇫🇷 Français',
-        'de': '🇩🇪 Deutsch'
+        'de': '🇩🇪 Deutsch',
+        'ko': '🇰🇷 한국어'
     };
     
     const buttons = availableLangs.map(l => {

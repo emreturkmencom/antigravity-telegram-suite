@@ -4,7 +4,7 @@
 
 **Funciona tanto con la [Antigravity Standalone App](https://antigravity.google/)\* como con el [Antigravity IDE](https://antigravity.google/).**
 
-🌍 Idiomas: [English](README.md) | [Türkçe](README.tr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md)
+🌍 Idiomas: [English](README.md) | [한국어](README.ko.md) | [Türkçe](README.tr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md)
 
 Controla tu agente de IA Antigravity de forma remota a través de Telegram.
 Envía mensajes, cambia modelos de IA, administra espacios de trabajo, toma capturas de pantalla y ejecuta flujos de trabajo de múltiples agentes, todo desde tu teléfono.
@@ -40,7 +40,7 @@ Envía mensajes, cambia modelos de IA, administra espacios de trabajo, toma capt
 | 🔔 **Notificaciones Proactivas** | TaskWatcher detecta mensajes no solicitados del agente (timers, sub-agentes) y los reenvía a Telegram |
 | 🤔 **Reacciones en Mensajes** | Muestra 🤔 durante el procesamiento, lo elimina al terminar |
 | 🔄 **Actualización Automática** | Comprueba si hay actualizaciones y actualiza el bot con un solo comando |
-| 🌐 **Multi-Idioma** | 5 idiomas compatibles: Inglés, Turco, Alemán, Español, Francés |
+| 🌐 **Multi-Idioma** | 6 idiomas compatibles: Inglés, Coreano, Turco, Alemán, Español, Francés |
 | ⌨️ **Indicador de Escritura** | Muestra "escribiendo..." en Telegram mientras el agente está trabajando |
 | 🖥️ **Multi-Plataforma** | Funciona en Linux, macOS (Intel y Apple Silicon) y Windows |
 | 🔀 **Soporte de Aplicación Dual** | Cambia sin problemas entre Antigravity IDE y Standalone Agent App |
@@ -83,7 +83,7 @@ IDE_CDP_PORT=9334      # Puerto para el Antigravity IDE
 # Modelo de IA predeterminado al iniciar un nuevo chat
 DEFAULT_MODEL=Gemini 3.1 Pro (High)
 
-# Idioma: en | tr | de | es | fr
+# Idioma: en | tr | de | es | fr | ko
 LANGUAGE=es
 
 # Aplicación de destino preferida: 'agent' (Standalone) o 'ide' (IDE)

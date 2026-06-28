@@ -4,7 +4,7 @@
 
 **Hem [Antigravity Standalone App](https://antigravity.google/)\* hem de [Antigravity IDE](https://antigravity.google/) ile çalışır.**
 
-🌍 Diller: [English](README.md) | [Türkçe](README.tr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md)
+🌍 Diller: [English](README.md) | [한국어](README.ko.md) | [Türkçe](README.tr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md)
 
 Antigravity AI ajanınızı Telegram üzerinden uzaktan kontrol edin.
 Telefonunuzdan mesaj gönderin, yapay zeka modellerini değiştirin, çalışma alanlarını (workspace) yönetin, ekran görüntüsü alın ve çoklu ajan (multi-agent) iş akışlarını çalıştırın.
@@ -40,7 +40,7 @@ Telefonunuzdan mesaj gönderin, yapay zeka modellerini değiştirin, çalışma 
 | 🔔 **Proaktif Bildirimler** | TaskWatcher, ajanın kendiliğinden gönderdiği mesajları (timer, alt-ajan) Telegram’a iletir |
 | 🤔 **Mesaj Reaksiyonları** | İşlem sırasında 🤔 gösterir, tamamlanınca temizler |
 | 🔄 **Oto-Güncelleme** | Tek bir komutla güncellemeleri kontrol edin ve botu güncelleyin |
-| 🌐 **Çoklu Dil** | 5 dil desteği: İngilizce, Türkçe, Almanca, İspanyolca, Fransızca |
+| 🌐 **Çoklu Dil** | 6 dil desteği: İngilizce, Korece, Türkçe, Almanca, İspanyolca, Fransızca |
 | ⌨️ **Yazıyor Göstergesi** | Ajan çalışırken Telegram’da "yazıyor..." durumunu gösterir |
 | 🖥️ **Çapraz Platform** | Linux, macOS (Intel & Apple Silicon) ve Windows’ta çalışır |
 | 🔀 **Çift Uygulama Desteği** | Antigravity IDE ve Standalone App arasında sorunsuzca geçiş yapın |
@@ -83,7 +83,7 @@ IDE_CDP_PORT=9334      # Antigravity IDE için port
 # Yeni sohbetlerde otomatik seçilecek yapay zeka modeli
 DEFAULT_MODEL=Gemini 3.1 Pro (High)
 
-# Dil: en | tr | de | es | fr
+# Dil: en | tr | de | es | fr | ko
 LANGUAGE=tr
 
 # Tercih edilen uygulama: 'agent' (Standalone) veya 'ide' (IDE)

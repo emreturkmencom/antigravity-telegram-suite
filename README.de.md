@@ -4,7 +4,7 @@
 
 **Funktioniert sowohl mit der [Antigravity Standalone App](https://antigravity.google/)\* als auch mit der [Antigravity IDE](https://antigravity.google/).**
 
-🌍 Sprachen: [English](README.md) | [Türkçe](README.tr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md)
+🌍 Sprachen: [English](README.md) | [한국어](README.ko.md) | [Türkçe](README.tr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md)
 
 Steuere deinen Antigravity-KI-Agenten aus der Ferne über Telegram.
 Sende Nachrichten, wechsle KI-Modelle, verwalte Arbeitsbereiche, nimm Screenshots auf und führe Multi-Agenten-Workflows aus — alles von deinem Telefon aus.
@@ -40,7 +40,7 @@ Sende Nachrichten, wechsle KI-Modelle, verwalte Arbeitsbereiche, nimm Screenshot
 | 🔔 **Proaktive Benachrichtigungen** | TaskWatcher erkennt unaufgeforderte Agenten-Nachrichten (Timer, Sub-Agents) und leitet sie an Telegram weiter |
 | 🤔 **Nachrichtenreaktionen** | Zeigt 🤔 während der Verarbeitung, löscht bei Fertigstellung |
 | 🔄 **Auto-Update** | Suche nach Updates und aktualisiere den Bot mit einem Befehl |
-| 🌐 **Mehrsprachigkeit** | 5 unterstützte Sprachen: Englisch, Türkisch, Deutsch, Spanisch, Französisch |
+| 🌐 **Mehrsprachigkeit** | 6 unterstützte Sprachen: Englisch, Koreanisch, Türkisch, Deutsch, Spanisch, Französisch |
 | ⌨️ **Tipp-Indikator** | Zeigt in Telegram "tippt..." an, während der Agent arbeitet |
 | 🖥️ **Plattformübergreifend** | Funktioniert unter Linux, macOS (Intel & Apple Silicon) und Windows |
 | 🔀 **Dual-App-Unterstützung** | Nahtloser Wechsel zwischen Antigravity IDE und Standalone Agent App |
@@ -83,7 +83,7 @@ IDE_CDP_PORT=9334      # Port für die Antigravity IDE
 # Standard-KI-Modell für neue Chats
 DEFAULT_MODEL=Gemini 3.1 Pro (High)
 
-# Sprache: en | tr | de | es | fr
+# Sprache: en | tr | de | es | fr | ko
 LANGUAGE=de
 
 # Bevorzugtes Anwendungsziel: 'agent' (Standalone) oder 'ide' (IDE)
