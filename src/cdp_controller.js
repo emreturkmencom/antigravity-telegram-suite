@@ -963,6 +963,10 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null,
             const raw = await resolveTargets(port);
             if (specificTargetId) {
                 candidates = raw.filter(t => t.id === specificTargetId);
+                if (candidates.length === 0) {
+                    console.warn(`[waitForAgent] Target ${specificTargetId} no longer exists; falling back to current visible targets.`);
+                    candidates = raw;
+                }
             } else {
                 candidates = raw;
             }
