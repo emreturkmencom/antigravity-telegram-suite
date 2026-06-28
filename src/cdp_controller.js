@@ -41,6 +41,12 @@ const PENDING_ACTION_TEXTS = [
     'çalıştır', 'kabul et', 'izin ver', 'devam et', 'yeniden dene',
     '运行', '接受', '允许', '继续', '重试'
 ];
+const WAIT_FOR_AGENT_POLICY = {
+    gracePeriodMs: Number(process.env.AGENT_WAIT_GRACE_MS || 2500),
+    idleConfirmations: Number(process.env.AGENT_IDLE_CONFIRMATIONS || 2),
+    pollIntervalMs: Number(process.env.AGENT_WAIT_POLL_MS || 1000),
+    spinnerOnlyConfirmations: Number(process.env.AGENT_SPINNER_CONFIRMATIONS || 4)
+};
 
 // Cache for the active workspace name, refreshed on each resolveTargets call
 let activeWorkspaceName = null;
@@ -948,7 +954,7 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null,
     let consecutiveIdleCount = 0;
     let spinnerOnlyCount = 0;
     let lastProgressTime = 0;
-    const GRACE_PERIOD_MS = 6000; // Wait at least 6s before accepting idle — gives IDE time to start generating
+    const policy = WAIT_FOR_AGENT_POLICY;
 
     while (Date.now() - startTime < timeoutMs) {
         // Re-fetch targets on each iteration to avoid stale WebSocket connections
@@ -1029,18 +1035,18 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null,
         if (foundChat) {
             const elapsed = Date.now() - startTime;
             if (isIdle && !isGenerating) {
-                // Only count idle after grace period — prevents false "done" before IDE starts
-                if (elapsed > GRACE_PERIOD_MS) {
+                // Only count idle after a short grace period — gives Antigravity time to start generating.
+                if (elapsed > policy.gracePeriodMs) {
                     consecutiveIdleCount++;
-                    if (consecutiveIdleCount >= 4) return true;
+                    if (consecutiveIdleCount >= policy.idleConfirmations) return true;
                 }
             } else if (!isGenerating && lastEvalVal && lastEvalVal.isSpinning && !lastEvalVal.hasPendingButton) {
                 // Spinner-only state: agent is not generating but IDE shows a spinner
                 // This happens when agent sets a timer/schedule and is waiting
                 // After enough consecutive checks, consider agent done
-                if (elapsed > GRACE_PERIOD_MS) {
+                if (elapsed > policy.gracePeriodMs) {
                     spinnerOnlyCount = (spinnerOnlyCount || 0) + 1;
-                    if (spinnerOnlyCount >= 6) { // ~12 seconds of spinner-only
+                    if (spinnerOnlyCount >= policy.spinnerOnlyConfirmations) {
                         console.log(`[waitForAgent] Spinner-only idle detected after ${Math.round(elapsed/1000)}s — treating as done`);
                         return true;
                     }
@@ -1058,7 +1064,7 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null,
             onProgress('typing');
         }
 
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, policy.pollIntervalMs));
     }
     return false;
 }
@@ -2210,6 +2216,7 @@ async function switchStandaloneWorkspace(port, wsName) {
 module.exports = {
     PENDING_ACTION_TEXTS,
     SUBMIT_ACTION_TEXTS,
+    WAIT_FOR_AGENT_POLICY,
     findConversationIdByTitle,
     isAgentWorking,
     getFullLatestResponse,

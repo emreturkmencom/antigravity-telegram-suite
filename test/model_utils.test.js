@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { UI_LOCATORS_SCRIPT } = require('../src/ui_locators');
-const { PENDING_ACTION_TEXTS, SUBMIT_ACTION_TEXTS } = require('../src/cdp_controller');
+const { PENDING_ACTION_TEXTS, SUBMIT_ACTION_TEXTS, WAIT_FOR_AGENT_POLICY } = require('../src/cdp_controller');
 const { findBestModelOption, normalizeModelText } = require('../src/model_utils');
 
 function run() {
@@ -13,6 +13,9 @@ function run() {
     assert(PENDING_ACTION_TEXTS.includes('允许'), 'pending action detection should support Chinese allow buttons');
     assert(PENDING_ACTION_TEXTS.includes('继续'), 'pending action detection should support Chinese continue buttons');
     assert(PENDING_ACTION_TEXTS.includes('重试'), 'pending action detection should support Chinese retry buttons');
+    assert(WAIT_FOR_AGENT_POLICY.gracePeriodMs <= 3000, 'response wait grace should not add long fixed delays');
+    assert(WAIT_FOR_AGENT_POLICY.idleConfirmations <= 2, 'response wait should finish after a small number of idle confirmations');
+    assert(WAIT_FOR_AGENT_POLICY.pollIntervalMs <= 1000, 'response wait polling should be responsive');
 
     assert.strictEqual(
         normalizeModelText('Gemini 3.5 Fla h (Medium)Fa t'),
