@@ -11,6 +11,8 @@ const autoaccept = require('./autoaccept');
 const updater = require('./updater');
 const { runTurboOrchestration } = require('./turbo_orchestrator');
 const TaskWatcher = require('./task_watcher');
+const { enqueueByKey } = require('./message_queue');
+const { ensureCdpReady, isConnectionRefusedError } = require('./cdp_health');
 let scheduleClient = null;
 try {
     scheduleClient = require('./schedule_client');
@@ -63,6 +65,7 @@ function saveMessageTargetMap(map) {
     } catch (err) { console.error('Failed to save messageTargetMap:', err.message); }
 }
 const messageTargetMap = loadMessageTargetMap();
+const textMessageQueues = new Map();
 
 const LANG_STATE_FILE = path.join(os.homedir(), '.gemini', 'antigravity', 'lang.txt');
 
@@ -158,6 +161,21 @@ function getCDPPort(app = process.env.ANTIGRAVITY_PREFERRED_APP || 'agent') {
     return parseInt(process.env.AGENT_CDP_PORT || process.env.DEBUGGING_PORT || '9333', 10);
 }
 let CDP_PORT = getCDPPort();
+
+async function sendViaCDPWithRecovery(text, specificTargetId = null) {
+    const app = config.preferredApp || 'agent';
+    await ensureCdpReady({ port: CDP_PORT, app });
+    try {
+        return await sendViaCDP(text, CDP_PORT, specificTargetId);
+    } catch (err) {
+        if (!isConnectionRefusedError(err)) {
+            throw err;
+        }
+        console.warn(`[cdp] Port ${CDP_PORT} refused connection; restarting ${app} with CDP and retrying once.`);
+        await ensureCdpReady({ port: CDP_PORT, app });
+        return sendViaCDP(text, CDP_PORT, null);
+    }
+}
 
 function updateEnvFile(key, value) {
     const envPath = path.join(__dirname, '..', '.env');
@@ -2701,7 +2719,13 @@ bot.on('text', (ctx) => {
         explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
     }
     
-    (async () => {
+    const queueKey = ctx.chat?.id ? ctx.chat.id.toString() : 'global';
+    const wasQueued = textMessageQueues.has(queueKey);
+    if (wasQueued) {
+        ctx.reply('⏳ Queued behind the previous message.').catch(() => {});
+    }
+
+    enqueueByKey(textMessageQueues, queueKey, async () => {
         try {
             if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
             let targetId = explicitTargetId;
@@ -2718,7 +2742,7 @@ bot.on('text', (ctx) => {
                     isTurboRunning = false;
                 }
             } else {
-                targetId = await sendViaCDP(query, CDP_PORT, explicitTargetId);
+                targetId = await sendViaCDPWithRecovery(query, explicitTargetId);
                 setReaction(ctx, REACTION.THINKING);
 
                 // Wait briefly for message to render in DOM before anchoring state
@@ -2758,7 +2782,9 @@ bot.on('text', (ctx) => {
             const errorMsg = err.message === 'no_chat_input' ? t('ask.no_chat_input') : err.message;
             ctx.reply(t('ask.headless_error', { error: errorMsg })).catch(() => {});
         }
-    })();
+    }).catch(err => {
+        console.error('[textQueue] Unhandled queued message error:', err.message);
+    });
 });
 
 // ===== PHOTO & DOCUMENT HANDLER =====
