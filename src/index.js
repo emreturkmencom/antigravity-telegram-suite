@@ -1808,6 +1808,7 @@ bot.command('lang', async (ctx) => {
     
     const langMap = {
         'en': '🇬🇧 English',
+        'zh': '🇨🇳 中文',
         'tr': '🇹🇷 Türkçe',
         'es': '🇪🇸 Español',
         'fr': '🇫🇷 Français',
