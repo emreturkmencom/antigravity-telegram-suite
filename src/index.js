@@ -3,6 +3,8 @@ const { Telegraf, Markup } = require('telegraf');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const http = require('http');
+const https = require('https');
 const { exec } = require('child_process');
 const { loadLocale, t, getLang } = require('./i18n');
 const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, trustWorkspaceViaCDP, PLATFORM } = require('./platform');
@@ -11,6 +13,7 @@ const autoaccept = require('./autoaccept');
 const updater = require('./updater');
 const { runTurboOrchestration } = require('./turbo_orchestrator');
 const TaskWatcher = require('./task_watcher');
+const { extractLocalImageMarkdown } = require('./local_media');
 let scheduleClient = null;
 try {
     scheduleClient = require('./schedule_client');
@@ -217,9 +220,78 @@ function markdownToTelegramHtml(text) {
     return html;
 }
 
+function downloadLocalImageUrl(rawUrl) {
+    return new Promise((resolve, reject) => {
+        let parsed;
+        try {
+            parsed = new URL(rawUrl);
+        } catch (err) {
+            reject(err);
+            return;
+        }
+
+        const client = parsed.protocol === 'https:' ? https : http;
+        const onResponse = (res) => {
+            if (res.statusCode < 200 || res.statusCode >= 300) {
+                res.resume();
+                reject(new Error(`HTTP ${res.statusCode}`));
+                return;
+            }
+
+            const chunks = [];
+            res.on('data', chunk => chunks.push(chunk));
+            res.on('end', () => {
+                const filename = path.basename(parsed.pathname) || 'image';
+                resolve({ buffer: Buffer.concat(chunks), filename });
+            });
+        };
+        const req = parsed.protocol === 'https:'
+            ? client.get(parsed, { rejectUnauthorized: false }, onResponse)
+            : client.get(parsed, onResponse);
+
+        req.setTimeout(15000, () => req.destroy(new Error('download timeout')));
+        req.on('error', reject);
+    });
+}
+
+async function sendExtractedImage(ctx, image, replyToMsgId = null) {
+    const replyOptions = replyToMsgId
+        ? { reply_parameters: { message_id: replyToMsgId, allow_sending_without_reply: true } }
+        : undefined;
+
+    if (image.type === 'url') {
+        const downloaded = await downloadLocalImageUrl(image.path);
+        await ctx.replyWithPhoto(
+            { source: downloaded.buffer, filename: downloaded.filename },
+            replyOptions
+        );
+        return;
+    }
+
+    if (!fs.existsSync(image.path)) {
+        console.warn(`[local_media] Image not found: ${image.path}`);
+        return;
+    }
+
+    await ctx.replyWithPhoto(
+        { source: image.path },
+        replyOptions
+    );
+}
+
 // Helper: Send long messages safely within Telegram's 4096 char limit
 async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMsgId = null) {
     const MAX_LEN = 3500;
+    const localMedia = extractLocalImageMarkdown(text);
+    text = localMedia.text;
+
+    for (const image of localMedia.images) {
+        try {
+            await sendExtractedImage(ctx, image, replyToMsgId);
+        } catch (err) {
+            console.warn(`[local_media] Failed to send image ${image.path}: ${err.message}`);
+        }
+    }
     
     // Parse text to HTML and preserve prefix formatting
     const htmlText = prefix ? `<b>${prefix}</b>\n\n${markdownToTelegramHtml(text)}` : markdownToTelegramHtml(text);

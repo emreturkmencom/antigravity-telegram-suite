@@ -247,6 +247,12 @@ const CHAT_EXTRACT_EXPR = `
                 if (node.nodeType !== 1) return '';
                 
                 let tag = node.tagName.toLowerCase();
+                if (tag === 'img') {
+                    const src = node.currentSrc || node.src || node.getAttribute('src') || '';
+                    if (!src) return '';
+                    const alt = (node.getAttribute('alt') || node.getAttribute('title') || 'image').replace(/[\\]\\r\\n]/g, ' ').trim() || 'image';
+                    return '\\n![' + alt + '](' + src + ')\\n';
+                }
                 if (node.classList && node.classList.contains('code-block')) {
                     let lines = Array.from(node.querySelectorAll('.code-line'));
                     let code = lines.map(l => l.textContent.replace(/\\u00a0/g, ' ')).join('\\n');
