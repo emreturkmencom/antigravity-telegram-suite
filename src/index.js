@@ -2794,10 +2794,7 @@ bot.on('text', (ctx) => {
     }
     
     const queueKey = ctx.chat?.id ? ctx.chat.id.toString() : 'global';
-    const wasQueued = textMessageQueues.has(queueKey);
-    if (wasQueued) {
-        ctx.reply('⏳ Queued behind the previous message.').catch(() => {});
-    }
+
 
     enqueueByKey(textMessageQueues, queueKey, async () => {
         try {
