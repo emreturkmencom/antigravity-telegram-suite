@@ -49,6 +49,44 @@ let cachedAgentThreads = [];
 let cachedArtifacts = [];
 
 const MAP_FILE_PATH = path.join(os.homedir(), '.gemini', 'antigravity', 'message_target_map.json');
+
+const TTS_SETTINGS_FILE = path.join(os.homedir(), '.gemini', (process.env.ANTIGRAVITY_PREFERRED_APP === 'ide' ? 'antigravity-ide' : 'antigravity'), 'tts_settings.json');
+const defaultTtsSettings = {
+    speed: '1.25x',
+    rate: 2,
+    maxChars: 500
+};
+let ttsSettings = { ...defaultTtsSettings };
+
+function loadTtsSettings() {
+    try {
+        const dir = path.dirname(TTS_SETTINGS_FILE);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        if (fs.existsSync(TTS_SETTINGS_FILE)) {
+            ttsSettings = { ...defaultTtsSettings, ...JSON.parse(fs.readFileSync(TTS_SETTINGS_FILE, 'utf-8')) };
+        }
+    } catch (err) { console.error('Failed to load ttsSettings:', err.message); }
+}
+
+function saveTtsSettings() {
+    try {
+        const dir = path.dirname(TTS_SETTINGS_FILE);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(TTS_SETTINGS_FILE, JSON.stringify(ttsSettings));
+    } catch (err) { console.error('Failed to save ttsSettings:', err.message); }
+}
+
+loadTtsSettings();
+
+const ttsOptions = [
+    { speed: '1x', rate: 0, maxChars: 600, label: '1.0x (Max 600 chars / ~60s)' },
+    { speed: '1.25x', rate: 2, maxChars: 500, label: '1.25x (Max 500 chars / ~45s)' },
+    { speed: '1.4x', rate: 3, maxChars: 400, label: '1.4x (Max 400 chars / ~35s)' },
+    { speed: '1.5x', rate: 4, maxChars: 300, label: '1.5x (Max 300 chars / ~30s)' },
+    { speed: '1.75x', rate: 6, maxChars: 250, label: '1.75x (Max 250 chars / ~25s)' },
+    { speed: '2x', rate: 8, maxChars: 200, label: '2.0x (Max 200 chars / ~20s)' }
+];
+
 function loadMessageTargetMap() {
     try {
         if (fs.existsSync(MAP_FILE_PATH)) {
@@ -298,11 +336,11 @@ async function sendExtractedImage(ctx, image, replyToMsgId = null) {
 }
 
 // Helper: Convert text to WAV using Windows Speech API (SAPI) via PowerShell
-function speakToWav(text, outputFile) {
+function speakToWav(text, outputFile, rate = 2) {
     return new Promise((resolve, reject) => {
         // Escape single quotes for PowerShell
         const escapedText = text.replace(/'/g, "''").replace(/\n/g, ' ');
-        const psCommand = `Add-Type -AssemblyName System.Speech; $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; $synth.SetOutputToWaveFile('${outputFile.replace(/\\/g, '\\\\')}'); $synth.Speak('${escapedText}'); $synth.Dispose();`;
+        const psCommand = `Add-Type -AssemblyName System.Speech; $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; $synth.Rate = ${rate}; $synth.SetOutputToWaveFile('${outputFile.replace(/\\/g, '\\\\')}'); $synth.Speak('${escapedText}'); $synth.Dispose();`;
         
         exec(`powershell -Command "${psCommand}"`, (error, stdout, stderr) => {
             if (error) {
@@ -428,21 +466,22 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
                     .replace(/\s+/g, ' ')
                     .trim();
                     
-                // Truncate to limit speech to ~15-30 seconds (roughly 300 chars)
-                if (cleanSummary.length > 300) {
-                    cleanSummary = cleanSummary.substring(0, 300) + '...';
+                // Truncate to limit speech based on user settings
+                const charLimit = ttsSettings.maxChars || 500;
+                if (cleanSummary.length > charLimit) {
+                    cleanSummary = cleanSummary.substring(0, charLimit) + '...';
                 }
                 
                 if (cleanSummary) {
                     const tempFile = path.join(os.tmpdir(), `summary_${Date.now()}.wav`);
-                    await speakToWav(cleanSummary, tempFile);
+                    await speakToWav(cleanSummary, tempFile, ttsSettings.rate);
                     
                     // Send the wav audio to Telegram
                     await ctx.replyWithAudio({ 
                         source: tempFile, 
                         filename: 'summary.wav' 
                     }, {
-                        caption: '🔊 Summary (15-30s)',
+                        caption: `🔊 Summary (${ttsSettings.speed})`,
                         reply_parameters: { message_id: currentReplyId, allow_sending_without_reply: true }
                     });
                     
@@ -1624,6 +1663,42 @@ bot.action(/md_(.+)/, async (ctx) => {
         else ctx.reply(t('model.select_failed'));
     } catch(e) {
         ctx.answerCbQuery(t('model.error'));
+    }
+});
+
+const handleTtsMenu = async (ctx) => {
+    const activeSpeed = ttsSettings.speed || '1.25x';
+    const buttons = ttsOptions.map(opt => {
+        const text = (opt.speed === activeSpeed ? '✅ ' : '') + opt.label;
+        return [{ text, callback_data: `tts_${opt.speed}` }];
+    });
+    
+    await ctx.reply('🔊 <b>TTS Speed & Limit Settings:</b>\nSelect your preference for audio summaries:', {
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: buttons }
+    });
+};
+bot.command('tts', handleTtsMenu);
+
+bot.action(/^tts_(.+)$/, async (ctx) => {
+    const selectedSpeed = ctx.match[1];
+    const opt = ttsOptions.find(o => o.speed === selectedSpeed);
+    if (opt) {
+        ttsSettings.speed = opt.speed;
+        ttsSettings.rate = opt.rate;
+        ttsSettings.maxChars = opt.maxChars;
+        saveTtsSettings();
+        
+        // Re-render the menu to show checkmark
+        const buttons = ttsOptions.map(o => {
+            const text = (o.speed === opt.speed ? '✅ ' : '') + o.label;
+            return [{ text, callback_data: `tts_${o.speed}` }];
+        });
+        
+        await ctx.editMessageReplyMarkup({ inline_keyboard: buttons }).catch(() => {});
+        await ctx.answerCbQuery(`TTS set to ${opt.speed} (max ${opt.maxChars} chars)`);
+    } else {
+        await ctx.answerCbQuery('Invalid speed selection');
     }
 });
 
