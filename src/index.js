@@ -14,6 +14,7 @@ const updater = require('./updater');
 const { runTurboOrchestration } = require('./turbo_orchestrator');
 const TaskWatcher = require('./task_watcher');
 const { extractLocalImageMarkdown } = require('./local_media');
+
 const { ensureCdpReady, isConnectionRefusedError } = require('./cdp_health');
 let scheduleClient = null;
 try {
@@ -2854,7 +2855,7 @@ bot.action(/^ans_(.+)$/, async (ctx) => {
     }
 });
 
-bot.on('text', (ctx) => {
+bot.on('text', async (ctx) => {
     if (ctx.message.text.startsWith('/')) return;
     let query = ctx.message.text;
     
@@ -2876,8 +2877,8 @@ bot.on('text', (ctx) => {
     if (!explicitTargetId && ctx.message.reply_to_message?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data?.startsWith('focus_')) {
         explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
     }
-    (async () => {
-        try {
+    
+    try {
             if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
             let targetId = explicitTargetId;
             let text = "";
@@ -2933,7 +2934,6 @@ bot.on('text', (ctx) => {
             const errorMsg = err.message === 'no_chat_input' ? t('ask.no_chat_input') : err.message;
             ctx.reply(t('ask.headless_error', { error: errorMsg })).catch(() => {});
         }
-    })();
 });
 
 // ===== PHOTO & DOCUMENT HANDLER =====
