@@ -297,9 +297,37 @@ async function sendExtractedImage(ctx, image, replyToMsgId = null) {
     );
 }
 
+// Helper: Convert text to WAV using Windows Speech API (SAPI) via PowerShell
+function speakToWav(text, outputFile) {
+    return new Promise((resolve, reject) => {
+        // Escape single quotes for PowerShell
+        const escapedText = text.replace(/'/g, "''").replace(/\n/g, ' ');
+        const psCommand = `Add-Type -AssemblyName System.Speech; $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; $synth.SetOutputToWaveFile('${outputFile.replace(/\\/g, '\\\\')}'); $synth.Speak('${escapedText}'); $synth.Dispose();`;
+        
+        exec(`powershell -Command "${psCommand}"`, (error, stdout, stderr) => {
+            if (error) {
+                reject(error || stderr);
+            } else {
+                resolve(outputFile);
+            }
+        });
+    });
+}
+
 // Helper: Send long messages safely within Telegram's 4096 char limit
 async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMsgId = null) {
     const MAX_LEN = 3500;
+    
+    // Extract summary
+    let summaryText = '';
+    const summaryRegex = /\[SUMMARY\]|Summary:|SUMMARY:/i;
+    const match = text.match(summaryRegex);
+    if (match) {
+        const index = match.index;
+        summaryText = text.substring(index + match[0].length).trim();
+        text = text.substring(0, index).trim();
+    }
+
     const localMedia = extractLocalImageMarkdown(text);
     text = localMedia.text;
 
@@ -388,6 +416,46 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
             const sentMsg = await replyWithRetry(currentChunk, false, buttons, 3, currentReplyId);
             if (sentMsg) sentMsgIds.push(sentMsg.message_id);
         }
+        
+        // Send audio clip if we extracted a summary
+        if (summaryText) {
+            try {
+                // Clean up the text for speech synthesis
+                let cleanSummary = summaryText
+                    .replace(/<[^>]*>/g, '')
+                    .replace(/[*_`#~|]/g, '')
+                    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                    
+                // Truncate to limit speech to ~15-30 seconds (roughly 300 chars)
+                if (cleanSummary.length > 300) {
+                    cleanSummary = cleanSummary.substring(0, 300) + '...';
+                }
+                
+                if (cleanSummary) {
+                    const tempFile = path.join(os.tmpdir(), `summary_${Date.now()}.wav`);
+                    await speakToWav(cleanSummary, tempFile);
+                    
+                    // Send the wav audio to Telegram
+                    await ctx.replyWithAudio({ 
+                        source: tempFile, 
+                        filename: 'summary.wav' 
+                    }, {
+                        caption: '🔊 Summary (15-30s)',
+                        reply_parameters: { message_id: currentReplyId, allow_sending_without_reply: true }
+                    });
+                    
+                    // Cleanup file
+                    try {
+                        fs.unlinkSync(tempFile);
+                    } catch (_) {}
+                }
+            } catch (err) {
+                console.error('[TTS] Failed to generate/send speech:', err.message);
+            }
+        }
+        
         console.log(`sendLongMessage: Sent successfully`);
         return sentMsgIds;
     } catch (err) {
@@ -2780,6 +2848,12 @@ bot.on('text', async (ctx) => {
     if (ctx.message.text.startsWith('/')) return;
     let query = ctx.message.text;
     
+    // Append summary prompt suffix for standard queries (not quick options like numbers)
+    const isQuickOption = /^\d+$/.test(query.trim()) || query.trim().length <= 3;
+    if (!isQuickOption) {
+        query += "\n\n[Please format your response with a brief 15-30 second audio-friendly summary at the very end, starting with '[SUMMARY]' on a new line. Keep it conversational and around 50-70 words.]";
+    }
+    
     let explicitTargetId = null;
     let explicitThreadName = null;
     if (ctx.message.reply_to_message) {
@@ -2901,7 +2975,8 @@ async function processMediaGroup(group) {
     const paths = group.files.map(p => `\`${p}\``).join(', ');
     const combinedCaption = group.captions.join('\n');
     
-    const query = `[System: The user has uploaded ${group.files.length} files. You MUST use your \`view_file\` tool to examine ALL files at these absolute paths: ${paths} . Do not say you cannot see them. Use the tool!]${combinedCaption ? `\nUser's message: ${combinedCaption}` : ''}`;
+    let query = `[System: The user has uploaded ${group.files.length} files. You MUST use your \`view_file\` tool to examine ALL files at these absolute paths: ${paths} . Do not say you cannot see them. Use the tool!]${combinedCaption ? `\nUser's message: ${combinedCaption}` : ''}`;
+    query += "\n\n[Please format your response with a brief 15-30 second audio-friendly summary at the very end, starting with '[SUMMARY]' on a new line. Keep it conversational and around 50-70 words.]";
     
     try {
         await processAgentRequest(ctx, query, group.explicitTargetId, group.explicitThreadName, combinedCaption);
@@ -2987,7 +3062,8 @@ bot.on(['photo', 'document'], (ctx) => {
                 return;
             }
             
-            const query = `[System: The user has uploaded an image or file. You MUST use your \`view_file\` tool to examine the file at this absolute path: ${dest} . Do not say you cannot see it. Use the tool!]${caption ? `\nUser's message: ${caption}` : ''}`;
+            let query = `[System: The user has uploaded an image or file. You MUST use your \`view_file\` tool to examine the file at this absolute path: ${dest} . Do not say you cannot see it. Use the tool!]${caption ? `\nUser's message: ${caption}` : ''}`;
+            query += "\n\n[Please format your response with a brief 15-30 second audio-friendly summary at the very end, starting with '[SUMMARY]' on a new line. Keep it conversational and around 50-70 words.]";
             
             await processAgentRequest(ctx, query, explicitTargetId, explicitThreadName, caption);
             
