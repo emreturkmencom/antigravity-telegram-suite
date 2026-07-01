@@ -42,11 +42,11 @@ function getLocalVersion() {
 function getRemoteCommitInfo() {
     return new Promise((resolve, reject) => {
         try {
-            // Fetch origin main so we can get the latest commit message
-            execSync('git fetch origin main', { cwd: PROJECT_ROOT, stdio: 'ignore' });
+            // Fetch origin fix-telegram-4000-char-limit so we can get the latest commit message
+            execSync('git fetch origin fix-telegram-4000-char-limit', { cwd: PROJECT_ROOT, stdio: 'ignore' });
             
-            const hash = execSync('git log -1 --format="%h" origin/main', { cwd: PROJECT_ROOT }).toString().trim();
-            const message = execSync('git log -1 --format="%s" origin/main', { cwd: PROJECT_ROOT }).toString().trim();
+            const hash = execSync('git log -1 --format="%h" origin/fix-telegram-4000-char-limit', { cwd: PROJECT_ROOT }).toString().trim();
+            const message = execSync('git log -1 --format="%s" origin/fix-telegram-4000-char-limit', { cwd: PROJECT_ROOT }).toString().trim();
             
             resolve({ hash, message });
         } catch(e) {
@@ -63,7 +63,7 @@ function getRemoteCommitInfo() {
 }
 
 /**
- * Get remote version from package.json on GitHub (main branch).
+ * Get remote version from package.json on GitHub (fix-telegram-4000-char-limit branch).
  */
 function getRemoteVersion() {
     return new Promise((resolve, reject) => {
@@ -79,7 +79,7 @@ function getRemoteVersion() {
         if (!match) return resolve(null);
 
         const [, owner, repo] = match;
-        const url = `https://raw.githubusercontent.com/${owner}/${repo}/main/package.json`;
+        const url = `https://raw.githubusercontent.com/${owner}/${repo}/fix-telegram-4000-char-limit/package.json`;
 
         https.get(url, (res) => {
             let data = '';
@@ -131,10 +131,10 @@ async function checkForUpdates() {
     let hasNewCommits = false;
     if (remoteCommit) {
         try {
-            // Check if origin/main is already merged into HEAD (ancestor of HEAD)
-            execSync('git merge-base --is-ancestor origin/main HEAD', { cwd: PROJECT_ROOT });
+            // Check if origin/fix-telegram-4000-char-limit is already merged into HEAD (ancestor of HEAD)
+            execSync('git merge-base --is-ancestor origin/fix-telegram-4000-char-limit HEAD', { cwd: PROJECT_ROOT });
         } catch (_) {
-            // If the command fails, origin/main is not an ancestor, so we have new commits
+            // If the command fails, origin/fix-telegram-4000-char-limit is not an ancestor, so we have new commits
             hasNewCommits = true;
         }
     }
@@ -164,7 +164,7 @@ function performUpdate() {
         }
 
         // Step 1: Check if package.json will change before we merge
-        exec('git fetch origin main && git diff --name-only HEAD origin/main', { cwd: PROJECT_ROOT }, (err, stdout) => {
+        exec('git fetch origin fix-telegram-4000-char-limit && git diff --name-only HEAD origin/fix-telegram-4000-char-limit', { cwd: PROJECT_ROOT }, (err, stdout) => {
             if (err) return reject(new Error(`git fetch failed: ${err.message}`));
             
             const diffOutput = stdout.trim();
@@ -182,8 +182,8 @@ function performUpdate() {
                 console.error('[updater] Stash check failed:', e.message);
             }
 
-            // Step 3: Try to merge updates from the developer's main branch instead of discarding corrections with reset --hard
-            exec('git merge origin/main -m "Merge updates from developer"', { cwd: PROJECT_ROOT }, (err2, mergeOut) => {
+            // Step 3: Try to merge updates from the developer's fix-telegram-4000-char-limit branch instead of discarding corrections with reset --hard
+            exec('git merge origin/fix-telegram-4000-char-limit -m "Merge updates from developer"', { cwd: PROJECT_ROOT }, (err2, mergeOut) => {
                 if (err2) {
                     // Merge failed (e.g., conflicts) -> abort the merge and restore stash
                     try {

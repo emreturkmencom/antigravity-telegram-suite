@@ -3149,7 +3149,7 @@ async function init() {
     }, 3000);
 
     // Start periodic update checker (notifies via Telegram when update is available)
-    updater.startUpdateChecker(bot, ALLOWED_CHAT_IDS);
+    // updater.startUpdateChecker(bot, ALLOWED_CHAT_IDS);
 
     // Initialize Task Watcher — monitors agent's proactive notifications
     const preferredApp = (process.env.ANTIGRAVITY_PREFERRED_APP || 'ide').toLowerCase();
