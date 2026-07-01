@@ -364,6 +364,13 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
         const index = match.index;
         summaryText = text.substring(index + match[0].length).trim();
         text = text.substring(0, index).trim();
+    } else if (text.length > 200) {
+        // Fallback: Use the first 2 sentences if response is long and no summary marker is present
+        const sentences = text
+            .replace(/<[^>]*>/g, '') // Strip HTML tags
+            .split(/(?<=[.!?])\s+/)
+            .filter(s => s.trim().length > 0);
+        summaryText = sentences.slice(0, 2).join(' ');
     }
 
     const localMedia = extractLocalImageMarkdown(text);
@@ -463,6 +470,7 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
                     .replace(/<[^>]*>/g, '')
                     .replace(/[*_`#~|]/g, '')
                     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+                    .replace(/["']/g, '') // Strip single/double quotes to prevent PowerShell parsing errors
                     .replace(/\s+/g, ' ')
                     .trim();
                     
