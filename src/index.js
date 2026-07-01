@@ -14,7 +14,6 @@ const updater = require('./updater');
 const { runTurboOrchestration } = require('./turbo_orchestrator');
 const TaskWatcher = require('./task_watcher');
 const { extractLocalImageMarkdown } = require('./local_media');
-const { enqueueByKey } = require('./message_queue');
 const { ensureCdpReady, isConnectionRefusedError } = require('./cdp_health');
 let scheduleClient = null;
 try {
@@ -68,7 +67,6 @@ function saveMessageTargetMap(map) {
     } catch (err) { console.error('Failed to save messageTargetMap:', err.message); }
 }
 const messageTargetMap = loadMessageTargetMap();
-const textMessageQueues = new Map();
 
 const LANG_STATE_FILE = path.join(os.homedir(), '.gemini', 'antigravity', 'lang.txt');
 
@@ -1429,6 +1427,7 @@ const handleArtifacts = async (ctx) => {
         cachedArtifacts.sort((a, b) => b.mtime - a.mtime);
 
         let msg = t('artifacts.list_title') || '📎 <b>Artifacts for Current Thread:</b>\\n\\n';
+        const msgs = [];
         for (let i = 0; i < cachedArtifacts.length; i++) {
             const filename = cachedArtifacts[i].name;
             let displayName = filename;
@@ -1451,10 +1450,21 @@ const handleArtifacts = async (ctx) => {
             } else {
                 displayName = filename.replace(/\.[^/.]+$/, "").replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
             }
-            msg += `/artifact_${i + 1} - ${displayName}\n`;
+            const line = `/artifact_${i + 1} - ${displayName}\n`;
+            if (msg.length + line.length > 4000) {
+                msgs.push(msg);
+                msg = line;
+            } else {
+                msg += line;
+            }
+        }
+        if (msg) {
+            msgs.push(msg);
         }
         
-        ctx.reply(msg, { parse_mode: 'HTML' });
+        for (const m of msgs) {
+            await ctx.reply(m, { parse_mode: 'HTML' });
+        }
     } catch (e) {
         ctx.reply((t('artifacts.error') || '❌ Error reading artifact: ') + e.message);
     }
@@ -2792,11 +2802,7 @@ bot.on('text', (ctx) => {
     if (!explicitTargetId && ctx.message.reply_to_message?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data?.startsWith('focus_')) {
         explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
     }
-    
-    const queueKey = ctx.chat?.id ? ctx.chat.id.toString() : 'global';
-
-
-    enqueueByKey(textMessageQueues, queueKey, async () => {
+    (async () => {
         try {
             if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
             let targetId = explicitTargetId;
@@ -2853,9 +2859,7 @@ bot.on('text', (ctx) => {
             const errorMsg = err.message === 'no_chat_input' ? t('ask.no_chat_input') : err.message;
             ctx.reply(t('ask.headless_error', { error: errorMsg })).catch(() => {});
         }
-    }).catch(err => {
-        console.error('[textQueue] Unhandled queued message error:', err.message);
-    });
+    })();
 });
 
 // ===== PHOTO & DOCUMENT HANDLER =====
