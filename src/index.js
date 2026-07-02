@@ -14,7 +14,6 @@ const updater = require('./updater');
 const { runTurboOrchestration } = require('./turbo_orchestrator');
 const TaskWatcher = require('./task_watcher');
 const { extractLocalImageMarkdown } = require('./local_media');
-
 const { ensureCdpReady, isConnectionRefusedError } = require('./cdp_health');
 let scheduleClient = null;
 try {
@@ -68,7 +67,6 @@ function saveMessageTargetMap(map) {
     } catch (err) { console.error('Failed to save messageTargetMap:', err.message); }
 }
 const messageTargetMap = loadMessageTargetMap();
-
 
 const LANG_STATE_FILE = path.join(os.homedir(), '.gemini', 'antigravity', 'lang.txt');
 
@@ -2792,9 +2790,8 @@ bot.on('text', async (ctx) => {
     if (!explicitTargetId && ctx.message.reply_to_message?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data?.startsWith('focus_')) {
         explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
     }
-    
     try {
-            if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
+        if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
             let targetId = explicitTargetId;
             let text = "";
             let interactiveButtons = null;
