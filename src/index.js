@@ -1429,6 +1429,7 @@ const handleArtifacts = async (ctx) => {
         cachedArtifacts.sort((a, b) => b.mtime - a.mtime);
 
         let msg = t('artifacts.list_title') || '📎 <b>Artifacts for Current Thread:</b>\\n\\n';
+        const msgs = [];
         for (let i = 0; i < cachedArtifacts.length; i++) {
             const filename = cachedArtifacts[i].name;
             let displayName = filename;
@@ -1451,10 +1452,21 @@ const handleArtifacts = async (ctx) => {
             } else {
                 displayName = filename.replace(/\.[^/.]+$/, "").replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
             }
-            msg += `/artifact_${i + 1} - ${displayName}\n`;
+            const line = `/artifact_${i + 1} - ${displayName}\n`;
+            if (msg.length + line.length > 4000) {
+                msgs.push(msg);
+                msg = line;
+            } else {
+                msg += line;
+            }
+        }
+        if (msg) {
+            msgs.push(msg);
         }
         
-        ctx.reply(msg, { parse_mode: 'HTML' });
+        for (const m of msgs) {
+            await ctx.reply(m, { parse_mode: 'HTML' });
+        }
     } catch (e) {
         ctx.reply((t('artifacts.error') || '❌ Error reading artifact: ') + e.message);
     }
