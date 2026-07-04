@@ -14,6 +14,9 @@ const updater = require('./updater');
 const { runTurboOrchestration } = require('./turbo_orchestrator');
 const TaskWatcher = require('./task_watcher');
 const { extractLocalImageMarkdown } = require('./local_media');
+const tts = require('./tts');
+
+
 const { ensureCdpReady, isConnectionRefusedError } = require('./cdp_health');
 let scheduleClient = null;
 try {
@@ -48,6 +51,9 @@ let cachedAgentThreads = [];
 let cachedArtifacts = [];
 
 const MAP_FILE_PATH = path.join(os.homedir(), '.gemini', 'antigravity', 'message_target_map.json');
+
+
+
 function loadMessageTargetMap() {
     try {
         if (fs.existsSync(MAP_FILE_PATH)) {
@@ -67,6 +73,7 @@ function saveMessageTargetMap(map) {
     } catch (err) { console.error('Failed to save messageTargetMap:', err.message); }
 }
 const messageTargetMap = loadMessageTargetMap();
+
 
 const LANG_STATE_FILE = path.join(os.homedir(), '.gemini', 'antigravity', 'lang.txt');
 
@@ -295,9 +302,17 @@ async function sendExtractedImage(ctx, image, replyToMsgId = null) {
     );
 }
 
-// Helper: Send long messages safely within Telegram's 4096 char limit
+
+
+
 async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMsgId = null) {
     const MAX_LEN = 3500;
+    
+    // Extract summary
+    const ttsResult = tts.extractAndCleanText(text);
+    text = ttsResult.text;
+    const summaryText = ttsResult.summary;
+
     const localMedia = extractLocalImageMarkdown(text);
     text = localMedia.text;
 
@@ -386,6 +401,12 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
             const sentMsg = await replyWithRetry(currentChunk, false, buttons, 3, currentReplyId);
             if (sentMsg) sentMsgIds.push(sentMsg.message_id);
         }
+        
+        // Send audio clip if we extracted a summary
+        if (summaryText) {
+            await tts.speakAndSend(ctx, summaryText, currentReplyId);
+        }
+        
         console.log(`sendLongMessage: Sent successfully`);
         return sentMsgIds;
     } catch (err) {
@@ -1427,7 +1448,6 @@ const handleArtifacts = async (ctx) => {
         cachedArtifacts.sort((a, b) => b.mtime - a.mtime);
 
         let msg = t('artifacts.list_title') || '📎 <b>Artifacts for Current Thread:</b>\\n\\n';
-        const msgs = [];
         for (let i = 0; i < cachedArtifacts.length; i++) {
             const filename = cachedArtifacts[i].name;
             let displayName = filename;
@@ -1450,21 +1470,10 @@ const handleArtifacts = async (ctx) => {
             } else {
                 displayName = filename.replace(/\.[^/.]+$/, "").replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
             }
-            const line = `/artifact_${i + 1} - ${displayName}\n`;
-            if (msg.length + line.length > 4000) {
-                msgs.push(msg);
-                msg = line;
-            } else {
-                msg += line;
-            }
-        }
-        if (msg) {
-            msgs.push(msg);
+            msg += `/artifact_${i + 1} - ${displayName}\n`;
         }
         
-        for (const m of msgs) {
-            await ctx.reply(m, { parse_mode: 'HTML' });
-        }
+        ctx.reply(msg, { parse_mode: 'HTML' });
     } catch (e) {
         ctx.reply((t('artifacts.error') || '❌ Error reading artifact: ') + e.message);
     }
@@ -1568,6 +1577,8 @@ bot.action(/md_(.+)/, async (ctx) => {
         ctx.answerCbQuery(t('model.error'));
     }
 });
+
+tts.registerTtsHandlers(bot);
 
 // ===== AUTO-ACCEPT =====
 
@@ -2448,6 +2459,8 @@ function getMenuCommands() {
     const cmds = [
         { command: 'help', description: t('menu.help_desc') },
         { command: 'latest', description: t('menu.latest_desc') },
+        { command: 'audio', description: t('menu.audio_desc') },
+        { command: 'tts', description: t('menu.tts_desc') },
         { command: 'screenshot', description: t('menu.screenshot_desc') },
         { command: 'status', description: t('menu.status_desc') },
         { command: 'start_ide', description: t('menu.start_ide_desc') || 'Start IDE' },
@@ -2790,6 +2803,12 @@ bot.on('text', async (ctx) => {
     if (ctx.message.text.startsWith('/')) return;
     let query = ctx.message.text;
     
+    // Append summary prompt suffix for standard queries (not quick options like numbers)
+    const isQuickOption = /^\d+$/.test(query.trim()) || query.trim().length <= 3;
+    if (!isQuickOption) {
+        query = tts.appendTtsInstruction(query);
+    }
+    
     let explicitTargetId = null;
     let explicitThreadName = null;
     if (ctx.message.reply_to_message) {
@@ -2802,8 +2821,9 @@ bot.on('text', async (ctx) => {
     if (!explicitTargetId && ctx.message.reply_to_message?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data?.startsWith('focus_')) {
         explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
     }
+    
     try {
-        if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
+            if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
             let targetId = explicitTargetId;
             let text = "";
             let interactiveButtons = null;
@@ -2910,7 +2930,8 @@ async function processMediaGroup(group) {
     const paths = group.files.map(p => `\`${p}\``).join(', ');
     const combinedCaption = group.captions.join('\n');
     
-    const query = `[System: The user has uploaded ${group.files.length} files. You MUST use your \`view_file\` tool to examine ALL files at these absolute paths: ${paths} . Do not say you cannot see them. Use the tool!]${combinedCaption ? `\nUser's message: ${combinedCaption}` : ''}`;
+    let query = `[System: The user has uploaded ${group.files.length} files. You MUST use your \`view_file\` tool to examine ALL files at these absolute paths: ${paths} . Do not say you cannot see them. Use the tool!]${combinedCaption ? `\nUser's message: ${combinedCaption}` : ''}`;
+    query = tts.appendTtsInstruction(query);
     
     try {
         await processAgentRequest(ctx, query, group.explicitTargetId, group.explicitThreadName, combinedCaption);
@@ -2996,7 +3017,8 @@ bot.on(['photo', 'document'], (ctx) => {
                 return;
             }
             
-            const query = `[System: The user has uploaded an image or file. You MUST use your \`view_file\` tool to examine the file at this absolute path: ${dest} . Do not say you cannot see it. Use the tool!]${caption ? `\nUser's message: ${caption}` : ''}`;
+            let query = `[System: The user has uploaded an image or file. You MUST use your \`view_file\` tool to examine the file at this absolute path: ${dest} . Do not say you cannot see it. Use the tool!]${caption ? `\nUser's message: ${caption}` : ''}`;
+            query = tts.appendTtsInstruction(query);
             
             await processAgentRequest(ctx, query, explicitTargetId, explicitThreadName, caption);
             

@@ -177,7 +177,9 @@
     "plan_desc": "Uygulama planı oluştur",
     "schedule_task_desc": "IDE'de görev zamanla",
     "browser_desc": "IDE'de tarayıcı aç",
-    "model_not_selected": "⚠️ Model seçilmedi"
+    "model_not_selected": "⚠️ Model seçilmedi",
+    "audio_desc": "Sesli özetleri aç/kapat (Açık/Kapalı)",
+    "tts_desc": "Sesli özet ayarlarını yapılandır"
   },
   "photo": {
     "downloaded": "✅ Dosya indirildi ve ajana yönlendiriliyor...",
@@ -410,5 +412,15 @@
     "menu_schedule_status_desc": "CronCrew durumunu göster"
   },
   "localImageFallback": "Görsel",
-  "localImageSent": "telefonuna gönderildi"
+  "localImageSent": "telefonuna gönderildi",
+  "tts": {
+    "menu_title": "🔊 <b>Ses Hız ve Sınır Ayarları:</b>\nSesli özetler için tercihinizi belirleyin:",
+    "toggle_on": "🔊 Sesli Özet: Etkin",
+    "toggle_off": "🔇 Sesli Özet: Devre Dışı",
+    "status_enabled": "Sesli özetler şimdi ETKİN.",
+    "status_disabled": "Sesli özetler şimdi DEVRE DIŞI.",
+    "toast_speed_set": "Ses hızı {speed} olarak ayarlandı (en fazla {chars} karakter)",
+    "toast_invalid": "Geçersiz seçim",
+    "prompt_instruction": "[Lütfen yanıtınızın sonuna '[SUMMARY]' ile başlayan, 15-30 saniyelik, seslendirmeye uygun kısa bir özet ekleyin. Konuşma dilinde ve yaklaşık 50-70 kelime olsun.]"
+  }
 }

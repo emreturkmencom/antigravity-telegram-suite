@@ -67,3 +67,6 @@ scratch/
 *.cpuprofile
 *.heapsnapshot
 
+# Local config
+slack_config.txt
+
