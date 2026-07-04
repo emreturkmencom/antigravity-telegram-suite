@@ -414,13 +414,13 @@
   "localImageFallback": "이미지",
   "localImageSent": "휴대폰으로 전송됨",
   "tts": {
-    "menu_title": "🔊 <b>Audio Speed & Limit Settings:</b>\nSelect your preference for audio summaries:",
-    "toggle_on": "🔊 Audio Summaries: Enabled",
-    "toggle_off": "🔇 Audio Summaries: Disabled",
-    "status_enabled": "Audio summaries are now ENABLED.",
-    "status_disabled": "Audio summaries are now DISABLED.",
-    "toast_speed_set": "Audio speed set to {speed} (max {chars} chars)",
-    "toast_invalid": "Invalid selection",
+    "menu_title": "🔊 <b>오디오 속도 및 제한 설정:</b>\n오디오 요약에 대한 기본 설정을 선택하세요:",
+    "toggle_on": "🔊 오디오 요약: 활성화됨",
+    "toggle_off": "🔇 오디오 요약: 비활성화됨",
+    "status_enabled": "오디오 요약이 활성화되었습니다.",
+    "status_disabled": "오디오 요약이 비활성화되었습니다.",
+    "toast_speed_set": "오디오 속도가 {speed}로 설정됨 (최대 {chars}자)",
+    "toast_invalid": "잘못된 선택",
     "prompt_instruction": "[Please format your response with a brief 15-30 second audio-friendly summary at the very end, starting with '[SUMMARY]' on a new line. Keep it conversational and around 50-70 words.]"
   }
 }

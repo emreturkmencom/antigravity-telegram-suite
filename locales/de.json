@@ -414,13 +414,13 @@
   "localImageFallback": "Bild",
   "localImageSent": "an dein Handy gesendet",
   "tts": {
-    "menu_title": "🔊 <b>Audio Speed & Limit Settings:</b>\nSelect your preference for audio summaries:",
-    "toggle_on": "🔊 Audio Summaries: Enabled",
-    "toggle_off": "🔇 Audio Summaries: Disabled",
-    "status_enabled": "Audio summaries are now ENABLED.",
-    "status_disabled": "Audio summaries are now DISABLED.",
-    "toast_speed_set": "Audio speed set to {speed} (max {chars} chars)",
-    "toast_invalid": "Invalid selection",
+    "menu_title": "🔊 <b>Audio-Geschwindigkeit & Limit-Einstellungen:</b>\nWähle deine Präferenz für Audio-Zusammenfassungen:",
+    "toggle_on": "🔊 Audio-Zusammenfassungen: Aktiviert",
+    "toggle_off": "🔇 Audio-Zusammenfassungen: Deaktiviert",
+    "status_enabled": "Audio-Zusammenfassungen sind jetzt AKTIVIERT.",
+    "status_disabled": "Audio-Zusammenfassungen sind jetzt DEAKTIVIERT.",
+    "toast_speed_set": "Audio-Geschwindigkeit auf {speed} gesetzt (max. {chars} Zeichen)",
+    "toast_invalid": "Ungültige Auswahl",
     "prompt_instruction": "[Please format your response with a brief 15-30 second audio-friendly summary at the very end, starting with '[SUMMARY]' on a new line. Keep it conversational and around 50-70 words.]"
   }
 }

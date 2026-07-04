@@ -15,8 +15,6 @@ const { runTurboOrchestration } = require('./turbo_orchestrator');
 const TaskWatcher = require('./task_watcher');
 const { extractLocalImageMarkdown } = require('./local_media');
 const tts = require('./tts');
-
-
 const { ensureCdpReady, isConnectionRefusedError } = require('./cdp_health');
 let scheduleClient = null;
 try {
@@ -52,8 +50,6 @@ let cachedArtifacts = [];
 
 const MAP_FILE_PATH = path.join(os.homedir(), '.gemini', 'antigravity', 'message_target_map.json');
 
-
-
 function loadMessageTargetMap() {
     try {
         if (fs.existsSync(MAP_FILE_PATH)) {
@@ -73,7 +69,6 @@ function saveMessageTargetMap(map) {
     } catch (err) { console.error('Failed to save messageTargetMap:', err.message); }
 }
 const messageTargetMap = loadMessageTargetMap();
-
 
 const LANG_STATE_FILE = path.join(os.homedir(), '.gemini', 'antigravity', 'lang.txt');
 
@@ -302,9 +297,7 @@ async function sendExtractedImage(ctx, image, replyToMsgId = null) {
     );
 }
 
-
-
-
+// Helper: Send long messages safely within Telegram's 4096 char limit
 async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMsgId = null) {
     const MAX_LEN = 3500;
     
@@ -1447,7 +1440,8 @@ const handleArtifacts = async (ctx) => {
         // Sort by modification time, newest first
         cachedArtifacts.sort((a, b) => b.mtime - a.mtime);
 
-        let msg = t('artifacts.list_title') || '📎 <b>Artifacts for Current Thread:</b>\\n\\n';
+        let msg = t('artifacts.list_title') || '📎 <b>Artifacts for Current Thread:</b>\n\n';
+        const msgs = [];
         for (let i = 0; i < cachedArtifacts.length; i++) {
             const filename = cachedArtifacts[i].name;
             let displayName = filename;
@@ -1470,10 +1464,21 @@ const handleArtifacts = async (ctx) => {
             } else {
                 displayName = filename.replace(/\.[^/.]+$/, "").replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
             }
-            msg += `/artifact_${i + 1} - ${displayName}\n`;
+            const line = `/artifact_${i + 1} - ${displayName}\n`;
+            if (msg.length + line.length > 4000) {
+                msgs.push(msg);
+                msg = line;
+            } else {
+                msg += line;
+            }
+        }
+        if (msg) {
+            msgs.push(msg);
         }
         
-        ctx.reply(msg, { parse_mode: 'HTML' });
+        for (const m of msgs) {
+            await ctx.reply(m, { parse_mode: 'HTML' });
+        }
     } catch (e) {
         ctx.reply((t('artifacts.error') || '❌ Error reading artifact: ') + e.message);
     }
@@ -2823,7 +2828,7 @@ bot.on('text', async (ctx) => {
     }
     
     try {
-            if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
+        if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
             let targetId = explicitTargetId;
             let text = "";
             let interactiveButtons = null;
