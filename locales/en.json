@@ -177,7 +177,9 @@
     "plan_desc": "Generate implementation plan",
     "schedule_task_desc": "Schedule a task in IDE",
     "browser_desc": "Launch browser in IDE",
-    "model_not_selected": "⚠️ No model selected"
+    "model_not_selected": "⚠️ No model selected",
+    "audio_desc": "Toggle audio summaries (ON/OFF)",
+    "tts_desc": "Configure audio summary settings"
   },
   "photo": {
     "downloaded": "✅ File downloaded and forwarding to agent...",
@@ -410,5 +412,15 @@
     "menu_schedule_status_desc": "Show CronCrew status"
   },
   "localImageFallback": "Image",
-  "localImageSent": "sent to your phone"
+  "localImageSent": "sent to your phone",
+  "tts": {
+    "menu_title": "🔊 <b>Audio Speed & Limit Settings:</b>\nSelect your preference for audio summaries:",
+    "toggle_on": "🔊 Audio Summaries: Enabled",
+    "toggle_off": "🔇 Audio Summaries: Disabled",
+    "status_enabled": "Audio summaries are now ENABLED.",
+    "status_disabled": "Audio summaries are now DISABLED.",
+    "toast_speed_set": "Audio speed set to {speed} (max {chars} chars)",
+    "toast_invalid": "Invalid selection",
+    "prompt_instruction": "[Please format your response with a brief 15-30 second audio-friendly summary at the very end, starting with '[SUMMARY]' on a new line. Keep it conversational and around 50-70 words.]"
+  }
 }

@@ -172,6 +172,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | Command | Description |
 |---|---|
 | `/model` | Switch AI model (Gemini, Claude, etc.) |
+| `/audio` | Toggle Text-to-Speech audio summaries (OFF by default) |
+| `/tts` | Open the Text-to-Speech settings menu (speed and limit settings) |
 | `/turbo` | Toggle **Turbo Mode** — multi-agent orchestration (see below) |
 | `/goal <task>` | Start **Goal Mode** — agent works autonomously until done |
 | `/plan <task>` | Generate an **implementation plan** before coding |

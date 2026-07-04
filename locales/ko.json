@@ -198,7 +198,9 @@
     "version_desc": "현재 버전 표시",
     "welcome": "👋 환영합니다! 패널이 준비되었습니다:",
     "window_desc": "IDE 창 선택",
-    "workspace_desc": "프로젝트 전환"
+    "workspace_desc": "프로젝트 전환",
+    "audio_desc": "Toggle audio summaries (ON/OFF)",
+    "tts_desc": "Configure audio summary settings"
   },
   "model": {
     "changed": "✅ 모델이 변경되었습니다: {model}",
@@ -410,5 +412,15 @@
     "trusted": "🔓 워크스페이스가 자동으로 신뢰 상태로 표시되었습니다."
   },
   "localImageFallback": "이미지",
-  "localImageSent": "휴대폰으로 전송됨"
+  "localImageSent": "휴대폰으로 전송됨",
+  "tts": {
+    "menu_title": "🔊 <b>Audio Speed & Limit Settings:</b>\nSelect your preference for audio summaries:",
+    "toggle_on": "🔊 Audio Summaries: Enabled",
+    "toggle_off": "🔇 Audio Summaries: Disabled",
+    "status_enabled": "Audio summaries are now ENABLED.",
+    "status_disabled": "Audio summaries are now DISABLED.",
+    "toast_speed_set": "Audio speed set to {speed} (max {chars} chars)",
+    "toast_invalid": "Invalid selection",
+    "prompt_instruction": "[Please format your response with a brief 15-30 second audio-friendly summary at the very end, starting with '[SUMMARY]' on a new line. Keep it conversational and around 50-70 words.]"
+  }
 }
