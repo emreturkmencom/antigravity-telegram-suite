@@ -8,7 +8,7 @@
     "dev": "node src/index.js",
     "setup": "bash scripts/install.sh",
     "setup:win": "powershell -ExecutionPolicy Bypass -File scripts/install.ps1",
-    "test": "node test/i18n.test.js && node test/updater.test.js && node test/local_media.test.js && node test/cdp_health.test.js && node test/model_utils.test.js && node test/tts.test.js",
+    "test": "node test/i18n.test.js && node test/updater.test.js && node test/local_media.test.js && node test/cdp_health.test.js && node test/model_utils.test.js",
     "test:smoke": "node test/smoke.test.js",
     "test:all": "npm test && npm run test:smoke",
     "i18n:validate": "node scripts/validate_i18n.js",
@@ -35,8 +35,7 @@
   "dependencies": {
     "chrome-remote-interface": "^0.34.0",
     "dotenv": "^17.4.2",
-    "telegraf": "^4.16.3",
-    "tiny-tts": "^5.0.1"
+    "telegraf": "^4.16.3"
   },
   "devDependencies": {
     "husky": "^9.1.7"

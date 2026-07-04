@@ -177,9 +177,7 @@
     "plan_desc": "Générer un plan d'implémentation",
     "schedule_task_desc": "Planifier une tâche dans l'IDE",
     "browser_desc": "Ouvrir le navigateur dans l'IDE",
-    "model_not_selected": "⚠️ Aucun modèle sélectionné",
-    "audio_desc": "Toggle audio summaries (ON/OFF)",
-    "tts_desc": "Configure audio summary settings"
+    "model_not_selected": "⚠️ Aucun modèle sélectionné"
   },
   "photo": {
     "downloaded": "✅ Fichier téléchargé et transmission à l'agent en cours...",
@@ -412,15 +410,5 @@
     "menu_schedule_status_desc": "Afficher le statut de CronCrew"
   },
   "localImageFallback": "Image",
-  "localImageSent": "envoyée sur votre téléphone",
-  "tts": {
-    "menu_title": "🔊 <b>Vitesse et limite audio :</b>\nChoisissez vos préférences pour les résumés audio :",
-    "toggle_on": "🔊 Résumés audio : Activés",
-    "toggle_off": "🔇 Résumés audio : Désactivés",
-    "status_enabled": "Les résumés audio sont maintenant ACTIVÉS.",
-    "status_disabled": "Les résumés audio sont maintenant DÉSACTIVÉS.",
-    "toast_speed_set": "Vitesse audio réglée sur {speed} (max. {chars} caractères)",
-    "toast_invalid": "Sélection invalide",
-    "prompt_instruction": "[Please format your response with a brief 15-30 second audio-friendly summary at the very end, starting with '[SUMMARY]' on a new line. Keep it conversational and around 50-70 words.]"
-  }
+  "localImageSent": "envoyée sur votre téléphone"
 }

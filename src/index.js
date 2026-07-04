@@ -14,7 +14,7 @@ const updater = require('./updater');
 const { runTurboOrchestration } = require('./turbo_orchestrator');
 const TaskWatcher = require('./task_watcher');
 const { extractLocalImageMarkdown } = require('./local_media');
-const tts = require('./tts');
+
 const { ensureCdpReady, isConnectionRefusedError } = require('./cdp_health');
 let scheduleClient = null;
 try {
@@ -300,11 +300,7 @@ async function sendExtractedImage(ctx, image, replyToMsgId = null) {
 // Helper: Send long messages safely within Telegram's 4096 char limit
 async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMsgId = null) {
     const MAX_LEN = 3500;
-    
-    // Extract summary
-    const ttsResult = tts.extractAndCleanText(text);
-    text = ttsResult.text;
-    const summaryText = ttsResult.summary;
+
 
     const localMedia = extractLocalImageMarkdown(text);
     text = localMedia.text;
@@ -394,11 +390,7 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
             const sentMsg = await replyWithRetry(currentChunk, false, buttons, 3, currentReplyId);
             if (sentMsg) sentMsgIds.push(sentMsg.message_id);
         }
-        
-        // Send audio clip if we extracted a summary
-        if (summaryText) {
-            await tts.speakAndSend(ctx, summaryText, currentReplyId);
-        }
+
         
         console.log(`sendLongMessage: Sent successfully`);
         return sentMsgIds;
@@ -537,6 +529,7 @@ ${t('help.ide_text')}
 
 ${t('help.chat_title')}
 ${t('help.chat_text')}
+
     `.trim();
     ctx.reply(helpMessage, { parse_mode: 'HTML' });
 });
@@ -1583,7 +1576,7 @@ bot.action(/md_(.+)/, async (ctx) => {
     }
 });
 
-tts.registerTtsHandlers(bot);
+
 
 // ===== AUTO-ACCEPT =====
 
@@ -2464,8 +2457,7 @@ function getMenuCommands() {
     const cmds = [
         { command: 'help', description: t('menu.help_desc') },
         { command: 'latest', description: t('menu.latest_desc') },
-        { command: 'audio', description: t('menu.audio_desc') },
-        { command: 'tts', description: t('menu.tts_desc') },
+
         { command: 'screenshot', description: t('menu.screenshot_desc') },
         { command: 'status', description: t('menu.status_desc') },
         { command: 'start_ide', description: t('menu.start_ide_desc') || 'Start IDE' },
@@ -2768,41 +2760,46 @@ bot.action(/^ans_(.+)$/, async (ctx) => {
         else if (val) { targetId = val.targetId; explicitThreadName = val.threadName; }
     }
     
-    try {
-        if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
-        setReaction(ctx, REACTION.THINKING, ctx.callbackQuery.message?.message_id);
-        targetId = await sendViaCDP(answer, CDP_PORT, targetId);
-        
-        await new Promise(r => setTimeout(r, 1500));
-        await snapshotChatState(CDP_PORT, targetId).catch(() => {});
+    // Fire-and-forget: don't block Telegraf's update loop
+    (async () => {
+        try {
+            if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
+            setReaction(ctx, REACTION.THINKING, ctx.callbackQuery.message?.message_id);
+            targetId = await sendViaCDP(answer, CDP_PORT, targetId);
+            
+            await new Promise(r => setTimeout(r, 1500));
+            await snapshotChatState(CDP_PORT, targetId).catch(() => {});
 
-        const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx), targetId);
-        let text = "";
-        let interactiveButtons = null;
-        if (isDone) {
-            let _latestRes = await getFullLatestResponse(CDP_PORT, targetId, explicitThreadName);
-            text = typeof _latestRes === 'string' ? _latestRes : _latestRes.text;
-            interactiveButtons = typeof _latestRes === 'string' ? null : _latestRes.buttons;
-            text = stripQueryFromResponse(text, answer);
-        } else {
-            return await ctx.reply(t('ask.timeout'));
-        }
-        
-        if (!text) text = t('ask.done_empty');
-        const header = await getChatHeader(targetId, t('ask.done'));
-        const buttons = interactiveButtons ? interactiveButtons : await buildMainMenu(null, null, targetId);
+            const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx), targetId);
+            let text = "";
+            let interactiveButtons = null;
+            if (isDone) {
+                let _latestRes = await getFullLatestResponse(CDP_PORT, targetId, explicitThreadName);
+                text = typeof _latestRes === 'string' ? _latestRes : _latestRes.text;
+                interactiveButtons = typeof _latestRes === 'string' ? null : _latestRes.buttons;
+                text = stripQueryFromResponse(text, answer);
+            } else {
+                return await ctx.reply(t('ask.timeout'));
+            }
+            
+            if (!text) text = t('ask.done_empty');
+            const header = await getChatHeader(targetId, t('ask.done'));
+            const buttons = interactiveButtons ? interactiveButtons : await buildMainMenu(null, null, targetId);
 
-        const sentIds = await sendLongMessage(ctx, text, header, buttons, ctx.callbackQuery.message.message_id);
-        if (sentIds && sentIds.length > 0 && targetId) {
-            const activeInfo = await getActiveThreadInfo(CDP_PORT, targetId).catch(() => null);
-            const currentThreadName = activeInfo ? activeInfo.name : null;
-            sentIds.forEach(id => messageTargetMap.set(id, { targetId, threadName: currentThreadName }));
-            saveMessageTargetMap(messageTargetMap);
+            const sentIds = await sendLongMessage(ctx, text, header, buttons, ctx.callbackQuery.message.message_id);
+            if (sentIds && sentIds.length > 0 && targetId) {
+                const activeInfo = await getActiveThreadInfo(CDP_PORT, targetId).catch(() => null);
+                const currentThreadName = activeInfo ? activeInfo.name : null;
+                sentIds.forEach(id => messageTargetMap.set(id, { targetId, threadName: currentThreadName }));
+                saveMessageTargetMap(messageTargetMap);
+            }
+        } catch (e) {
+            ctx.reply(t('error.general_error', { error: e.message })).catch(()=>{});
         }
-    } catch (e) {
-        ctx.reply(t('error.general_error', { error: e.message })).catch(()=>{});
-    }
+    })();
 });
+
+let isAgentBusy = false;
 
 bot.on('text', async (ctx) => {
     if (ctx.message.text.startsWith('/')) return;
@@ -2811,7 +2808,7 @@ bot.on('text', async (ctx) => {
     // Append summary prompt suffix for standard queries (not quick options like numbers)
     const isQuickOption = /^\d+$/.test(query.trim()) || query.trim().length <= 3;
     if (!isQuickOption) {
-        query = tts.appendTtsInstruction(query);
+
     }
     
     let explicitTargetId = null;
@@ -2826,9 +2823,23 @@ bot.on('text', async (ctx) => {
     if (!explicitTargetId && ctx.message.reply_to_message?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data?.startsWith('focus_')) {
         explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
     }
-    
-    try {
-        if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
+
+    // If agent is already processing, just send the follow-up message without starting a new wait loop
+    if (isAgentBusy && !isTurboMode) {
+        try {
+            if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
+            await sendViaCDPWithRecovery(query, explicitTargetId);
+            setReaction(ctx, REACTION.THINKING);
+        } catch (err) {
+            ctx.reply(t('ask.headless_error', { error: err.message })).catch(() => {});
+        }
+        return;
+    }
+
+    // Fire-and-forget: don't block Telegraf's update loop so other commands remain responsive
+    (async () => {
+        try {
+            if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
             let targetId = explicitTargetId;
             let text = "";
             let interactiveButtons = null;
@@ -2843,6 +2854,7 @@ bot.on('text', async (ctx) => {
                     isTurboRunning = false;
                 }
             } else {
+                isAgentBusy = true;
                 targetId = await sendViaCDPWithRecovery(query, explicitTargetId);
                 setReaction(ctx, REACTION.THINKING);
 
@@ -2864,6 +2876,7 @@ bot.on('text', async (ctx) => {
                         return await ctx.reply(t('ask.timeout'));
                     }
                 } finally {
+                    isAgentBusy = false;
                     if (global.__taskWatcher) global.__taskWatcher.setBusy(false);
                 }
             }
@@ -2880,9 +2893,11 @@ bot.on('text', async (ctx) => {
                 saveMessageTargetMap(messageTargetMap);
             }
         } catch(err) {
+            isAgentBusy = false;
             const errorMsg = err.message === 'no_chat_input' ? t('ask.no_chat_input') : err.message;
             ctx.reply(t('ask.headless_error', { error: errorMsg })).catch(() => {});
         }
+    })();
 });
 
 // ===== PHOTO & DOCUMENT HANDLER =====
@@ -2936,7 +2951,7 @@ async function processMediaGroup(group) {
     const combinedCaption = group.captions.join('\n');
     
     let query = `[System: The user has uploaded ${group.files.length} files. You MUST use your \`view_file\` tool to examine ALL files at these absolute paths: ${paths} . Do not say you cannot see them. Use the tool!]${combinedCaption ? `\nUser's message: ${combinedCaption}` : ''}`;
-    query = tts.appendTtsInstruction(query);
+
     
     try {
         await processAgentRequest(ctx, query, group.explicitTargetId, group.explicitThreadName, combinedCaption);
@@ -3023,7 +3038,7 @@ bot.on(['photo', 'document'], (ctx) => {
             }
             
             let query = `[System: The user has uploaded an image or file. You MUST use your \`view_file\` tool to examine the file at this absolute path: ${dest} . Do not say you cannot see it. Use the tool!]${caption ? `\nUser's message: ${caption}` : ''}`;
-            query = tts.appendTtsInstruction(query);
+
             
             await processAgentRequest(ctx, query, explicitTargetId, explicitThreadName, caption);
             
