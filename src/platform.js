@@ -1,5 +1,6 @@
 const os = require('os');
 const path = require('path');
+const fs = require('fs');
 const { exec } = require('child_process');
 
 const PLATFORM = os.platform(); // 'linux', 'darwin', 'win32'
@@ -86,11 +87,12 @@ function getAppBinary(app = getPreferredApp()) {
         if (process.env.ANTIGRAVITY_IDE_PATH) return process.env.ANTIGRAVITY_IDE_PATH;
         switch (PLATFORM) {
             case 'darwin':
-                const fs = require('fs');
                 const userApp = path.join(HOME, 'Applications', 'Antigravity IDE.app');
                 if (fs.existsSync(userApp)) return userApp;
                 return '/Applications/Antigravity IDE.app';
             case 'win32':
+                const path1 = path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Antigravity IDE', 'Antigravity IDE.exe');
+                if (fs.existsSync(path1)) return path1;
                 return path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Antigravity', 'Antigravity IDE.exe');
             default: // linux
                 return '/opt/antigravity-ide/antigravity-ide';
@@ -100,9 +102,8 @@ function getAppBinary(app = getPreferredApp()) {
         if (process.env.ANTIGRAVITY_AGENT_PATH) return process.env.ANTIGRAVITY_AGENT_PATH;
         switch (PLATFORM) {
             case 'darwin':
-                const fs2 = require('fs');
                 const userApp2 = path.join(HOME, 'Applications', 'Antigravity.app');
-                if (fs2.existsSync(userApp2)) return userApp2;
+                if (fs.existsSync(userApp2)) return userApp2;
                 return '/Applications/Antigravity.app';
             case 'win32':
                 return path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Antigravity', 'Antigravity.exe');

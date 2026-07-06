@@ -7,7 +7,7 @@ function normalizeModelText(text) {
         .replace(/当前/g, ' ')
         .replace(/fla\s*h/g, 'flash')
         .replace(/fa\s*t/g, 'fast')
-        .replace(/\bopu(?=\s|[0-9(])/g, 'opus')
+        .replace(/\bopus?\b/g, 'opus')
         .replace(/\bfast\b/g, ' ')
         .replace(/\bnew\b/g, ' ')
         .replace(/[^a-z0-9]+/g, '');

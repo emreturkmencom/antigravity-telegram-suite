@@ -1,15 +1,18 @@
 # ============================================================
-# Antigravity Bot — Setup Script (Windows PowerShell)
+# Antigravity Bot - Setup Script (Windows PowerShell)
 # ============================================================
 # Run: powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 
 $ErrorActionPreference = "Stop"
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+} catch {}
 $ProjectDir = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 
 Write-Host ""
-Write-Host "══════════════════════════════════════" -ForegroundColor Blue
-Write-Host "  🚀 Antigravity Bot Setup (Windows)" -ForegroundColor Blue
-Write-Host "══════════════════════════════════════" -ForegroundColor Blue
+Write-Host "======================================" -ForegroundColor Blue
+Write-Host "  * Antigravity Bot Setup (Windows) *" -ForegroundColor Blue
+Write-Host "======================================" -ForegroundColor Blue
 Write-Host ""
 
 # ---- Check Node.js ----
@@ -18,7 +21,7 @@ function Check-Node {
         $version = (node -v) -replace 'v', ''
         $major = [int]($version.Split('.')[0])
         if ($major -ge 18) {
-            Write-Host "[✓] Node.js v$version found" -ForegroundColor Green
+            Write-Host "[+] Node.js v$version found" -ForegroundColor Green
             return $true
         }
         Write-Host "[!] Node.js v$version is too old (need >= 18)" -ForegroundColor Yellow
@@ -32,7 +35,7 @@ function Check-Node {
     Write-Host ""
     $choice = Read-Host "Press Enter after installing Node.js, or type 'skip' to exit"
     if ($choice -eq 'skip') {
-        Write-Host "[✗] Please install Node.js >= 18 and re-run this script." -ForegroundColor Red
+        Write-Host "[!] Please install Node.js >= 18 and re-run this script." -ForegroundColor Red
         exit 1
     }
     return (Check-Node)
@@ -45,7 +48,7 @@ function Install-Deps {
         Write-Host "Installing npm dependencies..."
         npm install
     } else {
-        Write-Host "[✓] npm dependencies already installed" -ForegroundColor Green
+        Write-Host "[+] npm dependencies already installed" -ForegroundColor Green
     }
 }
 
@@ -53,7 +56,7 @@ function Install-Deps {
 function Setup-Env {
     $envFile = Join-Path $ProjectDir ".env"
     if (Test-Path $envFile) {
-        Write-Host "[✓] .env file already exists" -ForegroundColor Green
+        Write-Host "[+] .env file already exists" -ForegroundColor Green
         return
     }
 
@@ -77,7 +80,7 @@ function Setup-Env {
         (Get-Content $envFile) -replace '^LANGUAGE=en$', "LANGUAGE=$lang" | Set-Content $envFile
     }
 
-    Write-Host "[✓] .env configured" -ForegroundColor Green
+    Write-Host "[+] .env configured" -ForegroundColor Green
 }
 
 # ---- Create Start Menu shortcuts ----
@@ -104,7 +107,7 @@ function Create-Shortcut {
         $stopShortcut.Description = "Stop Background Antigravity Bot"
         $stopShortcut.Save()
 
-        Write-Host "[✓] Start Menu shortcuts created (Start & Stop)" -ForegroundColor Green
+        Write-Host "[+] Start Menu shortcuts created (Start & Stop)" -ForegroundColor Green
     } catch {
         Write-Host "[!] Could not create shortcuts: $_" -ForegroundColor Yellow
     }
@@ -120,27 +123,27 @@ function Setup-PM2 {
             Set-Location $ProjectDir
             pm2 start src/index.js --name antigravity-bot
             pm2 save
-            Write-Host "[✓] PM2 configured" -ForegroundColor Green
+            Write-Host "[+] PM2 configured" -ForegroundColor Green
             Write-Host "[!] For auto-start on boot, see: https://github.com/jessety/pm2-installer" -ForegroundColor Yellow
         } catch {
             Write-Host "[!] PM2 setup failed: $_" -ForegroundColor Yellow
         }
     } else {
-        Write-Host "[✓] Skipped PM2 setup. Run manually: npm start" -ForegroundColor Green
+        Write-Host "[+] Skipped PM2 setup. Run manually: npm start" -ForegroundColor Green
     }
 }
 
 # ---- Main ----
-Check-Node
+$null = Check-Node
 Install-Deps
 Setup-Env
 Create-Shortcut
 Setup-PM2
 
 Write-Host ""
-Write-Host "══════════════════════════════════════" -ForegroundColor Green
-Write-Host "  ✅ Setup Complete!" -ForegroundColor Green
-Write-Host "══════════════════════════════════════" -ForegroundColor Green
+Write-Host "======================================" -ForegroundColor Green
+Write-Host "  Setup Complete!" -ForegroundColor Green
+Write-Host "======================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Quick start:"
 Write-Host "  npm start          # Run the bot"

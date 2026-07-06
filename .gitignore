@@ -67,3 +67,7 @@ scratch/
 *.cpuprofile
 *.heapsnapshot
 
+# AI-agent local findings/data
+.ide_data/
+
+

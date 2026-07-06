@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node src/index.js",
+    "watchdog": "node src/watchdog.js",
     "setup": "bash scripts/install.sh",
     "setup:win": "powershell -ExecutionPolicy Bypass -File scripts/install.ps1",
     "test": "node test/i18n.test.js && node test/updater.test.js && node test/local_media.test.js && node test/cdp_health.test.js && node test/model_utils.test.js",

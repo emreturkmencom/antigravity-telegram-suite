@@ -14,8 +14,9 @@ const updater = require('./updater');
 const { runTurboOrchestration } = require('./turbo_orchestrator');
 const TaskWatcher = require('./task_watcher');
 const { extractLocalImageMarkdown } = require('./local_media');
-
 const { ensureCdpReady, isConnectionRefusedError } = require('./cdp_health');
+const accountManager = require('./account_manager');
+const telegraphPublisher = require('./telegraph_publisher');
 let scheduleClient = null;
 try {
     scheduleClient = require('./schedule_client');
@@ -49,7 +50,6 @@ let cachedAgentThreads = [];
 let cachedArtifacts = [];
 
 const MAP_FILE_PATH = path.join(os.homedir(), '.gemini', 'antigravity', 'message_target_map.json');
-
 function loadMessageTargetMap() {
     try {
         if (fs.existsSync(MAP_FILE_PATH)) {
@@ -109,6 +109,158 @@ if (ALLOWED_CHAT_IDS.length === 0) {
 
 const bot = new Telegraf(process.env.BOT_TOKEN, { handlerTimeout: 900000 }); // 15 minutes timeout to allow long /ask requests
 
+const pendingLogins = new Map();
+const lastSentMessageIdMap = new Map(); // conversationId -> { messageId, chatId, baseKeyboard }
+
+function checkAuth(ctx, next) {
+    const chatId = ctx.chat?.id;
+    const text = ctx.message?.text || '';
+    
+    if (text.startsWith('/')) {
+        accountManager.logInfo(`[auth] Incoming command "${text}" from chatId: ${chatId}`);
+    }
+
+    if (ALLOWED_CHAT_IDS.length === 0) {
+        accountManager.logInfo(`[auth] Rejecting: ALLOWED_CHAT_IDS is empty. Detected chatId: ${chatId}`);
+        console.log(`\n🔔 NEW CHAT ID DETECTED: ${ctx.chat.id}`);
+        console.log(`Please add ALLOWED_CHAT_ID=${ctx.chat.id} to your .env file and restart.\n`);
+        return ctx.reply(t('auth.setup_welcome', { chatId: ctx.chat.id })).catch(e => console.error('[checkAuth]', e.message));
+    }
+    if (!ALLOWED_CHAT_IDS.includes(ctx.chat.id.toString())) {
+        accountManager.logInfo(`[auth] Rejecting unauthorized chatId: ${chatId} (Allowed: ${ALLOWED_CHAT_IDS.join(', ')})`);
+        const from = ctx.from || ctx.chat;
+        if (from && ALLOWED_CHAT_IDS.length > 0) {
+            const username = from.username ? `@${from.username}` : 'N/A';
+            const fullName = `${from.first_name || ''} ${from.last_name || ''}`.trim() || t('auth.anonymous');
+            
+            let actionDetails = t('auth.action', { type: ctx.updateType || t('auth.unknown') });
+            if (ctx.message && ctx.message.text) actionDetails = t('auth.message', { text: ctx.message.text });
+            else if (ctx.callbackQuery) actionDetails = t('auth.button', { data: ctx.callbackQuery.data });
+
+            const alertMsg = t('auth.unauthorized_attempt', { name: fullName, username, id: from.id, details: actionDetails });
+            ctx.telegram.sendMessage(ALLOWED_CHAT_IDS[0], alertMsg, { parse_mode: 'HTML' }).catch(e => console.error('[checkAuth Alert]', e.message));
+        }
+        // Silently ignore unauthorized access to prevent errors if the user blocked the bot
+        return Promise.resolve();
+    }
+    
+    // Suspend other bot updates/callbacks if Google login is in progress
+    if (ctx.chat && pendingLogins.has(ctx.chat.id)) {
+        const isLoginCallback = ctx.callbackQuery?.data?.startsWith('login_');
+        const isTextMessage = ctx.message && ctx.message.text;
+        
+        if (!isLoginCallback && !isTextMessage) {
+            // Block other non-text interactions (like photo uploads, other inline buttons) during login
+            return ctx.reply([
+                '⚠️ <b>Google Login in progress</b>',
+                '━'.repeat(22),
+                'Other bot services are temporarily suspended.',
+                'Please complete the sign-in with Google or cancel the current login flow first using the Cancel button or typing /cancel.',
+            ].join('\n'), { parse_mode: 'HTML' });
+        }
+    }
+
+    if (text.startsWith('/')) {
+        accountManager.logInfo(`[auth] Authorized chatId: ${chatId} for command "${text}"`);
+    }
+    return next();
+}
+
+bot.use(checkAuth);
+
+// ── Passive code detection (mobile fallback) ───────────────────────────────────
+// If a user has a pending login and sends a message containing a Google auth
+// code or a full redirect URL, we intercept it and complete the login.
+bot.use(async (ctx, next) => {
+    if (!ctx.message || !ctx.message.text) {
+        return next();
+    }
+    const chatId = ctx.chat?.id;
+    if (!chatId || !pendingLogins.has(chatId)) {
+        return next();
+    }
+
+    const text = ctx.message.text.trim();
+    
+    // 1. Check if the user wants to cancel the login explicitly
+    if (text.toLowerCase() === '/cancel') {
+        const session = pendingLogins.get(chatId);
+        pendingLogins.delete(chatId);
+        try { await session.oauthServer.stop(); } catch { /* ignore */ }
+        if (session && typeof session.reject === 'function') {
+            session.reject(new Error('Login cancelled by user'));
+        }
+        await ctx.reply([
+            '🚫 <b>Login cancelled</b>',
+            '',
+            'Send /login whenever you\'re ready to try again.',
+        ].join('\n'), { parse_mode: 'HTML' });
+        return; // Consume message
+    }
+
+    // Skip check if it is explicitly the /logincode command itself without arguments (let command handler run)
+    if (text.startsWith('/logincode') && text.split(' ').length === 1) {
+        return next();
+    }
+
+    // 2. Extract code from text or /logincode command arguments
+    let inputString = text;
+    if (text.startsWith('/logincode ')) {
+        inputString = text.substring(11).trim();
+    }
+
+    let code = null;
+    if (inputString.includes('code=') || inputString.startsWith('4/')) {
+        code = inputString;
+        const match = inputString.match(/[?&]code=([^&\s]+)/);
+        if (match) {
+            code = match[1];
+        }
+    }
+
+    const session = pendingLogins.get(chatId);
+
+    // 3. Process the extracted code or handle invalid try count
+    if (code) {
+        const completed = await completePendingLogin(chatId, code);
+        if (completed) {
+            await ctx.reply('⏳ <b>Code received!</b> Completing sign-in…', { parse_mode: 'HTML' });
+            return; // Consume message, do not pass to other handlers
+        }
+    } else {
+        // Increment tries for invalid link/code
+        session.tryCount = (session.tryCount || 0) + 1;
+        accountManager.logInfo(`[bot] Invalid login input pasted by chatId ${chatId}. Attempt ${session.tryCount}/3.`);
+
+        if (session.tryCount >= 3) {
+            pendingLogins.delete(chatId);
+            try { await session.oauthServer.stop(); } catch { /* ignore */ }
+            if (session && typeof session.reject === 'function') {
+                session.reject(new Error('Login cancelled: too many invalid attempts'));
+            }
+
+            await ctx.reply([
+                '🚫 <b>Login cancelled</b>',
+                '━'.repeat(22),
+                'The Google login flow was cancelled after 3 failed attempts to paste a valid link/code.',
+                '',
+                'Send /login whenever you\'re ready to try again.',
+            ].join('\n'), { parse_mode: 'HTML' });
+        } else {
+            await ctx.reply([
+                '⚠️ <b>Invalid Google URL or Code</b>',
+                '━'.repeat(22),
+                'Could not extract a valid Google authorization code from your message.',
+                'Please paste the full redirect URL or the authorization code.',
+                '',
+                `<i>Attempt ${session.tryCount} of 3 before cancellation.</i>`,
+            ].join('\n'), { parse_mode: 'HTML' });
+        }
+        return; // Consume message, do not pass to other handlers
+    }
+    return next();
+});
+
 let isTurboRunning = false;
 
 // Safe commands/buttons that can pass through during turbo execution
@@ -116,7 +268,8 @@ const TURBO_SAFE_COMMANDS = [
     '/turbo', '/stop', '/screenshot', '/latest', '/status',
     '/quota', '/help', '/version', '/panel', '/menu',
     '/file', '/cmd', '/autoaccept', '/lang', '/window',
-    '/artifacts', '/restart'
+    '/artifacts', '/restart',
+    '/login', '/accounts', '/switchacc', '/getinfo', '/logincode', '/delacc'
 ];
 const TURBO_SAFE_BUTTONS = [
     '📸', '💬', '📦', '📊', '🚀'
@@ -231,6 +384,7 @@ function markdownToTelegramHtml(text) {
         return `<pre>${code}</pre>`;
     });
     html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    html = html.replace(/\[([^\]]+)\]\(file:\/\/\/[^)]+\)/gi, '<b>$1</b>');
     html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
     html = html.replace(/\[x\]/ig, '✅');
     html = html.replace(/\[ \]/g, '⬜');
@@ -300,7 +454,54 @@ async function sendExtractedImage(ctx, image, replyToMsgId = null) {
 // Helper: Send long messages safely within Telegram's 4096 char limit
 async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMsgId = null) {
     const MAX_LEN = 3500;
+    
+    // Extract file links: e.g. [task.md](file:///C:/Users/...)
+    const fileLinkRegex = /\[([^\]]+)\]\((file:\/\/\/[^\)]+)\)/gi;
+    let fileMatch;
+    const fileButtons = [];
+    
+    fileLinkRegex.lastIndex = 0;
+    while ((fileMatch = fileLinkRegex.exec(text)) !== null) {
+        const label = fileMatch[1];
+        const rawUrl = fileMatch[2];
+        try {
+            const rawPath = rawUrl.replace(/^file:\/\/\//i, '');
+            const decodedPath = decodeURIComponent(rawPath);
+            const normalizedPath = path.normalize(decodedPath);
+            const pathId = getPathId(normalizedPath);
+            
+            const mapping = telegraphPublisher.getPageMapping(normalizedPath);
+            if (mapping && mapping.url) {
+                fileButtons.push([{ text: `🌐 Open ${label}`, url: mapping.url }]);
+            }
+        } catch (e) {
+            console.error('[sendLongMessage] Failed to process file link:', e.message);
+        }
+    }
 
+    const conversationId = getLastResolvedThreadId();
+    const artifactButtons = getArtifactButtons(conversationId);
+    
+    let finalButtons = buttons;
+    let inlineKeyboard = [];
+    
+    if (fileButtons.length > 0) {
+        inlineKeyboard.push(...fileButtons);
+    }
+    if (artifactButtons.length > 0) {
+        inlineKeyboard.push(...artifactButtons);
+    }
+    if (buttons) {
+        if (Array.isArray(buttons)) {
+            inlineKeyboard.push(...buttons);
+        } else if (buttons.reply_markup && Array.isArray(buttons.reply_markup.inline_keyboard)) {
+            inlineKeyboard.push(...buttons.reply_markup.inline_keyboard);
+        }
+    }
+    
+    if (inlineKeyboard.length > 0) {
+        finalButtons = { reply_markup: { inline_keyboard: inlineKeyboard } };
+    }
 
     const localMedia = extractLocalImageMarkdown(text);
     text = localMedia.text;
@@ -377,7 +578,7 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
                 if (inPre) {
                     currentChunk += preLang ? '</code></pre>' : '</pre>';
                 }
-                const sentMsg = await replyWithRetry(currentChunk, false, buttons, 3, currentReplyId);
+                const sentMsg = await replyWithRetry(currentChunk, false, null, 3, currentReplyId);
                 if (sentMsg) {
                     currentReplyId = sentMsg.message_id;
                     sentMsgIds.push(sentMsg.message_id);
@@ -387,11 +588,17 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
             currentChunk += line + '\n';
         }
         if (currentChunk.trim().length > 0) {
-            const sentMsg = await replyWithRetry(currentChunk, false, buttons, 3, currentReplyId);
+            const sentMsg = await replyWithRetry(currentChunk, false, finalButtons, 3, currentReplyId);
             if (sentMsg) sentMsgIds.push(sentMsg.message_id);
         }
-
-        
+        if (sentMsgIds && sentMsgIds.length > 0) {
+            const lastMsgId = sentMsgIds[sentMsgIds.length - 1];
+            lastSentMessageIdMap.set(ctx.chat.id, {
+                messageId: lastMsgId,
+                chatId: ctx.chat.id,
+                baseKeyboard: buttons
+            });
+        }
         console.log(`sendLongMessage: Sent successfully`);
         return sentMsgIds;
     } catch (err) {
@@ -449,33 +656,6 @@ function createProgressHandler(ctx) {
     };
 }
 
-function checkAuth(ctx, next) {
-    if (ALLOWED_CHAT_IDS.length === 0) {
-        console.log(`\n🔔 NEW CHAT ID DETECTED: ${ctx.chat.id}`);
-        console.log(`Please add ALLOWED_CHAT_ID=${ctx.chat.id} to your .env file and restart.\n`);
-        return ctx.reply(t('auth.setup_welcome', { chatId: ctx.chat.id })).catch(e => console.error('[checkAuth]', e.message));
-    }
-    if (!ALLOWED_CHAT_IDS.includes(ctx.chat.id.toString())) {
-        const from = ctx.from || ctx.chat;
-        if (from && ALLOWED_CHAT_IDS.length > 0) {
-            const username = from.username ? `@${from.username}` : 'N/A';
-            const fullName = `${from.first_name || ''} ${from.last_name || ''}`.trim() || t('auth.anonymous');
-            
-            let actionDetails = t('auth.action', { type: ctx.updateType || t('auth.unknown') });
-            if (ctx.message && ctx.message.text) actionDetails = t('auth.message', { text: ctx.message.text });
-            else if (ctx.callbackQuery) actionDetails = t('auth.button', { data: ctx.callbackQuery.data });
-
-            const alertMsg = t('auth.unauthorized_attempt', { name: fullName, username, id: from.id, details: actionDetails });
-            ctx.telegram.sendMessage(ALLOWED_CHAT_IDS[0], alertMsg, { parse_mode: 'HTML' }).catch(e => console.error('[checkAuth Alert]', e.message));
-        }
-        // Silently ignore unauthorized access to prevent errors if the user blocked the bot
-        return Promise.resolve();
-    }
-    return next();
-}
-
-bot.use(checkAuth);
-
 // ===== COMMANDS =====
 
 bot.start((ctx) => {
@@ -529,7 +709,6 @@ ${t('help.ide_text')}
 
 ${t('help.chat_title')}
 ${t('help.chat_text')}
-
     `.trim();
     ctx.reply(helpMessage, { parse_mode: 'HTML' });
 });
@@ -809,7 +988,7 @@ const handleLatest = async (ctx) => {
         let buttons = typeof _latestRes === 'string' ? null : _latestRes.buttons;
         
         const header = await getChatHeader(targetId, t('latest.title'));
-        await sendLongMessage(ctx, text, header, buttons);
+        await sendBotMessage(ctx, text, header, buttons);
     } catch (err) {
         ctx.reply(t('latest.error', { error: err.message }));
     }
@@ -874,7 +1053,7 @@ bot.command('ask', (ctx) => {
                     if (!text) text = t('ask.done_empty');
                     setReaction(ctx, null);
                     const header = await getChatHeader(null, t('ask.done'));
-                    await sendLongMessage(ctx, text, header, buttons);
+                    await sendBotMessage(ctx, text, header, buttons);
                 } else {
                     await ctx.reply(t('ask.timeout'));
                 }
@@ -905,7 +1084,7 @@ bot.command('cmd', async (ctx) => {
         
         if (!output) output = t('cmd.no_output');
         
-        await sendLongMessage(ctx, output, t('cmd.output_title'));
+        await sendBotMessage(ctx, output, t('cmd.output_title'));
     });
 });
 
@@ -1280,6 +1459,202 @@ bot.hears(/^\/agents_(\d+)$/, async (ctx) => {
     }
 });
 
+const lastUploadedMtimes = new Map();
+let activeArtifactWatcher = null;
+const artifactDebounceTimers = new Map();
+
+function getArtifactButtons(conversationId) {
+    if (!conversationId) return [];
+
+    const appDataName = (process.env.ANTIGRAVITY_PREFERRED_APP || 'agent') === 'ide' ? 'antigravity-ide' : 'antigravity';
+    const brainPath = path.join(os.homedir(), '.gemini', appDataName, 'brain');
+    const conversationDir = path.join(brainPath, conversationId);
+
+    if (!fs.existsSync(conversationDir)) return [];
+
+    const files = [
+        { name: 'task.md', label: '📋 Task' },
+        { name: 'implementation_plan.md', label: '🗒️ Plan' },
+        { name: 'walkthrough.md', label: '📖 Walkthrough' }
+    ];
+
+    const row = [];
+    for (const f of files) {
+        let filePath = path.join(conversationDir, f.name);
+        if (!fs.existsSync(filePath)) {
+            filePath = path.join(conversationDir, 'artifacts', f.name);
+        }
+        if (fs.existsSync(filePath)) {
+            const mapping = telegraphPublisher.getPageMapping(filePath);
+            if (mapping && mapping.url) {
+                row.push({ text: f.label, url: mapping.url });
+            }
+        }
+    }
+    return row.length > 0 ? [row] : [];
+}
+
+function watchArtifacts(conversationId, retry = 0) {
+    if (activeArtifactWatcher) {
+        try { activeArtifactWatcher.close(); } catch (_) {}
+        activeArtifactWatcher = null;
+    }
+    for (const timer of artifactDebounceTimers.values()) {
+        clearTimeout(timer);
+    }
+    artifactDebounceTimers.clear();
+
+    if (!conversationId) return;
+
+    const appDataName = (process.env.ANTIGRAVITY_PREFERRED_APP || 'agent') === 'ide' ? 'antigravity-ide' : 'antigravity';
+    const brainPath = path.join(os.homedir(), '.gemini', appDataName, 'brain');
+    const conversationDir = path.join(brainPath, conversationId);
+
+    if (!fs.existsSync(conversationDir)) {
+        if (retry < 5) {
+            setTimeout(() => watchArtifacts(conversationId, retry + 1), 2000);
+        }
+        return;
+    }
+
+    const filesToWatch = ['task.md', 'implementation_plan.md', 'walkthrough.md'];
+
+    try {
+        activeArtifactWatcher = fs.watch(conversationDir, { recursive: true }, (eventType, filename) => {
+            if (!filename) return;
+            const normalizedFilename = filename.split(/[/\\]/).pop();
+            if (filesToWatch.includes(normalizedFilename)) {
+                let filePath = path.join(conversationDir, filename);
+
+                if (artifactDebounceTimers.has(filePath)) {
+                    clearTimeout(artifactDebounceTimers.get(filePath));
+                }
+
+                const timer = setTimeout(async () => {
+                    artifactDebounceTimers.delete(filePath);
+
+                    // Resolve the real path — on Windows, fs.watch may report only the basename
+                    // while the file actually lives in the artifacts/ subdirectory (or vice-versa)
+                    let resolvedFilePath = filePath;
+                    if (!fs.existsSync(resolvedFilePath)) {
+                        const fallbackRoot = path.join(conversationDir, normalizedFilename);
+                        const fallbackArtifacts = path.join(conversationDir, 'artifacts', normalizedFilename);
+                        if (fs.existsSync(fallbackRoot)) {
+                            resolvedFilePath = fallbackRoot;
+                        } else if (fs.existsSync(fallbackArtifacts)) {
+                            resolvedFilePath = fallbackArtifacts;
+                        } else {
+                            return;
+                        }
+                    }
+
+                    try {
+                        const stats = fs.statSync(resolvedFilePath);
+                        const lastMtime = lastUploadedMtimes.get(resolvedFilePath) || 0;
+                        if (stats.mtimeMs > lastMtime) {
+                            console.log(`[Telegraph Watcher] Detected update for ${normalizedFilename}, uploading...`);
+                            const titleMap = {
+                                'task.md': 'Task Checklist',
+                                'implementation_plan.md': 'Implementation Plan',
+                                'walkthrough.md': 'Walkthrough'
+                            };
+                            const title = titleMap[normalizedFilename] || normalizedFilename;
+                            const url = await telegraphPublisher.publishOrUpdateArtifact(resolvedFilePath, title);
+                            lastUploadedMtimes.set(resolvedFilePath, stats.mtimeMs);
+
+                            console.log(`[Telegraph Watcher] Published ${normalizedFilename} to ${url}`);
+                            const lookupChatId = ALLOWED_CHAT_IDS.length > 0 ? Number(ALLOWED_CHAT_IDS[0]) : 'default';
+                            const lastMsg = lastSentMessageIdMap.get(lookupChatId);
+                            if (lastMsg) {
+                                const artifactButtons = getArtifactButtons(conversationId);
+                                let inlineKeyboard = [...artifactButtons];
+                                if (lastMsg.baseKeyboard) {
+                                    if (Array.isArray(lastMsg.baseKeyboard)) {
+                                        inlineKeyboard.push(...lastMsg.baseKeyboard);
+                                    } else if (lastMsg.baseKeyboard.reply_markup && Array.isArray(lastMsg.baseKeyboard.reply_markup.inline_keyboard)) {
+                                        inlineKeyboard.push(...lastMsg.baseKeyboard.reply_markup.inline_keyboard);
+                                    }
+                                }
+                                const res = await bot.telegram.editMessageReplyMarkup(lastMsg.chatId, lastMsg.messageId, null, {
+                                    inline_keyboard: inlineKeyboard
+                                }).catch(err => {
+                                    console.log('[Telegraph Watcher] Failed to edit inline keyboard of last message:', err.message);
+                                });
+                                if (res && typeof res === 'object') {
+                                    lastSentMessageIdMap.set(lookupChatId, { ...lastMsg, baseKeyboard: { ...lastMsg.baseKeyboard, reply_markup: { inline_keyboard: inlineKeyboard } } });
+                                }
+                            } else {
+                                const msg = `📝 <b>${title} Updated!</b>\n\nRead on Telegraph:\n${url}`;
+                                for (const chatId of ALLOWED_CHAT_IDS) {
+                                    bot.telegram.sendMessage(chatId, msg, { 
+                                        parse_mode: 'HTML',
+                                        reply_markup: { inline_keyboard: [[{ text: '🌐 Open Artifact', url: url }]] }
+                                    }).catch(err => {
+                                        console.error(`[Telegraph Watcher] Failed to send message to ${chatId}:`, err.message);
+                                    });
+                                }
+                            }
+                        }
+                    } catch (err) {
+                        console.error(`[Telegraph Watcher] Error processing artifact ${normalizedFilename}:`, err.message);
+                    }
+                }, 3000);
+
+                artifactDebounceTimers.set(filePath, timer);
+            }
+        });
+        console.log(`[Telegraph Watcher] Watching artifacts for conversation: ${conversationId.substring(0, 8)}`);
+    } catch (e) {
+        console.error('[Telegraph Watcher] Failed to start watcher:', e.message);
+    }
+}
+
+
+
+async function handleGetArtifactCommand(ctx, fileName, title) {
+    try {
+        const conversationId = getLastResolvedThreadId();
+        if (!conversationId) {
+            return ctx.reply(`⚠️ No active thread found. Please select a thread in the IDE first.`);
+        }
+
+        const appDataName = (process.env.ANTIGRAVITY_PREFERRED_APP || 'agent') === 'ide' ? 'antigravity-ide' : 'antigravity';
+        const brainPath = path.join(os.homedir(), '.gemini', appDataName, 'brain');
+        const conversationDir = path.join(brainPath, conversationId);
+
+        let filePath = path.join(conversationDir, fileName);
+        if (!fs.existsSync(filePath)) {
+            filePath = path.join(conversationDir, 'artifacts', fileName);
+        }
+
+        if (!fs.existsSync(filePath)) {
+            return ctx.reply(`⚠️ <b>${title}</b> is not available for this chat yet.`, { parse_mode: 'HTML' });
+        }
+
+        const pathId = getPathId(filePath);
+        const buttons = [];
+        const row = [];
+        
+        const mapping = telegraphPublisher.getPageMapping(filePath);
+        if (mapping && mapping.url) {
+            row.push({ text: `🌐 Open ${title}`, url: mapping.url });
+        }
+        row.push({ text: `📄 Get File`, callback_data: `ff_${pathId}` });
+        buttons.push(row);
+
+        ctx.reply(`📝 <b>${title}</b> for current chat:`, {
+            parse_mode: 'HTML',
+            reply_markup: { inline_keyboard: buttons }
+        });
+    } catch (e) {
+        ctx.reply(`❌ Error getting ${title}: ` + e.message);
+    }
+}
+
+bot.command('gettask', ctx => handleGetArtifactCommand(ctx, 'task.md', 'Task Checklist'));
+bot.command('getplan', ctx => handleGetArtifactCommand(ctx, 'implementation_plan.md', 'Implementation Plan'));
+bot.command('getwalk', ctx => handleGetArtifactCommand(ctx, 'walkthrough.md', 'Walkthrough'));
+
 const handleArtifacts = async (ctx) => {
     try {
         const appDataName = (process.env.ANTIGRAVITY_PREFERRED_APP || 'agent') === 'ide' ? 'antigravity-ide' : 'antigravity';
@@ -1433,7 +1808,7 @@ const handleArtifacts = async (ctx) => {
         // Sort by modification time, newest first
         cachedArtifacts.sort((a, b) => b.mtime - a.mtime);
 
-        let msg = t('artifacts.list_title') || '📎 <b>Artifacts for Current Thread:</b>\n\n';
+        let msg = t('artifacts.list_title') || '📎 <b>Artifacts for Current Thread:</b>\\n\\n';
         const msgs = [];
         for (let i = 0; i < cachedArtifacts.length; i++) {
             const filename = cachedArtifacts[i].name;
@@ -1494,7 +1869,7 @@ bot.hears(/^\/artifact_(\d+)$/, async (ctx) => {
                 await ctx.replyWithVideo({ source: artifact.path });
             } else if (ext === '.md') {
                 const content = fs.readFileSync(artifact.path, 'utf8');
-                await sendLongMessage(ctx, content);
+                await sendBotMessage(ctx, content);
             } else {
                 await ctx.replyWithDocument({ source: artifact.path });
             }
@@ -1575,8 +1950,6 @@ bot.action(/md_(.+)/, async (ctx) => {
         ctx.answerCbQuery(t('model.error'));
     }
 });
-
-
 
 // ===== AUTO-ACCEPT =====
 
@@ -2264,7 +2637,7 @@ bot.action(/wn_(.+)/, (ctx) => {
             
             if (text && !text.startsWith('[No previous')) {
                 const header = await getChatHeader(null, t('latest.last_agent_reply'));
-                await sendLongMessage(ctx, text, header, buttons);
+                await sendBotMessage(ctx, text, header, buttons);
             }
         } catch(_) {}
     })();
@@ -2457,7 +2830,6 @@ function getMenuCommands() {
     const cmds = [
         { command: 'help', description: t('menu.help_desc') },
         { command: 'latest', description: t('menu.latest_desc') },
-
         { command: 'screenshot', description: t('menu.screenshot_desc') },
         { command: 'status', description: t('menu.status_desc') },
         { command: 'start_ide', description: t('menu.start_ide_desc') || 'Start IDE' },
@@ -2489,7 +2861,15 @@ function getMenuCommands() {
         { command: 'schedule_setup', description: t('schedule.menu_schedule_setup_desc') || 'Setup CronCrew connection' },
         { command: 'schedule_list', description: t('schedule.menu_schedule_list_desc') || 'List scheduled tasks' },
         { command: 'schedule_add', description: t('schedule.menu_schedule_add_desc') || 'Add a new schedule' },
-        { command: 'schedule_status', description: t('schedule.menu_schedule_status_desc') || 'Show CronCrew status' }
+        { command: 'schedule_status', description: t('schedule.menu_schedule_status_desc') || 'Show CronCrew status' },
+        { command: 'login', description: t('menu.login_desc') || 'Sign in with Google' },
+        { command: 'accounts', description: t('menu.accounts_desc') || 'List saved Google accounts' },
+        { command: 'switchacc', description: t('menu.switchacc_desc') || 'Switch active Google account' },
+        { command: 'getinfo', description: t('menu.getinfo_desc') || 'View account quota info' },
+        { command: 'delacc', description: t('menu.delacc_desc') || 'Delete a saved Google account' },
+        { command: 'gettask', description: t('menu.gettask_desc') || 'Get the latest Task Checklist' },
+        { command: 'getplan', description: t('menu.getplan_desc') || 'Get the latest Implementation Plan' },
+        { command: 'getwalk', description: t('menu.getwalk_desc') || 'Get the latest Walkthrough' }
     ];
     return cmds.sort((a, b) => a.command.localeCompare(b.command));
 }
@@ -2760,56 +3140,45 @@ bot.action(/^ans_(.+)$/, async (ctx) => {
         else if (val) { targetId = val.targetId; explicitThreadName = val.threadName; }
     }
     
-    // Fire-and-forget: don't block Telegraf's update loop
-    (async () => {
-        try {
-            if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
-            setReaction(ctx, REACTION.THINKING, ctx.callbackQuery.message?.message_id);
-            targetId = await sendViaCDP(answer, CDP_PORT, targetId);
-            
-            await new Promise(r => setTimeout(r, 1500));
-            await snapshotChatState(CDP_PORT, targetId).catch(() => {});
+    try {
+        if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
+        setReaction(ctx, REACTION.THINKING, ctx.callbackQuery.message?.message_id);
+        targetId = await sendViaCDP(answer, CDP_PORT, targetId);
+        
+        await new Promise(r => setTimeout(r, 1500));
+        await snapshotChatState(CDP_PORT, targetId).catch(() => {});
 
-            const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx), targetId);
-            let text = "";
-            let interactiveButtons = null;
-            if (isDone) {
-                let _latestRes = await getFullLatestResponse(CDP_PORT, targetId, explicitThreadName);
-                text = typeof _latestRes === 'string' ? _latestRes : _latestRes.text;
-                interactiveButtons = typeof _latestRes === 'string' ? null : _latestRes.buttons;
-                text = stripQueryFromResponse(text, answer);
-            } else {
-                return await ctx.reply(t('ask.timeout'));
-            }
-            
-            if (!text) text = t('ask.done_empty');
-            const header = await getChatHeader(targetId, t('ask.done'));
-            const buttons = interactiveButtons ? interactiveButtons : await buildMainMenu(null, null, targetId);
-
-            const sentIds = await sendLongMessage(ctx, text, header, buttons, ctx.callbackQuery.message.message_id);
-            if (sentIds && sentIds.length > 0 && targetId) {
-                const activeInfo = await getActiveThreadInfo(CDP_PORT, targetId).catch(() => null);
-                const currentThreadName = activeInfo ? activeInfo.name : null;
-                sentIds.forEach(id => messageTargetMap.set(id, { targetId, threadName: currentThreadName }));
-                saveMessageTargetMap(messageTargetMap);
-            }
-        } catch (e) {
-            ctx.reply(t('error.general_error', { error: e.message })).catch(()=>{});
+        const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx), targetId);
+        let text = "";
+        let interactiveButtons = null;
+        if (isDone) {
+            let _latestRes = await getFullLatestResponse(CDP_PORT, targetId, explicitThreadName);
+            text = typeof _latestRes === 'string' ? _latestRes : _latestRes.text;
+            interactiveButtons = typeof _latestRes === 'string' ? null : _latestRes.buttons;
+            text = stripQueryFromResponse(text, answer);
+        } else {
+            return await ctx.reply(t('ask.timeout'));
         }
-    })();
+        
+        if (!text) text = t('ask.done_empty');
+        const header = await getChatHeader(targetId, t('ask.done'));
+        const buttons = interactiveButtons ? interactiveButtons : await buildMainMenu(null, null, targetId);
+
+        const sentIds = await sendBotMessage(ctx, text, header, buttons, ctx.callbackQuery.message.message_id);
+        if (sentIds && sentIds.length > 0 && targetId) {
+            const activeInfo = await getActiveThreadInfo(CDP_PORT, targetId).catch(() => null);
+            const currentThreadName = activeInfo ? activeInfo.name : null;
+            sentIds.forEach(id => messageTargetMap.set(id, { targetId, threadName: currentThreadName }));
+            saveMessageTargetMap(messageTargetMap);
+        }
+    } catch (e) {
+        ctx.reply(t('error.general_error', { error: e.message })).catch(()=>{});
+    }
 });
 
-let isAgentBusy = false;
-
-bot.on('text', async (ctx) => {
-    if (ctx.message.text.startsWith('/')) return;
+bot.on('text', async (ctx, next) => {
+    if (ctx.message.text.startsWith('/')) return next();
     let query = ctx.message.text;
-    
-    // Append summary prompt suffix for standard queries (not quick options like numbers)
-    const isQuickOption = /^\d+$/.test(query.trim()) || query.trim().length <= 3;
-    if (!isQuickOption) {
-
-    }
     
     let explicitTargetId = null;
     let explicitThreadName = null;
@@ -2823,23 +3192,8 @@ bot.on('text', async (ctx) => {
     if (!explicitTargetId && ctx.message.reply_to_message?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data?.startsWith('focus_')) {
         explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
     }
-
-    // If agent is already processing, just send the follow-up message without starting a new wait loop
-    if (isAgentBusy && !isTurboMode) {
-        try {
-            if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
-            await sendViaCDPWithRecovery(query, explicitTargetId);
-            setReaction(ctx, REACTION.THINKING);
-        } catch (err) {
-            ctx.reply(t('ask.headless_error', { error: err.message })).catch(() => {});
-        }
-        return;
-    }
-
-    // Fire-and-forget: don't block Telegraf's update loop so other commands remain responsive
-    (async () => {
-        try {
-            if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
+    try {
+        if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
             let targetId = explicitTargetId;
             let text = "";
             let interactiveButtons = null;
@@ -2854,7 +3208,6 @@ bot.on('text', async (ctx) => {
                     isTurboRunning = false;
                 }
             } else {
-                isAgentBusy = true;
                 targetId = await sendViaCDPWithRecovery(query, explicitTargetId);
                 setReaction(ctx, REACTION.THINKING);
 
@@ -2876,7 +3229,6 @@ bot.on('text', async (ctx) => {
                         return await ctx.reply(t('ask.timeout'));
                     }
                 } finally {
-                    isAgentBusy = false;
                     if (global.__taskWatcher) global.__taskWatcher.setBusy(false);
                 }
             }
@@ -2885,7 +3237,7 @@ bot.on('text', async (ctx) => {
             const header = await getChatHeader(targetId, t('ask.done'));
             const buttons = interactiveButtons ? interactiveButtons : await buildMainMenu(null, null, targetId);
             
-            const sentIds = await sendLongMessage(ctx, text, header, buttons, ctx.message.message_id);
+            const sentIds = await sendBotMessage(ctx, text, header, buttons, ctx.message.message_id);
             if (sentIds && sentIds.length > 0 && targetId) {
                 const activeInfo = await getActiveThreadInfo(CDP_PORT, targetId).catch(() => null);
                 const currentThreadName = activeInfo ? activeInfo.name : null;
@@ -2893,11 +3245,9 @@ bot.on('text', async (ctx) => {
                 saveMessageTargetMap(messageTargetMap);
             }
         } catch(err) {
-            isAgentBusy = false;
             const errorMsg = err.message === 'no_chat_input' ? t('ask.no_chat_input') : err.message;
             ctx.reply(t('ask.headless_error', { error: errorMsg })).catch(() => {});
         }
-    })();
 });
 
 // ===== PHOTO & DOCUMENT HANDLER =====
@@ -2933,7 +3283,7 @@ async function processAgentRequest(ctx, query, explicitTargetId, explicitThreadN
         
         const buttons = interactiveButtons ? interactiveButtons : await buildMainMenu(null, null, targetId);
         
-        const sentIds = await sendLongMessage(ctx, text, header, buttons, ctx.message.message_id);
+        const sentIds = await sendBotMessage(ctx, text, header, buttons, ctx.message.message_id);
         if (sentIds && sentIds.length > 0 && targetId) {
             const activeInfo = await getActiveThreadInfo(CDP_PORT, targetId).catch(() => null);
             const currentThreadName = activeInfo ? activeInfo.name : null;
@@ -2950,8 +3300,7 @@ async function processMediaGroup(group) {
     const paths = group.files.map(p => `\`${p}\``).join(', ');
     const combinedCaption = group.captions.join('\n');
     
-    let query = `[System: The user has uploaded ${group.files.length} files. You MUST use your \`view_file\` tool to examine ALL files at these absolute paths: ${paths} . Do not say you cannot see them. Use the tool!]${combinedCaption ? `\nUser's message: ${combinedCaption}` : ''}`;
-
+    const query = `[System: The user has uploaded ${group.files.length} files. You MUST use your \`view_file\` tool to examine ALL files at these absolute paths: ${paths} . Do not say you cannot see them. Use the tool!]${combinedCaption ? `\nUser's message: ${combinedCaption}` : ''}`;
     
     try {
         await processAgentRequest(ctx, query, group.explicitTargetId, group.explicitThreadName, combinedCaption);
@@ -3037,8 +3386,7 @@ bot.on(['photo', 'document'], (ctx) => {
                 return;
             }
             
-            let query = `[System: The user has uploaded an image or file. You MUST use your \`view_file\` tool to examine the file at this absolute path: ${dest} . Do not say you cannot see it. Use the tool!]${caption ? `\nUser's message: ${caption}` : ''}`;
-
+            const query = `[System: The user has uploaded an image or file. You MUST use your \`view_file\` tool to examine the file at this absolute path: ${dest} . Do not say you cannot see it. Use the tool!]${caption ? `\nUser's message: ${caption}` : ''}`;
             
             await processAgentRequest(ctx, query, explicitTargetId, explicitThreadName, caption);
             
@@ -3177,14 +3525,905 @@ async function init() {
         }
     });
 
-    // Wire thread resolution events to TaskWatcher
+    // Wire thread resolution events to TaskWatcher and Artifact Watcher
     setOnThreadResolved((threadId) => {
         taskWatcher.setActiveConversation(threadId);
+        watchArtifacts(threadId);
     });
 
     // Expose taskWatcher globally so text handler can set busy/idle
     global.__taskWatcher = taskWatcher;
+
+    // Start watching the current active/last resolved thread immediately upon bot startup
+    const initialThreadId = getLastResolvedThreadId();
+    if (initialThreadId) {
+        watchArtifacts(initialThreadId);
+    }
 }
+
+/**
+ * Format quota data into a rich Telegram HTML card.
+ *
+ * Handles two model types returned by the quota API:
+ * - Metered models: have `quotaInfo` with `remainingFraction` → shown as a progress bar.
+ * - Unlimited models: no `quotaInfo` (pro/unlimited tier) → shown as ∞ Unlimited.
+ *
+ * @param {object} account - Saved account record.
+ * @param {object} quotaData - Parsed quota response from fetchQuota().
+ * @returns {string} Telegram HTML.
+ */
+function formatQuotaHtml(account, quotaData) {
+    const L = [];
+
+    // ── Header ──
+    L.push(t('quota.info_title'));
+    L.push('━'.repeat(22));
+    L.push(t('quota.user', { name: account.name || account.email }));
+    L.push(t('quota.email', { email: account.email }));
+    L.push(t('quota.id', { id: account.numericId }));
+
+    const tier = (quotaData.subscription_tier || quotaData._tier || '').replace(/_/g, ' ').trim();
+    if (tier) {
+        L.push(t('quota.tier', { tier }));
+    }
+    if (quotaData.ai_credits) {
+        L.push(t('quota.credits', { credits: quotaData.ai_credits.credits.toLocaleString() }));
+    }
+
+    // ── Model Quota ──
+    const models = quotaData.models || {};
+
+    // Build the allowed-model filter from QUOTA_DISPLAY_MODELS env var.
+    // Each entry is matched case-insensitively as a substring of displayName.
+    // Empty / unset → show all models (no filter applied).
+    const quotaFilterRaw = (process.env.QUOTA_DISPLAY_MODELS || '').trim();
+    const quotaFilter = quotaFilterRaw
+        ? quotaFilterRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+        : [];
+
+    const matchesFilter = (modelId, info) => {
+        if (quotaFilter.length === 0) {
+            return true;
+        }
+        const displayName = (info.displayName || modelId).toLowerCase();
+        return quotaFilter.some(term => displayName.includes(term));
+    };
+
+    const trackedModels = Object.entries(models)
+        .filter(([name, info]) => /^(gemini|claude|gpt|image|imagen)/i.test(name) && matchesFilter(name, info))
+        .sort(([a], [b]) => {
+            // Recommended first, then alphabetical
+            const aRec = models[a].recommended ? 0 : 1;
+            const bRec = models[b].recommended ? 0 : 1;
+            if (aRec !== bRec) {
+                return aRec - bRec;
+            }
+            return a.localeCompare(b);
+        });
+
+    if (trackedModels.length > 0) {
+        L.push('');
+        L.push(t('quota.model_quota_title'));
+        L.push('━'.repeat(22));
+
+        for (const [modelId, info] of trackedModels) {
+            const displayName = info.displayName || modelId;
+            const star = info.recommended ? ' ⭐' : '';
+            const isUnlimited = info.unlimited === true || info.quotaInfo === null;
+
+            if (isUnlimited) {
+                // Pro / unlimited tier — no quota cap, show infinity
+                L.push(t('quota.unlimited'));
+                L.push(t('quota.unlimited_model', { model: displayName, star }));
+            } else {
+                // Metered model — show progress bar
+                const remaining = info.quotaInfo?.remainingFraction != null
+                    ? info.quotaInfo.remainingFraction
+                    : (info.percentage != null ? info.percentage / 100 : 0);
+                const pct = Math.round(remaining * 100);
+
+                // 8-segment bar: █ = filled, ░ = empty
+                const filled = Math.round(remaining * 8);
+                const bar = '█'.repeat(filled) + '░'.repeat(8 - filled);
+
+                // Color-coded percentage label
+                const pctLabel = pct >= 50
+                    ? `<b>${pct}%</b>`
+                    : (pct >= 20 ? `${pct}%` : `<i>${pct}%</i>`);
+
+                L.push(`<code>${bar}</code>  ${pctLabel}`);
+                L.push(`  ↳ ${displayName}${star}`);
+
+                const resetTime = info.quotaInfo?.resetTime;
+                if (resetTime) {
+                    const reset = new Date(resetTime);
+                    const resetStr = reset.toLocaleString('en-US', {
+                        month: 'short', day: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                        timeZone: 'UTC', timeZoneName: 'short',
+                    });
+                    L.push(t('quota.reset_timestamp', { resetStr }));
+                }
+            }
+        }
+    } else if (quotaData._unlimited) {
+        // Consumer/non-enterprise account — no per-model quota limits
+        L.push('');
+        L.push(t('quota.model_access_title'));
+        L.push('━'.repeat(22));
+        L.push(t('quota.unlimited'));
+        L.push(t('quota.unlimited_desc'));
+    } else {
+        L.push('');
+        L.push(t('quota.no_data'));
+    }
+
+    // ── Detailed Quota Groups ──
+    const groups = quotaData.quota_groups || [];
+    if (groups.length > 0) {
+        // Helper to format ISO resetTime string to a relative string (e.g., '2d 9h' or '3h 8m')
+        const formatRelativeTime = (isoString) => {
+            if (!isoString) return '';
+            const diffMs = new Date(isoString) - Date.now();
+            if (diffMs <= 0) return 'now';
+
+            const diffSecs = Math.floor(diffMs / 1000);
+            const diffMins = Math.floor(diffSecs / 60);
+            const diffHours = Math.floor(diffMins / 60);
+            const diffDays = Math.floor(diffHours / 24);
+
+            if (diffDays > 0) {
+                const remainingHours = diffHours % 24;
+                return `${diffDays}d ${remainingHours}h`;
+            }
+            if (diffHours > 0) {
+                const remainingMins = diffMins % 60;
+                return `${diffHours}h ${remainingMins}m`;
+            }
+            return `${diffMins}m`;
+        };
+
+        L.push('');
+        L.push(t('quota.detailed_quota_title'));
+        L.push('━'.repeat(22));
+
+        for (const group of groups) {
+            L.push(`<b>${group.display_name}</b>`);
+            if (group.description) {
+                L.push(`<i>${group.description}</i>`);
+            }
+
+            for (const bucket of group.buckets) {
+                const pct = Math.round(bucket.remaining_fraction * 100);
+                const resetStr = formatRelativeTime(bucket.reset_time);
+
+                L.push(`  • <b>${bucket.display_name || bucket.bucket_id}</b>`);
+
+                // 8-segment bar: █ = filled, ░ = empty
+                const filled = Math.round(bucket.remaining_fraction * 8);
+                const bar = '█'.repeat(filled) + '░'.repeat(8 - filled);
+
+                L.push(`    <code>${bar}</code>  <b>${pct}%</b>`);
+                if (resetStr) {
+                    L.push(t('quota.reset_relative', { time: resetStr }));
+                }
+            }
+        }
+    }
+
+    // ── Token status ──
+    // Access tokens expire every ~60 min, but a refresh_token makes the account
+    // effectively unlimited — ensureFreshToken() auto-refreshes before every operation.
+    const hasRefreshToken = !!(account.token?.refresh_token);
+    const now = Math.floor(Date.now() / 1000);
+    const expiresAt = account.token?.expiry_timestamp || 0;
+
+    let tokenStatus;
+    if (hasRefreshToken) {
+        // Account is permanently active — access token auto-refreshes
+        tokenStatus = t('quota.token_status_active');
+    } else if (expiresAt === 0) {
+        tokenStatus = t('quota.token_status_unknown');
+    } else {
+        // No refresh token; access token only — show countdown
+        const minsLeft = Math.max(0, Math.round((expiresAt - now) / 60));
+        tokenStatus = minsLeft > 30
+            ? t('quota.token_status_valid', { mins: minsLeft })
+            : (minsLeft > 5
+                ? t('quota.token_status_expiring', { mins: minsLeft })
+                : t('quota.token_status_expired'));
+    }
+
+    L.push('');
+    L.push('━'.repeat(22));
+    L.push(`🔑 ${tokenStatus}`);
+
+    return L.join('\n');
+}
+
+/**
+ * Complete a pending login flow with an authorization code.
+ * Called either by the OAuth server (auto, same-machine) or by manual paste (mobile).
+ */
+async function completePendingLogin(chatId, code) {
+    const session = pendingLogins.get(chatId);
+    if (!session) {
+        return false;
+    }
+    try {
+        await session.oauthServer.stop();
+    } catch { /* ignore */ }
+
+    // Make sure we decode special symbols (like %2F -> /) properly
+    let decodedCode = code;
+    try {
+        decodedCode = decodeURIComponent(code);
+    } catch (_) {}
+
+    // Directly trigger processing of the code asynchronously without blocking the event loop
+    processAuthCode(chatId, decodedCode, session.redirectUri).catch(err => {
+        console.error('[bot] processAuthCode async error:', err);
+    });
+    return true;
+}
+
+/**
+ * Exchange auth code, retrieve user info, save account, fetch quota, and inject credentials.
+ */
+async function processAuthCode(chatId, authCode, redirectUri) {
+    const processingMsg = await bot.telegram.sendMessage(chatId, '⏳ <b>Authenticating…</b>', { parse_mode: 'HTML' });
+
+    try {
+        // Exchange code for tokens
+        accountManager.logInfo(`[bot] Exchanging code with redirect_uri: ${redirectUri}`);
+        const tokenResp = await accountManager.exchangeCode(authCode, redirectUri);
+        accountManager.logInfo(`[bot] Code exchanged successfully. Access token retrieved.`);
+
+        // Get user info
+        accountManager.logInfo(`[bot] Fetching user info...`);
+        const userInfo = await accountManager.getUserInfo(tokenResp.access_token);
+        accountManager.logInfo(`[bot] User info retrieved: email=${userInfo.email}`);
+
+        // Save account
+        const accounts = accountManager.loadAccounts();
+        const existing = Object.values(accounts).find(
+            a => a.email.toLowerCase() === userInfo.email.toLowerCase()
+        );
+
+        const now = Math.floor(Date.now() / 1000);
+        const numericId = existing ? existing.numericId : accountManager.getNextNumericId(accounts);
+
+        const account = {
+            numericId,
+            email: userInfo.email,
+            name: userInfo.name || userInfo.email,
+            addedAt: existing ? existing.addedAt : now,
+            updatedAt: now,
+            token: {
+                access_token: tokenResp.access_token,
+                refresh_token: tokenResp.refresh_token || (existing ? existing.token.refresh_token : ''),
+                expires_in: tokenResp.expires_in || 3600,
+                expiry_timestamp: now + (tokenResp.expires_in || 3600),
+                token_type: tokenResp.token_type || 'Bearer',
+            },
+            quota: null,
+        };
+
+        accounts[String(numericId)] = account;
+        accountManager.saveAccounts(accounts);
+        accountManager.logInfo(`[bot] Saved account #${numericId} for ${userInfo.email}`);
+
+        // Try to fetch initial quota (non-fatal if it fails)
+        try {
+            accountManager.logInfo(`[bot] Fetching initial quota for account #${numericId}...`);
+            const quotaData = await accountManager.fetchQuota(tokenResp.access_token);
+            accounts[String(numericId)].quota = quotaData;
+            accountManager.saveAccounts(accounts);
+            accountManager.logInfo(`[bot] Initial quota fetched and saved.`);
+        } catch (e) {
+            accountManager.logInfo(`[bot] Best-effort initial quota fetch failed: ${e.message}`);
+        }
+
+        // Try to inject credentials into IDE
+        try {
+            accountManager.logInfo(`[bot] Injecting credentials to IDE...`);
+            await accountManager.injectTokenIntoIde(account, "ide");
+            accountManager.logInfo(`[bot] Injected successfully to IDE`);
+        } catch (e) {
+            accountManager.logInfo(`[bot] IDE injection warning: ${e.message}`);
+        }
+
+        // Try to inject credentials into Agent
+        try {
+            accountManager.logInfo(`[bot] Injecting credentials to Agent...`);
+            await accountManager.injectTokenIntoIde(account, "agent");
+            accountManager.logInfo(`[bot] Injected successfully to Agent`);
+        } catch (e) {
+            accountManager.logInfo(`[bot] Agent injection warning: ${e.message}`);
+        }
+
+        pendingLogins.delete(chatId); 
+
+        const action = existing ? 'updated' : 'added';
+        accountManager.logInfo(`[bot] Sign-in complete for #${numericId}. Editing Telegram message.`);
+        await bot.telegram.editMessageText(chatId, processingMsg.message_id, undefined,
+            [
+                '✅ <b>Signed in successfully!</b>',
+                '━'.repeat(22),
+                `👤 <b>${userInfo.name || userInfo.email}</b>`,
+                `📧 <code>${userInfo.email}</code>`,
+                `🆔 Account  <b>#${numericId}</b>  <i>(${action})</i>`,
+                '',
+                '<i>What\'s next?</i>',
+                `• Switch  →  <code>/switchacc ${numericId}</code>`,
+                `• Quota   →  <code>/getinfo ${numericId}</code>`,
+                `• All accounts  →  <code>/accounts</code>`,
+            ].join('\n'),
+            { parse_mode: 'HTML' }
+        );
+
+    } catch (e) {
+        pendingLogins.delete(chatId); 
+        console.error('[processAuthCode] Unexpected error:', e.message, e.stack);
+        await bot.telegram.editMessageText(chatId, processingMsg.message_id, undefined,
+            [
+                '❌ <b>Authentication failed</b>',
+                '',
+                `<code>${e.message}</code>`,
+            ].join('\n'), { parse_mode: 'HTML' }).catch(() => {});
+    }
+}
+
+// ── /login ────────────────────────────────────────────────────────────────────
+
+bot.command('login', async (ctx) => {
+    const chatId = ctx.chat.id;
+    accountManager.logInfo(`[bot] /login command received from chatId: ${chatId}. Sending warning.`);
+
+    const warningMsg = [
+        '⚠️ <b>Google Login Notice</b>',
+        '━'.repeat(22),
+        'Starting the login flow will temporarily suspend other bot commands.',
+        'The AI Agent will continue running in your IDE in the background.',
+        '',
+        'Do you want to proceed?',
+    ].join('\n');
+
+    const keyboard = Markup.inlineKeyboard([
+        [
+            Markup.button.callback('👉 Yes, Continue', `login_confirm_${chatId}`),
+            Markup.button.callback('✖ Cancel', `login_cancel_${chatId}`)
+        ]
+    ]);
+
+    await ctx.reply(warningMsg, { parse_mode: 'HTML', ...keyboard });
+});
+
+bot.action(/^login_confirm_(\d+)$/, async (ctx) => {
+    const chatId = parseInt(ctx.match[1]);
+    accountManager.logInfo(`[bot] Login confirmed for chatId: ${chatId}. Initiating OAuth callback server...`);
+    
+    await ctx.answerCbQuery('Starting secure login...').catch(() => {});
+
+    // Cancel any existing pending login for this chat
+    if (pendingLogins.has(chatId)) {
+        accountManager.logInfo(`[bot] Cancelling existing pending login session for chatId: ${chatId}`);
+        const old = pendingLogins.get(chatId);
+        pendingLogins.delete(chatId);
+        try { await old.oauthServer.stop(); } catch { /* ignore */ }
+    }
+
+    let statusMsg;
+    try {
+        statusMsg = await ctx.editMessageText('🔄 <b>Starting secure login…</b>', { parse_mode: 'HTML' });
+    } catch {
+        statusMsg = await ctx.reply('🔄 <b>Starting secure login…</b>', { parse_mode: 'HTML' });
+    }
+
+    try {
+        // 1. Start OAuth callback server
+        accountManager.logInfo(`[bot] Starting OAuth server...`);
+        let oauthServer;
+        try {
+            oauthServer = await accountManager.startOAuthServer(
+                async (code) => {
+                    accountManager.logInfo(`[bot] OAuth server captured code for chatId: ${chatId}`);
+                    await completePendingLogin(chatId, code);
+                },
+                async (errMsg) => {
+                    accountManager.logInfo(`[bot] OAuth server error callback for chatId: ${chatId}: ${errMsg}`);
+                    const session = pendingLogins.get(chatId);
+                    if (session) {
+                        pendingLogins.delete(chatId);
+                        await bot.telegram.sendMessage(chatId, `❌ <b>Login server error:</b> <code>${errMsg}</code>`, { parse_mode: 'HTML' }).catch(() => {});
+                    }
+                }
+            );
+        } catch (e) {
+            accountManager.logInfo(`[bot] Failed to start OAuth server: ${e.message}`);
+            await ctx.telegram.editMessageText(chatId, statusMsg.message_id, undefined,
+                [
+                    '❌ <b>Login server error</b>',
+                    '',
+                    `<code>${e.message}</code>`,
+                ].join('\n'), { parse_mode: 'HTML' });
+            return;
+        }
+
+        const redirectUri = `http://localhost:${oauthServer.port}/oauth-callback`;
+        const authUrl = accountManager.buildAuthUrl(redirectUri);
+        accountManager.logInfo(`[bot] Auth URL built: redirect_uri=${redirectUri}`);
+
+        // Register the pending session (with a 10-minute timeout)
+        pendingLogins.set(chatId, { oauthServer, redirectUri, tryCount: 0 });
+        
+        setTimeout(async () => {
+            if (pendingLogins.has(chatId)) {
+                pendingLogins.delete(chatId);
+                try { await oauthServer.stop(); } catch { /* ignore */ }
+                await bot.telegram.sendMessage(chatId, '🚫 <b>Login timed out (10 minutes).</b> Use /login to try again.', { parse_mode: 'HTML' }).catch(() => {});
+            }
+        }, 10 * 60 * 1000);
+
+        // Send the login link
+        const loginMsg = [
+            '🔐 <b>Sign in with Google</b>',
+            '━'.repeat(22),
+            'Tap the button below to sign in with your',
+            'Google account and connect it to this bot.',
+            '',
+            '📱 <b>On mobile?</b>',
+            'If your browser shows a connection error after',
+            'signing in, just copy the <b>full URL</b> from',
+            'the address bar and paste it here.',
+            '',
+            '⏱  Expires in <b>10 minutes</b>',
+        ].join('\n');
+
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.url('🔒 Sign in with Google', authUrl)],
+            [Markup.button.callback('❌ Cancel Login', `login_cancel_${chatId}`)],
+        ]);
+
+        try {
+            await ctx.telegram.editMessageText(chatId, statusMsg.message_id, undefined,
+                loginMsg, { parse_mode: 'HTML', ...keyboard });
+        } catch {
+            await ctx.reply(loginMsg, { parse_mode: 'HTML', ...keyboard });
+        }
+
+    } catch (e) {
+        console.error('[/login] Unexpected error:', e.message, e.stack);
+        ctx.reply([
+            '❌ <b>Something went wrong</b>',
+            '',
+            `<code>${e.message}</code>`,
+        ].join('\n'), { parse_mode: 'HTML' }).catch(() => {});
+    }
+});
+
+// Cancel login inline button
+bot.action(/^login_cancel_(\d+)$/, async (ctx) => {
+    const chatId = parseInt(ctx.match[1]);
+    if (pendingLogins.has(chatId)) {
+        const session = pendingLogins.get(chatId);
+        pendingLogins.delete(chatId);
+        try { await session.oauthServer.stop(); } catch { /* ignore */ }
+    }
+    await ctx.answerCbQuery('🚫 Cancelled');
+    await ctx.editMessageText([
+        '🚫 <b>Login cancelled</b>',
+        '',
+        'Send /login whenever you\'re ready to try again.',
+    ].join('\n'), { parse_mode: 'HTML' }).catch(() => {});
+});
+
+// ── /logincode ────────────────────────────────────────────────────────────────
+// Explicit code submission for mobile users who cannot reach localhost.
+
+bot.command('logincode', async (ctx) => {
+    const chatId = ctx.chat.id;
+    const rawInput = ctx.message.text.split(' ').slice(1).join(' ').trim();
+
+    if (!rawInput) {
+        return ctx.reply(t('login.code_usage'), { parse_mode: 'HTML' });
+    }
+
+    // Extract code from full URL or bare code
+    let code = rawInput;
+    const match = rawInput.match(/[?&]code=([^&\s]+)/);
+    if (match) {
+        code = match[1];
+    }
+
+    if (!pendingLogins.has(chatId)) {
+        return ctx.reply(t('login.no_active_session'), { parse_mode: 'HTML' });
+    }
+
+    const completed = await completePendingLogin(chatId, code);
+    if (!completed) {
+        return ctx.reply(t('login.no_active_session_short'), { parse_mode: 'HTML' });
+    }
+    await ctx.reply(t('login.code_received'), { parse_mode: 'HTML' });
+});
+
+// ── /accounts ─────────────────────────────────────────────────────────────────
+
+bot.command('accounts', async (ctx) => {
+    const accounts = accountManager.loadAccounts();
+    const entries = Object.values(accounts).sort((a, b) => a.numericId - b.numericId);
+
+    if (entries.length === 0) {
+        return ctx.reply(
+            [
+                '📭 <b>No accounts saved yet</b>',
+                '',
+                'Use /login to add a Google account.',
+            ].join('\n'),
+            { parse_mode: 'HTML' }
+        );
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const L = [
+        `🔐 <b>Saved Accounts</b>  (${entries.length})`,
+        '━'.repeat(22),
+    ];
+
+    for (const acc of entries) {
+        const addedDate = new Date(acc.addedAt * 1000).toLocaleDateString('en-US', {
+            year: 'numeric', month: 'short', day: 'numeric',
+        });
+        const isExpired = acc.token.expiry_timestamp < now;
+        const dot = isExpired ? '🔴' : '🟢';
+        const expiredNote = isExpired ? '  <i>(expired — /login)</i>' : '';
+        L.push(`${dot} <b>#${acc.numericId}</b>  —  ${acc.email}${expiredNote}`);
+        L.push(`   📅 Added ${addedDate}`);
+    }
+
+    L.push('');
+    L.push('<i>Commands</i>');
+    L.push(`• <code>/switchacc &lt;id&gt;</code>  —  switch account`);
+    L.push(`• <code>/getinfo &lt;id&gt;</code>  —  view quota`);
+    L.push(`• <code>/login</code>  —  add another account`);
+
+    await ctx.reply(L.join('\n'), { parse_mode: 'HTML' });
+});
+
+// ── /switchacc ────────────────────────────────────────────────────────────────
+
+/**
+ * Build the message text for the /switchacc live progress card.
+ * Keeps the header constant so Telegram can edit it smoothly.
+ */
+function buildSwitchStatus(account, steps) {
+    return [
+        t('switchacc.title', { id: account.numericId }),
+        t('switchacc.email', { email: account.email }),
+        '━'.repeat(22),
+        ...steps,
+    ].join('\n');
+}
+
+/**
+ * Wait for the specified Antigravity app to fully exit.
+ * Polls isIDERunning() at 500ms intervals for up to timeoutMs (default 8s).
+ * Mirrors AntigravityManager's _waitForProcessExit() in handler.ts.
+ *
+ * @param {string} app - 'agent' or 'ide'
+ * @param {number} [timeoutMs=8000]
+ * @returns {Promise<boolean>} true if the process exited, false if timeout
+ */
+async function waitForProcessDead(app, timeoutMs = 8000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const running = await isIDERunning(app);
+        if (!running) {
+            return true;
+        }
+        await new Promise(r => setTimeout(r, 500));
+    }
+    // Timeout — process may still be alive, but we proceed anyway
+    return false;
+}
+
+bot.command('switchacc', async (ctx) => {
+    const parts = ctx.message.text.split(' ');
+    const idArg = parts[1] ? parts[1].replace(/^#/, '').trim() : null;
+
+    if (!idArg || isNaN(Number(idArg))) {
+        return ctx.reply(t('switchacc.usage'), { parse_mode: 'HTML' });
+    }
+
+    const accounts = accountManager.loadAccounts();
+    const account = accountManager.findAccount(accounts, idArg);
+
+    if (!account) {
+        return ctx.reply(t('switchacc.not_found', { id: idArg }), { parse_mode: 'HTML' });
+    }
+
+    // The preferred app to kill and restart; defaults to 'ide' since the user
+    // has ANTIGRAVITY_PREFERRED_APP=ide — but credential injection targets both.
+    const app = process.env.ANTIGRAVITY_PREFERRED_APP || 'ide';
+
+    const statusMsg = await ctx.reply(
+        [
+            t('switchacc.title', { id: account.numericId }),
+            t('switchacc.email', { email: account.email }),
+            '━'.repeat(22),
+        ].join('\n'),
+        { parse_mode: 'HTML' }
+    );
+
+    const steps = [];
+    const editStatus = async (text) => {
+        try {
+            await ctx.telegram.editMessageText(
+                ctx.chat.id, statusMsg.message_id, undefined,
+                text, { parse_mode: 'HTML' }
+            );
+        } catch { /* ignore edit failures */ }
+    };
+
+    try {
+        // Step 1 — Refresh token if needed
+        // Mirrors AntigravityManager's pre-switch token refresh in switchCloudAccount()
+        steps.push(t('switchacc.step_refreshing'));
+        await editStatus(buildSwitchStatus(account, steps));
+
+        const { account: freshAccount, refreshed } = await accountManager.ensureFreshToken(account);
+        if (refreshed) {
+            // Always persist refreshed tokens by the accounts-map key (idArg),
+            // not just by numericId, to avoid stale token on next use.
+            accounts[String(idArg)] = freshAccount;
+            accountManager.saveAccounts(accounts);
+            steps[steps.length - 1] = t('switchacc.step_refreshed');
+        } else {
+            steps[steps.length - 1] = t('switchacc.step_valid');
+        }
+        await editStatus(buildSwitchStatus(account, steps));
+
+        // Step 2 — Kill Antigravity (preferred app only)
+        // Mirrors AntigravityManager's closeAntigravity(appTarget) call
+        steps.push(t('switchacc.step_stopping', { app }));
+        await editStatus(buildSwitchStatus(account, steps));
+
+        const wasRunning = await isIDERunning(app);
+        if (wasRunning) {
+            await killIDE(app);
+            // Wait for the process to fully exit before injecting credentials
+            // Mirrors AntigravityManager's _waitForProcessExit(10_000ms, 100ms)
+            const exited = await waitForProcessDead(app, 8000);
+            steps[steps.length - 1] = exited
+                ? t('switchacc.step_stopped', { app })
+                : t('switchacc.step_still_closing', { app });
+        } else {
+            steps[steps.length - 1] = t('switchacc.step_not_running', { app });
+        }
+        await editStatus(buildSwitchStatus(account, steps));
+
+        // Step 3 — Inject credentials into the preferred app's state.vscdb
+        // Per config: targets only the preferred app (ANTIGRAVITY_PREFERRED_APP).
+        // Falls back to OS credential store if SQLite injection fails.
+        steps.push(t('switchacc.step_writing'));
+        await editStatus(buildSwitchStatus(account, steps));
+
+        try {
+            await accountManager.injectTokenIntoIde(freshAccount, app);
+            steps[steps.length - 1] = t('switchacc.step_written', { app });
+        } catch (injErr) {
+            // SQLite injection failed — fall back to OS credential store
+            try {
+                await accountManager.writeToCredentialStore(freshAccount.token);
+                steps[steps.length - 1] = t('switchacc.step_written_keyring', { error: injErr.message.slice(0, 50) });
+            } catch (credErr) {
+                steps[steps.length - 1] = t('switchacc.step_write_failed', { error: injErr.message.slice(0, 60) });
+            }
+        }
+        await editStatus(buildSwitchStatus(account, steps));
+
+        // Step 4 — Restart Antigravity (same preferred app that was killed)
+        // Mirrors AntigravityManager's startAntigravity(appTarget) call
+        steps.push(t('switchacc.step_starting', { app }));
+        await editStatus(buildSwitchStatus(account, steps));
+
+        const appPort = getCDPPort(app);
+        try {
+            cleanLockFile(app);
+            await launchIDE(null, appPort, app);
+            steps[steps.length - 1] = t('switchacc.step_started', { app });
+        } catch (e) {
+            steps[steps.length - 1] = t('switchacc.step_start_failed', { app, error: e.message.slice(0, 70) });
+        }
+
+        // Step 5 — Done
+        steps.push('━'.repeat(22));
+        steps.push(t('switchacc.step_done', { id: account.numericId }));
+        steps.push(t('switchacc.step_done_email', { email: account.email }));
+        await editStatus(buildSwitchStatus(account, steps));
+
+    } catch (e) {
+        console.error('[/switchacc] Error:', e.message);
+        steps.push('━'.repeat(22));
+        steps.push(t('switchacc.error', { error: e.message }));
+        await editStatus(buildSwitchStatus(account, steps));
+    }
+});
+
+// ── /getinfo ──────────────────────────────────────────────────────────────────
+
+bot.command('getinfo', async (ctx) => {
+    const parts = ctx.message.text.split(' ');
+    const idArg = parts[1] ? parts[1].replace(/^#/, '').trim() : null;
+
+    const accounts = accountManager.loadAccounts();
+    const allAccounts = Object.values(accounts).sort((a, b) => a.numericId - b.numericId);
+
+    if (allAccounts.length === 0) {
+        return ctx.reply(t('quota.no_accounts'), { parse_mode: 'HTML' });
+    }
+
+    // Default to account #1 if no ID given
+    let account;
+    if (!idArg) {
+        account = allAccounts[0];
+    } else if (isNaN(Number(idArg))) {
+        return ctx.reply(t('quota.usage'), { parse_mode: 'HTML' });
+    } else {
+        account = accountManager.findAccount(accounts, idArg);
+    }
+
+    if (!account) {
+        return ctx.reply(t('quota.not_found', { id: idArg }), { parse_mode: 'HTML' });
+    }
+
+    setReaction(ctx, REACTION.THINKING);
+    const loadingMsg = await ctx.reply(t('quota.fetching'), { parse_mode: 'HTML' });
+
+    try {
+        // Refresh token if needed
+        const { account: freshAccount, refreshed } = await accountManager.ensureFreshToken(account);
+        if (refreshed) {
+            accounts[String(account.numericId)] = freshAccount;
+            accountManager.saveAccounts(accounts);
+            account = freshAccount;
+        }
+
+        // Fetch fresh quota
+        let quotaData = account.quota || {};
+        try {
+            quotaData = await accountManager.fetchQuota(account.token.access_token);
+            accounts[String(account.numericId)].quota = quotaData;
+            accountManager.saveAccounts(accounts);
+        } catch (e) {
+            console.warn('[/getinfo] Quota fetch failed:', e.message);
+        }
+
+        const html = formatQuotaHtml(account, quotaData);
+
+        await ctx.telegram.editMessageText(
+            ctx.chat.id, loadingMsg.message_id, undefined,
+            html,
+            { parse_mode: 'HTML' }
+        );
+        setReaction(ctx, REACTION.SUCCESS);
+
+    } catch (e) {
+        console.error('[/getinfo] Error:', e.message);
+        setReaction(ctx, null);
+        await ctx.telegram.editMessageText(
+            ctx.chat.id, loadingMsg.message_id, undefined,
+            t('quota.fetch_failed', { error: e.message }),
+            { parse_mode: 'HTML' }
+        ).catch(() => {});
+    }
+});
+
+// ── /delacc ─────────────────────────────────────────────────────────────────
+
+bot.command('delacc', async (ctx) => {
+    const parts = ctx.message.text.split(' ');
+    const idArg = parts[1] ? parts[1].replace(/^#/, '').trim() : null;
+
+    if (!idArg || isNaN(Number(idArg))) {
+        return ctx.reply(
+            [
+                'ℹ️ <b>Usage</b>',
+                '━'.repeat(22),
+                '<code>/delacc &lt;id&gt;</code>',
+                '',
+                'Example: <code>/delacc 2</code>',
+                'Use /accounts to see your account IDs.',
+            ].join('\n'),
+            { parse_mode: 'HTML' }
+        );
+    }
+
+    const accounts = accountManager.loadAccounts();
+    const account = accountManager.findAccount(accounts, idArg);
+
+    if (!account) {
+        return ctx.reply(
+            [
+                `❌ <b>Account #${idArg} not found</b>`,
+                '',
+                'Use /accounts to see your saved accounts.',
+            ].join('\n'),
+            { parse_mode: 'HTML' }
+        );
+    }
+
+    // Ask for confirmation before deleting
+    const confirmKeyboard = Markup.inlineKeyboard([
+        [
+            Markup.button.callback(`🗑 Yes, delete #${account.numericId}`, `delacc_confirm_${account.numericId}`),
+            Markup.button.callback('✖ Cancel', `delacc_cancel_${account.numericId}`),
+        ],
+    ]);
+
+    await ctx.reply(
+        [
+            `⚠️ <b>Delete Account #${account.numericId}?</b>`,
+            '━'.repeat(22),
+            `👤 <b>${account.name || account.email}</b>`,
+            `📧 <code>${account.email}</code>`,
+            '',
+            'This removes the saved token from this bot.',
+            '<i>Antigravity itself will not be affected.</i>',
+        ].join('\n'),
+        { parse_mode: 'HTML', ...confirmKeyboard }
+    );
+});
+
+// Confirmation: delete
+bot.action(/^delacc_confirm_(\d+)$/, async (ctx) => {
+    const numericId = parseInt(ctx.match[1]);
+    await ctx.answerCbQuery();
+
+    const accounts = accountManager.loadAccounts();
+    const account = accountManager.findAccount(accounts, String(numericId));
+
+    if (!account) {
+        return ctx.editMessageText(
+            [
+                `❌ <b>Account #${numericId} not found</b>`,
+                '',
+                'It may have already been deleted.',
+            ].join('\n'),
+            { parse_mode: 'HTML' }
+        ).catch(() => {});
+    }
+
+    delete accounts[String(numericId)];
+    accountManager.saveAccounts(accounts);
+
+    const remaining = Object.keys(accounts).length;
+    await ctx.editMessageText(
+        [
+            `🗑 <b>Account #${numericId} deleted</b>`,
+            '━'.repeat(22),
+            `📧 ${account.email}`,
+            '',
+            remaining > 0
+                ? `${remaining} account${remaining !== 1 ? 's' : ''} remaining. Use /accounts to view them.`
+                : 'No accounts remain. Use /login to add one.',
+        ].join('\n'),
+        { parse_mode: 'HTML' }
+    ).catch(() => {});
+});
+
+// Confirmation: cancel
+bot.action(/^delacc_cancel_(\d+)$/, async (ctx) => {
+    await ctx.answerCbQuery('Cancelled');
+    await ctx.editMessageText(
+        [
+            '✖ <b>Deletion cancelled</b>',
+            '',
+            'Account was not deleted.',
+        ].join('\n'),
+        { parse_mode: 'HTML' }
+    ).catch(() => {});
+});
 
 init();
 
@@ -3207,6 +4446,9 @@ startHeartbeat();
 const handleExit = async (signal) => {
     console.log(`\nReceived ${signal}. Stopping bot polling...`);
     if (global.__taskWatcher) global.__taskWatcher.stop();
+    if (activeArtifactWatcher) {
+        try { activeArtifactWatcher.close(); } catch (_) {}
+    }
     try {
         // Fire-and-forget: bot.stop() may never resolve during long-polling,
         // but calling it triggers the internal cleanup (webhook delete, offset commit).

@@ -102,9 +102,7 @@ const UI_LOCATORS_SCRIPT = `
                 .filter(el => {
                     // Filter out xterm, hidden elements, or display none
                     if (el.className && typeof el.className === 'string' && el.className.includes('xterm')) return false;
-                    if (el.offsetParent === null) return false;
-                    if (window.getComputedStyle(el).display === 'none') return false;
-                    return true;
+                    return AG_UI.isVisible(el);
                 });
 
             // Return the most relevant editor (preferring the last active one)
@@ -149,7 +147,7 @@ const UI_LOCATORS_SCRIPT = `
             ];
             
             return Array.from(document.querySelectorAll(selectors.join(', '))).some(el => {
-                if (el.offsetParent === null) return false;
+                if (!AG_UI.isVisible(el)) return false;
                 // Ignore tiny status bar indicators
                 if (el.className && typeof el.className === 'string') {
                     if (el.className.includes('h-3') && el.className.includes('w-3')) return false;
@@ -254,6 +252,19 @@ const UI_LOCATORS_SCRIPT = `
             return Array.from(container.querySelectorAll('[data-testid^="convo-pill-"], .convo-pill, [class*="conversation-pill"]'));
         },
         
+        /**
+         * Checks if a DOM element is visible on the page (checks display, visibility, opacity, and dimensions).
+         * Designed to be robust for fixed overlays/portals where offsetParent is null.
+         * @param {HTMLElement} el The element to check
+         * @returns {boolean}
+         */
+        isVisible: (el) => {
+            if (!el) return false;
+            const style = window.getComputedStyle(el);
+            if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+            return !!(el.offsetWidth || el.offsetHeight || (el.getClientRects && el.getClientRects().length > 0));
+        },
+
         /**
          * Removes "Thought for Xs" blocks and tool execution blocks from a cloned DOM element.
          * @param {HTMLElement} clone The cloned message node

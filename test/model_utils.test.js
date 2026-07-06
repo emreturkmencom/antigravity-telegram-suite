@@ -33,6 +33,14 @@ function run() {
         findBestModelOption(options, 'Claude Opus 4.6 (Thinking)'),
         'Claude Opu  4.6 (Thinking)'
     );
+    assert.strictEqual(
+        findBestModelOption(options, 'Claude Opus'),
+        'Claude Opu  4.6 (Thinking)'
+    );
+    assert.strictEqual(
+        findBestModelOption(options, 'Claude Opu'),
+        'Claude Opu  4.6 (Thinking)'
+    );
 
     console.log('✅ Model utility tests passed!');
 }

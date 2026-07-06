@@ -12,7 +12,7 @@ Send messages, switch AI models, manage workspaces, take screenshots, and run mu
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.4.0-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.5.5-orange.svg)]()
 
 \* *Some features may have limitations on the Standalone App. See [Known Issues](#-known-issues).*
 
@@ -44,6 +44,9 @@ Send messages, switch AI models, manage workspaces, take screenshots, and run mu
 | ⌨️ **Typing Indicator** | Shows "typing..." in Telegram while the agent is working |
 | 🖥️ **Cross-Platform** | Works on Linux, macOS (Intel & Apple Silicon), and Windows |
 | 🔀 **Dual App Support** | Seamlessly switch between Antigravity IDE and Standalone Agent App |
+| 🔐 **Multi-Account Switching** | Authenticate and switch between Google accounts, injecting credentials directly into the IDE database or OS keychain |
+| 📡 **Telegraph Publishing** | Task checklists, implementation plans, and walkthroughs are automatically published to telegra.ph and shared as tap-to-open links in Telegram for better visibility and readability |
+
 
 ---
 
@@ -81,7 +84,7 @@ AGENT_CDP_PORT=9333    # Port for the Standalone Antigravity App
 IDE_CDP_PORT=9334      # Port for the Antigravity IDE
 
 # Default AI model to select on new chat
-DEFAULT_MODEL=Gemini 3.1 Pro (High)
+DEFAULT_MODEL=Gemini 3.5 Flash (Medium)
 
 # Language: en | zh | ko | tr | de | es | fr
 LANGUAGE=en
@@ -91,6 +94,10 @@ ANTIGRAVITY_PREFERRED_APP=ide
 
 # Enable auto-accept by default
 AUTOACCEPT_DEFAULT=true
+
+# Filter which models appear in /getinfo quota output (comma-separated, matches display names)
+QUOTA_DISPLAY_MODELS=Claude Opus 4.6,Claude Sonnet 4.6,Gemini 3.5 Flash (High),Gemini 3.5 Flash (Low),Gemini 3.5 Flash (Medium),Gemini 3.1 Pro (High),Gemini 3.1 Pro (Low)
+
 ```
 
 > 💡 Send `/start` to your bot to get your Chat ID.
@@ -98,6 +105,22 @@ AUTOACCEPT_DEFAULT=true
 ### 3. Launch the App with CDP
 
 The bot communicates with Antigravity via Chrome DevTools Protocol (CDP). You must launch the app with a debugging port.
+
+#### 🚀 Launching the Bot & Watchdog
+
+To run the bot in the background with auto-restart on crash or unresponsiveness, run the cross-platform watchdog agent:
+
+```bash
+npm run watchdog
+```
+
+Alternatively, to start the bot directly:
+
+```bash
+npm start
+```
+
+#### Manual Launch Options
 
 **If running both apps side-by-side, use different ports:**
 
@@ -172,8 +195,6 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | Command | Description |
 |---|---|
 | `/model` | Switch AI model (Gemini, Claude, etc.) |
-| `/audio` | Toggle Text-to-Speech audio summaries (OFF by default) |
-| `/tts` | Open the Text-to-Speech settings menu (speed and limit settings) |
 | `/turbo` | Toggle **Turbo Mode** — multi-agent orchestration (see below) |
 | `/goal <task>` | Start **Goal Mode** — agent works autonomously until done |
 | `/plan <task>` | Generate an **implementation plan** before coding |
@@ -207,6 +228,18 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/version` | Show current version info |
 | `/menu` | Update the Telegram command menu |
 | `/fix_shortcuts` | Repair desktop shortcuts for Antigravity apps |
+
+### Account Management
+
+| Command | Description |
+|---|---|
+| `/login` | Start the Google OAuth flow to authenticate a new account |
+| `/logincode <url_or_code>` | Manually process a Google OAuth callback redirect URL or code (useful for mobile/headless setups) |
+| `/accounts` | List all saved accounts, showing active status, names, emails, and subscription tiers |
+| `/switchacc <id>` | Inject credentials for the specified account, gracefully restart the IDE/Agent, and log in |
+| `/getinfo <id>` | Retrieve detailed subscription details and render custom model usage progress bars |
+| `/delacc <id>` | Delete a saved Google account's authentication token from the bot's database |
+
 
 ---
 
@@ -260,28 +293,45 @@ Turbo Mode runs an **Agents Council** workflow that coordinates multiple AI mode
 ```
 antigravity-telegram-suite/
 ├── src/
-│   ├── index.js              # Main bot logic & Telegram command handlers
-│   ├── cdp_controller.js     # Chrome DevTools Protocol communication
-│   ├── autoaccept.js         # Auto-accept button clicker via CDP MutationObserver
-│   ├── turbo_orchestrator.js # Multi-agent Turbo Mode (Agents Council) orchestration
-│   ├── task_watcher.js       # Proactive notification watcher (transcript.jsonl monitor)
-│   ├── updater.js            # Self-update module (git pull + pm2 restart)
-│   ├── ui_locators.js        # DOM element locators for IDE/Agent UI interaction
-│   ├── i18n.js               # Internationalization module
-│   └── platform.js           # Cross-platform OS abstraction (launch, close, paths)
+│   ├── index.js               # Main bot logic & Telegram command handlers
+│   ├── cdp_controller.js      # Chrome DevTools Protocol communication
+│   ├── autoaccept.js          # Auto-accept button clicker via CDP MutationObserver
+│   ├── turbo_orchestrator.js  # Multi-agent Turbo Mode (Agents Council) orchestration
+│   ├── task_watcher.js        # Proactive notification watcher (transcript.jsonl monitor)
+│   ├── updater.js             # Self-update module (git pull + pm2 restart)
+│   ├── ui_locators.js         # DOM element locators for IDE/Agent UI interaction
+│   ├── i18n.js                # Internationalization module
+│   ├── platform.js            # Cross-platform OS abstraction (launch, close, paths)
+│   ├── model_utils.js         # Model name normalization & fuzzy-matching utilities
+│   ├── account_manager.js     # Google OAuth login, multi-account store, credential injection
+│   ├── protobuf_utils.js      # Zero-dependency protobuf serialization for credential injection
+│   ├── telegraph_publisher.js # Publishes task/plan/walkthrough to telegra.ph; maps file links to URLs
+│   ├── cdp_health.js          # CDP connection health-check helpers
+│   ├── local_media.js         # Local image extraction from markdown
+│   └── watchdog.js            # Bot process watchdog / auto-restart
 ├── locales/
-│   ├── en.json               # English
-│   ├── zh.json               # Chinese (中文)
-│   ├── ko.json               # Korean (한국어)
-│   ├── tr.json               # Turkish
-│   ├── de.json               # German
-│   ├── es.json               # Spanish
-│   └── fr.json               # French
+│   ├── en.json                # English
+│   ├── zh.json                # Chinese (中文)
+│   ├── ko.json                # Korean (한국어)
+│   ├── tr.json                # Turkish
+│   ├── de.json                # German
+│   ├── es.json                # Spanish
+│   └── fr.json                # French
 ├── scripts/
-│   ├── install.sh            # Linux/macOS installer
-│   └── install.ps1           # Windows installer
-├── .env.example              # Environment variable template
-├── CHANGELOG.md              # Release history
+│   ├── install.sh             # Linux/macOS installer
+│   └── install.ps1            # Windows installer
+├── test/
+│   ├── model_utils.test.js    # Unit tests for model_utils
+│   ├── protobuf_utils.test.js # Unit tests for protobuf_utils
+│   ├── telegraph.test.js      # Tests for telegraph_publisher
+│   ├── cdp_health.test.js     # Tests for CDP health helpers
+│   ├── local_media.test.js    # Tests for local media extraction
+│   ├── i18n.test.js           # Tests for i18n module
+│   ├── updater.test.js        # Tests for updater module
+│   ├── smoke.test.js          # Smoke / integration tests
+│   └── test_helpers.js        # Shared test utilities
+├── .env.example               # Environment variable template
+├── CHANGELOG.md               # Release history
 └── package.json
 ```
 
@@ -329,6 +379,7 @@ Use `/app` to switch the bot's focus between apps. The `ANTIGRAVITY_PREFERRED_AP
 | **Standalone App Limitations** | Some features (workspace switching, thread management) may not work reliably with the Standalone Antigravity App. **Antigravity IDE is fully supported and recommended.** |
 | **Auto-Update on IDE 2.0** | If Antigravity IDE auto-updates, DOM selectors may break until the bot is also updated. |
 | **Turbo Mode Model Access** | Turbo Mode requires both Claude and Gemini models to be available. If one model is unavailable, the pipeline will fail. |
+| **Telegraph on restricted networks** | If `api.telegra.ph` is blocked, set `TELEGRAPH_API_HOST=api.graph.org` in your `.env` (this is already the default). |
 
 > 💡 As a developer, I prefer to focus on IDE support. The Standalone App integration is provided on a best-effort basis.
 
@@ -338,14 +389,15 @@ Use `/app` to switch the bot's focus between apps. The `ANTIGRAVITY_PREFERRED_AP
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+5. Open a Pull Request against [`gtxPrime/antigravity-telegram-suite`](https://github.com/gtxPrime/antigravity-telegram-suite)
 
 ---
 
 ## 🙏 Acknowledgments
 
+- **[gtxPrime](https://github.com/gtxPrime)** — Google OAuth multi-account switching, OS keychain & database credential injection, Telegraph publishing (task/plan/walkthrough auto-shared to telegra.ph with tap-to-open buttons)
 - **[ATX-AI-Dev](https://github.com/ATX-AI-Dev)** — PR #8: Standalone App support, Watchdog agent, and dynamic model fetching
 - **[yvg](https://github.com/yvg/antigravity-telegram-suite)** — Multi-Window Support feature
 - **[achshar](https://github.com/achshar/antigravity-telegram-suite)** — Agent Manager UI locators for thread management

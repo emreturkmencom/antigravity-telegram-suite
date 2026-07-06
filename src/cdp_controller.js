@@ -116,8 +116,25 @@ function findConversationIdByTitle(threadName) {
                             
                             // Check if thread title matches first user message
                             // IDE generates titles from the first message, so they overlap
+                            const words1 = searchName.split(/\s+/).filter(w => w.length > 2);
+                            const words2 = firstMsg.split(/\s+/).filter(w => w.length > 2);
+                            const intersect = words1.filter(w => words2.includes(w));
+                            const overlapRatio = (words1.length > 0 && words2.length > 0) ? (intersect.length / Math.min(words1.length, words2.length)) : 0;
+                            
+                            const hasLongCommonSub = () => {
+                                for (let len = 12; len >= 8; len--) {
+                                    for (let i = 0; i <= searchName.length - len; i++) {
+                                        const sub = searchName.substring(i, i + len);
+                                        if (firstMsg.includes(sub)) return true;
+                                    }
+                                }
+                                return false;
+                            };
+
                             if (firstMsg.includes(searchName.substring(0, minMatchLen)) || 
-                                searchName.includes(firstMsg.substring(0, minMatchLen))) {
+                                searchName.includes(firstMsg.substring(0, minMatchLen)) ||
+                                (words1.length >= 2 && words2.length >= 2 && overlapRatio >= 0.5) ||
+                                hasLongCommonSub()) {
                                 threadNameToIdCache.set(threadName, dir.name);
                                 if (threadNameToIdCache.size > 500) { threadNameToIdCache.delete(threadNameToIdCache.keys().next().value); }
                                 return dir.name;
@@ -303,6 +320,12 @@ const CHAT_EXTRACT_EXPR = `
                 if (tag === 'p' || tag === 'div') return md + '\\n';
                 if (tag === 'li') return '- ' + md + '\\n';
                 if (tag === 'h1' || tag === 'h2' || tag === 'h3' || tag === 'h4') return '\\n### ' + md.trim() + '\\n';
+                if (tag === 'span') return md.trim() + ' ';
+                
+                const inlineTags = ['a', 'strong', 'b', 'em', 'i', 'code', 'span', '#text'];
+                if (!inlineTags.includes(tag) && tag !== 'p' && tag !== 'div' && tag !== 'li' && !tag.match(/^h[1-6]$/)) {
+                    return md.trim() + '\n';
+                }
                 
                 return md;
             }
@@ -2045,10 +2068,20 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
                             const logPath = fs.existsSync(transcriptPath) ? transcriptPath : (fs.existsSync(overviewPath) ? overviewPath : null);
                             if (logPath) {
                                 try {
+                                    const stats = fs.statSync(logPath);
                                     const head = fs.readFileSync(logPath, 'utf8').substring(0, 8000);
                                     const normalize = (s) => (s || '').toLowerCase().replace(/[-_]/g, ' ');
-                                    if (normalize(head).includes(normalize(filterWorkspace))) {
+                                    const workspaceNameNormalized = normalize(filterWorkspace);
+                                    
+                                    if (normalize(head).includes(workspaceNameNormalized)) {
                                         match = true;
+                                    } else {
+                                        // Allow extremely recent new threads (modified within last 90 seconds, size under 8KB)
+                                        // since new threads won't contain workspace path references yet in their first user step.
+                                        const ageMs = Date.now() - stats.mtimeMs;
+                                        if (ageMs < 90000 && stats.size < 8000) {
+                                            match = true;
+                                        }
                                     }
                                 } catch (_) {}
                             }
@@ -2287,7 +2320,7 @@ async function getAvailableModels(port) {
                 expression: `
                     ${UI_LOCATORS_SCRIPT}
                     (() => {
-                        const existingOptions = AG_UI.getModelOptions().filter(el => el.offsetParent !== null);
+                        const existingOptions = AG_UI.getModelOptions().filter(AG_UI.isVisible);
                         if (existingOptions.length > 3) return { alreadyOpen: true };
                         const btn = AG_UI.getModelSelectorButton();
                         if (btn) { btn.click(); return { clicked: true }; }
@@ -2312,14 +2345,14 @@ async function getAvailableModels(port) {
                         const cleanModelText = (text) => (text || '')
                             .replace(/Fla\\s*h/g, 'Flash')
                             .replace(/Fa\\s*t/g, 'Fast')
-                            .replace(/\\bOpu(?=\\s|[0-9(])/g, 'Opus')
+                            .replace(/\\bopus?\\b/gi, 'Opus')
                             .replace(/\\s*(Fast|New)\\s*$/i, '')
                             .replace(/\\s+/g, ' ')
                             .trim();
                         const models = [];
                         const items = AG_UI.getModelOptions();
                         items.forEach(el => {
-                            if (el.offsetParent) {
+                            if (AG_UI.isVisible(el)) {
                                 const t = cleanModelText(el.textContent.trim().split('\\n')[0].trim());
                                 if (t.length > 2 && t.length < 80) models.push(t);
                             }
@@ -2355,7 +2388,7 @@ async function selectModel(port, modelName, specificTargetId = null) {
                     ${UI_LOCATORS_SCRIPT}
                     (() => {
                         // Check if model dropdown is already open by looking for model option buttons
-                        const existingOptions = AG_UI.getModelOptions().filter(el => el.offsetParent !== null);
+                        const existingOptions = AG_UI.getModelOptions().filter(AG_UI.isVisible);
                         if (existingOptions.length > 3) return { alreadyOpen: true };
                         
                         // Click the model selector button to open dropdown
@@ -2391,19 +2424,19 @@ async function selectModel(port, modelName, specificTargetId = null) {
                             .replace(/当前/g, ' ')
                             .replace(/fla\\s*h/g, 'flash')
                             .replace(/fa\\s*t/g, 'fast')
-                            .replace(/\\bopu(?=\\s|[0-9(])/g, 'opus')
+                            .replace(/\\bopus?\\b/g, 'opus')
                             .replace(/\\bfast\\b/g, ' ')
                             .replace(/\\bnew\\b/g, ' ')
                             .replace(/[^a-z0-9]+/g, '');
                         const cleanModelText = (text) => (text || '')
                             .replace(/Fla\\s*h/g, 'Flash')
                             .replace(/Fa\\s*t/g, 'Fast')
-                            .replace(/\\bOpu(?=\\s|[0-9(])/g, 'Opus')
+                            .replace(/\\bopus?\\b/gi, 'Opus')
                             .replace(/\\s*(Fast|New)\\s*$/i, '')
                             .replace(/\\s+/g, ' ')
                             .trim();
                         const targetModel = normalizeModelText(${JSON.stringify(modelName)});
-                        const modelOptions = AG_UI.getModelOptions().filter(el => el.offsetParent !== null);
+                        const modelOptions = AG_UI.getModelOptions().filter(AG_UI.isVisible);
                         
                         // Try exact match first
                         let match = modelOptions.find(b => {
