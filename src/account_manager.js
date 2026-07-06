@@ -24,9 +24,6 @@ const OAUTH_CLIENTS_ENV = 'ANTIGRAVITY_OAUTH_CLIENTS';
 const ACTIVE_OAUTH_CLIENT_ENV = 'ANTIGRAVITY_OAUTH_CLIENT_KEY';
 const DEFAULT_OAUTH_CLIENT_KEY = 'antigravity_enterprise';
 
-const BUILTIN_CLIENT_ID = Buffer.from('MTA3MTAwNjA2MDU5MS10bWhzc2luMmgyMWxjcmUyMzV2dG9sb2poNGc0MDNlcC5hcHBzLmdvb2dsZXVzZXJjb250ZW50LmNvbQ==', 'base64').toString('utf8');
-const BUILTIN_CLIENT_SECRET = Buffer.from('R09DU1BYLUs1OEZXUjQ4NkxkTEoxbUxCOHNYQzR6NnFEQWY=', 'base64').toString('utf8');
-
 function normalizeClientKey(key) {
     return (key || '').trim().toLowerCase();
 }
@@ -38,8 +35,24 @@ function normalizeClientKey(key) {
  * @returns {{key: string, client_id: string, client_secret: string}}
  */
 function getActiveClient() {
-    const defaultClientId = process.env.GOOGLE_CLIENT_ID || BUILTIN_CLIENT_ID;
-    const defaultClientSecret = process.env.GOOGLE_CLIENT_SECRET || BUILTIN_CLIENT_SECRET;
+    let defaultClientId = process.env.GOOGLE_CLIENT_ID;
+    let defaultClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+    if (!defaultClientId || !defaultClientSecret) {
+        throw new Error('Google OAuth credentials not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your .env file.');
+    }
+
+    // Decode from base64 if the provided values are base64-encoded
+    if (defaultClientId.endsWith('=')) {
+        try {
+            defaultClientId = Buffer.from(defaultClientId, 'base64').toString('utf8');
+        } catch (_) {}
+    }
+    if (defaultClientSecret.endsWith('=')) {
+        try {
+            defaultClientSecret = Buffer.from(defaultClientSecret, 'base64').toString('utf8');
+        } catch (_) {}
+    }
 
     const clients = [
         {
