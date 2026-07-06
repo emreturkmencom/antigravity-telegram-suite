@@ -14,6 +14,7 @@ Thumbs.db
 .idea/
 
 # Debug/scratch files
+start_everything.bat
 core
 test_cdp.js
 install_standalone.sh
