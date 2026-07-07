@@ -373,6 +373,75 @@ function updateEnvFile(key, value) {
     }
 }
 
+/**
+ * Auto-migrate missing env keys from .env.example to .env on startup.
+ * Ensures existing users get new required keys (like GOOGLE_CLIENT_ID)
+ * automatically after /update without manual .env editing.
+ */
+function migrateEnvFromExample() {
+    const envPath = path.join(__dirname, '..', '.env');
+    const examplePath = path.join(__dirname, '..', '.env.example');
+    
+    if (!fs.existsSync(envPath) || !fs.existsSync(examplePath)) return;
+    
+    try {
+        const envContent = fs.readFileSync(envPath, 'utf8');
+        const exampleContent = fs.readFileSync(examplePath, 'utf8');
+        
+        // Parse keys from both files
+        const envKeys = new Set();
+        envContent.split(/\r?\n/).forEach(line => {
+            const match = line.match(/^([A-Z_][A-Z0-9_]*)\s*=/);
+            if (match) envKeys.add(match[1]);
+        });
+        
+        // Find keys in .env.example that are missing from .env
+        const missing = [];
+        let currentComment = '';
+        exampleContent.split(/\r?\n/).forEach(line => {
+            if (line.startsWith('#')) {
+                currentComment = line;
+                return;
+            }
+            const match = line.match(/^([A-Z_][A-Z0-9_]*)\s*=(.*)/);
+            if (match && !envKeys.has(match[1])) {
+                // Skip keys that should be user-specific (BOT_TOKEN, ALLOWED_CHAT_ID)
+                const skipKeys = ['BOT_TOKEN', 'ALLOWED_CHAT_ID', 'SETUP_MODE'];
+                if (skipKeys.includes(match[1])) return;
+                
+                if (currentComment && missing.length === 0) {
+                    missing.push('');  // blank line separator
+                }
+                if (currentComment) {
+                    missing.push(currentComment);
+                    currentComment = '';
+                }
+                missing.push(line);
+            } else {
+                currentComment = '';
+            }
+        });
+        
+        if (missing.length > 0) {
+            const additions = '\n' + missing.join('\n') + '\n';
+            fs.appendFileSync(envPath, additions, 'utf8');
+            
+            // Also load them into process.env for current session
+            missing.forEach(line => {
+                const m = line.match(/^([A-Z_][A-Z0-9_]*)\s*=(.*)/);
+                if (m) process.env[m[1]] = m[2];
+            });
+            
+            console.log(`[env-migrate] Added ${missing.filter(l => l.match(/^[A-Z]/)).length} new key(s) from .env.example to .env`);
+        }
+    } catch (e) {
+        console.error('[env-migrate] Migration failed:', e.message);
+    }
+}
+
+// Run migration on startup
+migrateEnvFromExample();
+
 function markdownToTelegramHtml(text) {
     let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     html = html.replace(/^(#{1,6})\s+(.+)$/gm, '<b>$2</b>');
@@ -606,6 +675,9 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
         return [];
     }
 }
+
+// Alias used by account/telegraph features (PR #21)
+const sendBotMessage = sendLongMessage;
 
 // Strip agent query echo from response text
 function stripQueryFromResponse(text, query) {
@@ -1808,7 +1880,7 @@ const handleArtifacts = async (ctx) => {
         // Sort by modification time, newest first
         cachedArtifacts.sort((a, b) => b.mtime - a.mtime);
 
-        let msg = t('artifacts.list_title') || '📎 <b>Artifacts for Current Thread:</b>\\n\\n';
+        let msg = t('artifacts.list_title') || '📎 <b>Artifacts for Current Thread:</b>\n\n';
         const msgs = [];
         for (let i = 0; i < cachedArtifacts.length; i++) {
             const filename = cachedArtifacts[i].name;
@@ -3140,41 +3212,46 @@ bot.action(/^ans_(.+)$/, async (ctx) => {
         else if (val) { targetId = val.targetId; explicitThreadName = val.threadName; }
     }
     
-    try {
-        if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
-        setReaction(ctx, REACTION.THINKING, ctx.callbackQuery.message?.message_id);
-        targetId = await sendViaCDP(answer, CDP_PORT, targetId);
-        
-        await new Promise(r => setTimeout(r, 1500));
-        await snapshotChatState(CDP_PORT, targetId).catch(() => {});
+    // Fire-and-forget: don't block Telegraf's update loop
+    (async () => {
+        try {
+            if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
+            setReaction(ctx, REACTION.THINKING, ctx.callbackQuery.message?.message_id);
+            targetId = await sendViaCDP(answer, CDP_PORT, targetId);
+            
+            await new Promise(r => setTimeout(r, 1500));
+            await snapshotChatState(CDP_PORT, targetId).catch(() => {});
 
-        const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx), targetId);
-        let text = "";
-        let interactiveButtons = null;
-        if (isDone) {
-            let _latestRes = await getFullLatestResponse(CDP_PORT, targetId, explicitThreadName);
-            text = typeof _latestRes === 'string' ? _latestRes : _latestRes.text;
-            interactiveButtons = typeof _latestRes === 'string' ? null : _latestRes.buttons;
-            text = stripQueryFromResponse(text, answer);
-        } else {
-            return await ctx.reply(t('ask.timeout'));
-        }
-        
-        if (!text) text = t('ask.done_empty');
-        const header = await getChatHeader(targetId, t('ask.done'));
-        const buttons = interactiveButtons ? interactiveButtons : await buildMainMenu(null, null, targetId);
+            const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx), targetId);
+            let text = "";
+            let interactiveButtons = null;
+            if (isDone) {
+                let _latestRes = await getFullLatestResponse(CDP_PORT, targetId, explicitThreadName);
+                text = typeof _latestRes === 'string' ? _latestRes : _latestRes.text;
+                interactiveButtons = typeof _latestRes === 'string' ? null : _latestRes.buttons;
+                text = stripQueryFromResponse(text, answer);
+            } else {
+                return await ctx.reply(t('ask.timeout'));
+            }
+            
+            if (!text) text = t('ask.done_empty');
+            const header = await getChatHeader(targetId, t('ask.done'));
+            const buttons = interactiveButtons ? interactiveButtons : await buildMainMenu(null, null, targetId);
 
-        const sentIds = await sendBotMessage(ctx, text, header, buttons, ctx.callbackQuery.message.message_id);
-        if (sentIds && sentIds.length > 0 && targetId) {
-            const activeInfo = await getActiveThreadInfo(CDP_PORT, targetId).catch(() => null);
-            const currentThreadName = activeInfo ? activeInfo.name : null;
-            sentIds.forEach(id => messageTargetMap.set(id, { targetId, threadName: currentThreadName }));
-            saveMessageTargetMap(messageTargetMap);
+            const sentIds = await sendBotMessage(ctx, text, header, buttons, ctx.callbackQuery.message.message_id);
+            if (sentIds && sentIds.length > 0 && targetId) {
+                const activeInfo = await getActiveThreadInfo(CDP_PORT, targetId).catch(() => null);
+                const currentThreadName = activeInfo ? activeInfo.name : null;
+                sentIds.forEach(id => messageTargetMap.set(id, { targetId, threadName: currentThreadName }));
+                saveMessageTargetMap(messageTargetMap);
+            }
+        } catch (e) {
+            ctx.reply(t('error.general_error', { error: e.message })).catch(()=>{});
         }
-    } catch (e) {
-        ctx.reply(t('error.general_error', { error: e.message })).catch(()=>{});
-    }
+    })();
 });
+
+let isAgentBusy = false;
 
 bot.on('text', async (ctx, next) => {
     if (ctx.message.text.startsWith('/')) return next();
@@ -3192,8 +3269,23 @@ bot.on('text', async (ctx, next) => {
     if (!explicitTargetId && ctx.message.reply_to_message?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data?.startsWith('focus_')) {
         explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
     }
-    try {
-        if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
+
+    // If agent is already processing, just send the follow-up message without starting a new wait loop
+    if (isAgentBusy && !isTurboMode) {
+        try {
+            if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
+            await sendViaCDPWithRecovery(query, explicitTargetId);
+            setReaction(ctx, REACTION.THINKING);
+        } catch (err) {
+            ctx.reply(t('ask.headless_error', { error: err.message })).catch(() => {});
+        }
+        return;
+    }
+
+    // Fire-and-forget: don't block Telegraf's update loop so other commands remain responsive
+    (async () => {
+        try {
+            if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
             let targetId = explicitTargetId;
             let text = "";
             let interactiveButtons = null;
@@ -3208,6 +3300,7 @@ bot.on('text', async (ctx, next) => {
                     isTurboRunning = false;
                 }
             } else {
+                isAgentBusy = true;
                 targetId = await sendViaCDPWithRecovery(query, explicitTargetId);
                 setReaction(ctx, REACTION.THINKING);
 
@@ -3229,6 +3322,7 @@ bot.on('text', async (ctx, next) => {
                         return await ctx.reply(t('ask.timeout'));
                     }
                 } finally {
+                    isAgentBusy = false;
                     if (global.__taskWatcher) global.__taskWatcher.setBusy(false);
                 }
             }
@@ -3245,9 +3339,11 @@ bot.on('text', async (ctx, next) => {
                 saveMessageTargetMap(messageTargetMap);
             }
         } catch(err) {
+            isAgentBusy = false;
             const errorMsg = err.message === 'no_chat_input' ? t('ask.no_chat_input') : err.message;
             ctx.reply(t('ask.headless_error', { error: errorMsg })).catch(() => {});
         }
+    })();
 });
 
 // ===== PHOTO & DOCUMENT HANDLER =====
