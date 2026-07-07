@@ -27,7 +27,7 @@
     "chat_title": "💬 <i>Contrôles du chat :</i>",
     "chat_text": "- /new → Ouvrir un nouveau chat\n- /agents → Liste des chats récents\n- /artifacts → Liste des artefacts\n- /model → Sélectionner le modèle à utiliser\n- /autoaccept → Activer/Désactiver l'acceptation auto\n- /help → Afficher ce message d'aide",
     "account_title": "📱 <b>Gestion des Comptes</b>",
-    "account_text": "/login - Se connecter avec Google\n/accounts - Lister les comptes Google enregistrés\n/switchacc N - Changer de compte actif\n/getinfo N - Voir les informations de quota\n/delacc N - Supprimer un compte enregistré"
+    "account_text": "- /login → Se connecter avec Google\n- /accounts → Lister les comptes enregistrés\n- /switchacc N → Changer de compte actif\n- /getinfo N → Voir les informations de quota\n- /delacc N → Supprimer un compte enregistré"
   },
   "ide": {
     "already_running": "✅ Antigravity IDE est déjà en cours d'exécution ! Inutile d'ouvrir une autre fenêtre.\n💡 Utilisez /close pour le fermer.",

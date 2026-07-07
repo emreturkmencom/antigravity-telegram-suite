@@ -27,7 +27,7 @@
     "chat_title": "💬 <i>聊天控制：</i>",
     "chat_text": "- /new → 打开新聊天\n- /agents → 列出最近聊天\n- /artifacts → 列出产物\n- /model → 选择使用的模型\n- /autoaccept → 切换自动接受\n- /help → 显示帮助",
     "account_title": "📱 <b>账户管理</b>",
-    "account_text": "/login - 使用 Google 登录\n/accounts - 列出已保存的 Google 账户\n/switchacc N - 切换活动账户\n/getinfo N - 查看账户配额信息\n/delacc N - 删除已保存的账户"
+    "account_text": "- /login → 使用 Google 登录\n- /accounts → 列出已保存的 Google 账户\n- /switchacc N → 切换活动账户\n- /getinfo N → 查看账户配额信息\n- /delacc N → 删除已保存的账户"
   },
   "ide": {
     "already_running": "✅ Antigravity IDE 已经在运行！不需要再打开新窗口。\n💡 使用 /close 可以关闭它。",

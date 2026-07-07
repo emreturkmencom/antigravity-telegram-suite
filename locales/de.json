@@ -27,7 +27,7 @@
     "chat_title": "💬 <i>Chat-Steuerung:</i>",
     "chat_text": "- /new → Neuen Chat öffnen\n- /agents → Letzte Chats anzeigen\n- /artifacts → Artefakte anzeigen\n- /model → Modell auswählen\n- /autoaccept → Auto-Accept umschalten\n- /help → Diese Hilfemeldung anzeigen",
     "account_title": "📱 <b>Kontoverwaltung</b>",
-    "account_text": "/login - Mit Google anmelden\n/accounts - Gespeicherte Google-Konten auflisten\n/switchacc N - Aktives Konto wechseln\n/getinfo N - Kontokontingent anzeigen\n/delacc N - Gespeichertes Konto löschen"
+    "account_text": "- /login → Mit Google anmelden\n- /accounts → Gespeicherte Google-Konten auflisten\n- /switchacc N → Aktives Konto wechseln\n- /getinfo N → Kontokontingent anzeigen\n- /delacc N → Gespeichertes Konto löschen"
   },
   "ide": {
     "already_running": "✅ Antigravity IDE läuft bereits! Du musst kein neues Fenster öffnen.\n💡 Nutze /close zum Schließen.",

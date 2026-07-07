@@ -27,7 +27,7 @@
     "chat_title": "💬 <i>Sohbet Kontrolleri:</i>",
     "chat_text": "- /new → Yeni sohbet açar\n- /agents → Son sohbetleri listeler\n- /artifacts → Artifact'leri listeler\n- /model → Kullanılacak modeli seçer\n- /autoaccept → Otomatik onay modunu açar/kapatır\n- /help → Bu yardım mesajını gösterir",
     "account_title": "📱 <b>Hesap Yönetimi</b>",
-    "account_text": "/login - Google ile giriş yap\n/accounts - Kayıtlı Google hesaplarını listele\n/switchacc N - Aktif hesabı değiştir\n/getinfo N - Hesap kota bilgilerini görüntüle\n/delacc N - Kayıtlı hesabı sil"
+    "account_text": "- /login → Google ile giriş yap\n- /accounts → Kayıtlı Google hesaplarını listele\n- /switchacc N → Aktif hesabı değiştir\n- /getinfo N → Hesap kota bilgilerini görüntüle\n- /delacc N → Kayıtlı hesabı sil"
   },
   "ide": {
     "already_running": "✅ Antigravity IDE zaten çalışıyor! Ekstra pencere açmaya gerek yok.\n💡 Kapatmak için /close yazabilirsiniz.",

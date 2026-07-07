@@ -120,7 +120,7 @@
     "status_title": "👁️ <i>상태 &amp; 정보:</i>",
     "title": "🤖 <b>사용 가능한 명령어:</b>",
     "account_title": "📱 <b>계정 관리</b>",
-    "account_text": "/login - Google로 로그인\n/accounts - 저장된 Google 계정 목록\n/switchacc N - 활성 계정 전환\n/getinfo N - 계정 할당량 정보 보기\n/delacc N - 저장된 계정 삭제"
+    "account_text": "- /login → Google로 로그인\n- /accounts → 저장된 Google 계정 목록\n- /switchacc N → 활성 계정 전환\n- /getinfo N → 계정 할당량 정보 보기\n- /delacc N → 저장된 계정 삭제"
   },
   "ide": {
     "already_closed": "ℹ️ IDE가 이미 닫혀 있습니다. (잠금 파일 정리됨)",
