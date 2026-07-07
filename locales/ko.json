@@ -91,7 +91,8 @@
   },
   "error": {
     "general_error": "❌ 오류: {error}",
-    "start_error": "❌ 시작 오류: {error}"
+    "start_error": "❌ 시작 오류: {error}",
+    "modal_active": "❌ 대화형 질문 패널이 현재 열려 있습니다. 옵션 중 하나를 선택하거나 /stop을 사용하여 취소하세요."
   },
   "file": {
     "dir_info": "({count}개 항목, {page}/{totalPages} 페이지)",
@@ -117,7 +118,9 @@
     "messaging_title": "📝 <i>메시지 &amp; 상호작용:</i>",
     "status_text": "- /latest → 최신 응답 가져오기\n- /screenshot → IDE 스크린샷 촬영\n- /status → 시스템 상태\n- /quota → AI 사용량 확인\n- /version → 봇 버전 표시\n- /update → 봇 업데이트 확인",
     "status_title": "👁️ <i>상태 &amp; 정보:</i>",
-    "title": "🤖 <b>사용 가능한 명령어:</b>"
+    "title": "🤖 <b>사용 가능한 명령어:</b>",
+    "account_title": "📱 <b>계정 관리</b>",
+    "account_text": "/login - Google로 로그인\n/accounts - 저장된 Google 계정 목록\n/switchacc N - 활성 계정 전환\n/getinfo N - 계정 할당량 정보 보기\n/delacc N - 저장된 계정 삭제"
   },
   "ide": {
     "already_closed": "ℹ️ IDE가 이미 닫혀 있습니다. (잠금 파일 정리됨)",
@@ -466,7 +469,9 @@
     "failed_attempts": "유효한 링크/코드를 붙여넣으려는 3번의 실패 후 Google 로그인 절차가 취소되었습니다.",
     "in_progress": "⚠️ <b>Google 로그인 진행 중</b>\n━━━━━━━━━━━━━━━━━━━━━━\n다른 봇 서비스가 일시적으로 중단되었습니다.\nGoogle 로그인을 완료하거나 취소 버튼을 누르거나 /cancel을 입력하여 현재 로그인 세션을 먼저 취소해 주세요.",
     "no_accounts": "📭 <b>저장된 계정이 아직 없습니다</b>\n\n/login을 사용하여 추가하세요.",
-    "code_usage": "📋 <b>로그인 코드 붙여넣기</b>\n━━━━━━━━━━━━━━━━━━━━━━\nGoogle 로그인 후 리디렉션에 실패한 경우 브라우저의 전체 URL(또는 <code>code=…</code> 값)을 복사하여 여기에 전송하세요:\n\n<code>/logincode &lt;url 또는 코드&gt;</code>"
+    "code_usage": "📋 <b>로그인 코드 붙여넣기</b>\n━━━━━━━━━━━━━━━━━━━━━━\nGoogle 로그인 후 리디렉션에 실패한 경우 브라우저의 전체 URL(또는 <code>code=…</code> 값)을 복사하여 여기에 전송하세요:\n\n<code>/logincode &lt;url 또는 코드&gt;</code>",
+    "invalid_code": "⚠️ <b>잘못된 Google URL 또는 코드</b>\n━━━━━━━━━━━━━━━━━━━━━━\n메시지에서 유효한 Google 인증 코드를 추출할 수 없습니다.\n전체 리디렉션 URL 또는 인증 코드를 붙여넣어 주세요.",
+    "invalid_code_attempt": "\n<i>취소 전 시도 횟수: {count}/3</i>"
   },
   "switchacc": {
     "title": "🔄 <b>계정 #{id}(으)로 전환 중</b>",

@@ -25,7 +25,9 @@
     "ide_title": "🛠️ <i>System Controls:</i>",
     "ide_text": "- /start_ide → Start IDE/Agent if closed\n- /close → Fully close the app\n- /app → Switch between IDE and Agent\n- /workspace → Switch project\n- /window → Select active window\n- /fix_shortcuts → Fix desktop shortcuts\n- /lang → Switch language\n- /menu → Refresh menu\n- /cmd &lt;command&gt; → Run a terminal command",
     "chat_title": "💬 <i>Chat Controls:</i>",
-    "chat_text": "- /new → Open a new chat\n- /agents → List recent chats\n- /artifacts → List artifacts\n- /model → Select model to use\n- /autoaccept → Toggle auto-accept\n- /help → Show this help message"
+    "chat_text": "- /new → Open a new chat\n- /agents → List recent chats\n- /artifacts → List artifacts\n- /model → Select model to use\n- /autoaccept → Toggle auto-accept\n- /help → Show this help message",
+    "account_title": "📱 <b>Account Management</b>",
+    "account_text": "/login - Sign in with Google\n/accounts - List saved Google accounts\n/switchacc N - Switch active account\n/getinfo N - View account quota info\n/delacc N - Delete a saved account"
   },
   "ide": {
     "already_running": "✅ Antigravity IDE is already running! No need to open another window.\n💡 Use /close to shut it down.",
@@ -379,7 +381,8 @@
   },
   "error": {
     "start_error": "❌ Start error: {error}",
-    "general_error": "❌ Error: {error}"
+    "general_error": "❌ Error: {error}",
+    "modal_active": "❌ An interactive question panel is currently open. Please select one of the options or use /stop to cancel. (Images and free text are not valid for this question)"
   },
   "agent": {
     "swipe_to_reply": "<i>(Swipe message to the left to reply to this agent)</i>"
@@ -466,7 +469,9 @@
     "failed_attempts": "The Google login flow was cancelled after 3 failed attempts to paste a valid link/code.",
     "in_progress": "⚠️ <b>Google Login in progress</b>\n━━━━━━━━━━━━━━━━━━━━━━\nOther bot services are temporarily suspended.\nPlease complete the sign-in with Google or cancel the current login flow first using the Cancel button or typing /cancel.",
     "no_accounts": "📭 <b>No accounts saved yet</b>\n\nUse /login to add one.",
-    "code_usage": "📋 <b>Paste your login code</b>\n━━━━━━━━━━━━━━━━━━━━━━\nAfter signing in with Google, if the redirect failed, copy the full URL from your browser (or just the <code>code=…</code> value) and send it here:\n\n<code>/logincode &lt;url or code&gt;</code>"
+    "code_usage": "📋 <b>Paste your login code</b>\n━━━━━━━━━━━━━━━━━━━━━━\nAfter signing in with Google, if the redirect failed, copy the full URL from your browser (or just the <code>code=…</code> value) and send it here:\n\n<code>/logincode &lt;url or code&gt;</code>",
+    "invalid_code": "⚠️ <b>Invalid Google URL or Code</b>\n━━━━━━━━━━━━━━━━━━━━━━\nCould not extract a valid Google authorization code from your message.\nPlease paste the full redirect URL or the authorization code.",
+    "invalid_code_attempt": "\n<i>Attempt {count} of 3 before cancellation.</i>"
   },
   "switchacc": {
     "title": "🔄 <b>Switching to Account #{id}</b>",

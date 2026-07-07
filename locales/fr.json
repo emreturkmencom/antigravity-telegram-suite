@@ -25,7 +25,9 @@
     "ide_title": "🛠️ <i>Contrôles du système :</i>",
     "ide_text": "- /start_ide → Démarrer l'IDE/Agent s'il est fermé\n- /close → Fermer complètement l'application\n- /app → Basculer entre IDE et Agent\n- /workspace → Changer de projet\n- /window → Sélectionner la fenêtre active\n- /fix_shortcuts → Réparer les raccourcis bureau\n- /lang → Changer de langue\n- /menu → Rafraîchir le menu\n- /cmd &lt;commande&gt; → Exécuter une commande terminal",
     "chat_title": "💬 <i>Contrôles du chat :</i>",
-    "chat_text": "- /new → Ouvrir un nouveau chat\n- /agents → Liste des chats récents\n- /artifacts → Liste des artefacts\n- /model → Sélectionner le modèle à utiliser\n- /autoaccept → Activer/Désactiver l'acceptation auto\n- /help → Afficher ce message d'aide"
+    "chat_text": "- /new → Ouvrir un nouveau chat\n- /agents → Liste des chats récents\n- /artifacts → Liste des artefacts\n- /model → Sélectionner le modèle à utiliser\n- /autoaccept → Activer/Désactiver l'acceptation auto\n- /help → Afficher ce message d'aide",
+    "account_title": "📱 <b>Gestion des Comptes</b>",
+    "account_text": "/login - Se connecter avec Google\n/accounts - Lister les comptes Google enregistrés\n/switchacc N - Changer de compte actif\n/getinfo N - Voir les informations de quota\n/delacc N - Supprimer un compte enregistré"
   },
   "ide": {
     "already_running": "✅ Antigravity IDE est déjà en cours d'exécution ! Inutile d'ouvrir une autre fenêtre.\n💡 Utilisez /close pour le fermer.",
@@ -379,7 +381,8 @@
   },
   "error": {
     "start_error": "❌ Erreur de démarrage : {error}",
-    "general_error": "❌ Erreur : {error}"
+    "general_error": "❌ Erreur : {error}",
+    "modal_active": "❌ Un panneau de questions interactif est actuellement ouvert. Veuillez sélectionner une option ou utiliser /stop pour annuler."
   },
   "agent": {
     "swipe_to_reply": "<i>(Glissez ce message vers la gauche pour répondre à cet agent)</i>"
@@ -466,7 +469,9 @@
     "failed_attempts": "Le flux de connexion Google a été annulé après 3 tentatives infructueuses de collage d'un lien/code valide.",
     "in_progress": "⚠️ <b>Connexion Google en cours</b>\n━━━━━━━━━━━━━━━━━━━━━━\nLes autres services du bot sont temporairement suspendus.\nVeuillez finaliser la connexion avec Google ou annuler le flux actuel en utilisant le bouton Annuler ou en saisissant /cancel.",
     "no_accounts": "📭 <b>Aucun compte enregistré pour le moment</b>\n\nUtilisez /login pour en ajouter un.",
-    "code_usage": "📋 <b>Collez votre code de connexion</b>\n━━━━━━━━━━━━━━━━━━━━━━\nAprès vous être connecté avec Google, si la redirection a échoué, copiez l'URL complète de votre navigateur (ou juste la valeur <code>code=…</code>) et envoyez-la ici :\n\n<code>/logincode &lt;url ou code&gt;</code>"
+    "code_usage": "📋 <b>Collez votre code de connexion</b>\n━━━━━━━━━━━━━━━━━━━━━━\nAprès vous être connecté avec Google, si la redirection a échoué, copiez l'URL complète de votre navigateur (ou juste la valeur <code>code=…</code>) et envoyez-la ici :\n\n<code>/logincode &lt;url ou code&gt;</code>",
+    "invalid_code": "⚠️ <b>URL ou code Google invalide</b>\n━━━━━━━━━━━━━━━━━━━━━━\nImpossible d'extraire un code d'autorisation Google valide de votre message.\nVeuillez coller l'URL de redirection complète ou le code d'autorisation.",
+    "invalid_code_attempt": "\n<i>Tentative {count} sur 3 avant annulation.</i>"
   },
   "switchacc": {
     "title": "🔄 <b>Passage au Compte #{id}</b>",

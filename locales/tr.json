@@ -25,7 +25,9 @@
     "ide_title": "🛠️ <i>Sistem Kontrolleri:</i>",
     "ide_text": "- /start_ide → IDE/Agent kapalıysa başlatır\n- /close → Uygulamayı tamamen kapatır\n- /app → IDE ve Agent arasında geçiş yapar\n- /workspace → Projeyi değiştirir\n- /window → Aktif pencereyi seçer\n- /fix_shortcuts → Masaüstü kısayollarını onarır\n- /lang → Dil değiştirir\n- /menu → Menüyü yeniler\n- /cmd &lt;komut&gt; → Terminalde komut çalıştırır",
     "chat_title": "💬 <i>Sohbet Kontrolleri:</i>",
-    "chat_text": "- /new → Yeni sohbet açar\n- /agents → Son sohbetleri listeler\n- /artifacts → Artifact'leri listeler\n- /model → Kullanılacak modeli seçer\n- /autoaccept → Otomatik onay modunu açar/kapatır\n- /help → Bu yardım mesajını gösterir"
+    "chat_text": "- /new → Yeni sohbet açar\n- /agents → Son sohbetleri listeler\n- /artifacts → Artifact'leri listeler\n- /model → Kullanılacak modeli seçer\n- /autoaccept → Otomatik onay modunu açar/kapatır\n- /help → Bu yardım mesajını gösterir",
+    "account_title": "📱 <b>Hesap Yönetimi</b>",
+    "account_text": "/login - Google ile giriş yap\n/accounts - Kayıtlı Google hesaplarını listele\n/switchacc N - Aktif hesabı değiştir\n/getinfo N - Hesap kota bilgilerini görüntüle\n/delacc N - Kayıtlı hesabı sil"
   },
   "ide": {
     "already_running": "✅ Antigravity IDE zaten çalışıyor! Ekstra pencere açmaya gerek yok.\n💡 Kapatmak için /close yazabilirsiniz.",
@@ -379,7 +381,8 @@
   },
   "error": {
     "start_error": "❌ Başlatma hatası: {error}",
-    "general_error": "❌ Hata: {error}"
+    "general_error": "❌ Hata: {error}",
+    "modal_active": "❌ Şu anda aktif bir soru paneli açık. Lütfen seçeneklerden birini girin veya iptal etmek için /stop komutunu kullanın. (Görsel veya serbest metin bu soru için geçerli değil)"
   },
   "agent": {
     "swipe_to_reply": "<i>(Bu ajanı yanıtlamak için mesajı sola kaydırın)</i>"
@@ -466,7 +469,9 @@
     "failed_attempts": "Google giriş akışı geçerli bir bağlantı/kod yapıştırmak için 3 başarısız denemeden sonra iptal edildi.",
     "in_progress": "⚠️ <b>Google Girişi devam ediyor</b>\n━━━━━━━━━━━━━━━━━━━━━━\nDiğer bot servisleri geçici olarak askıya alındı.\nLütfen Google ile girişi tamamlayın veya İptal butonunu kullanarak ya da /cancel yazarak mevcut akışı iptal edin.",
     "no_accounts": "📭 <b>Henüz kayıtlı hesap yok</b>\n\nBir tane eklemek için /login kullanın.",
-    "code_usage": "📋 <b>Giriş kodunuzu yapıştırın</b>\n━━━━━━━━━━━━━━━━━━━━━━\nGoogle ile giriş yaptıktan sonra yönlendirme başarısız olduysa, tarayıcınızdan tam URL'yi (veya sadece <code>code=…</code> değerini) kopyalayıp buraya gönderin:\n\n<code>/logincode &lt;url veya kod&gt;</code>"
+    "code_usage": "📋 <b>Giriş kodunuzu yapıştırın</b>\n━━━━━━━━━━━━━━━━━━━━━━\nGoogle ile giriş yaptıktan sonra yönlendirme başarısız olduysa, tarayıcınızdan tam URL'yi (veya sadece <code>code=…</code> değerini) kopyalayıp buraya gönderin:\n\n<code>/logincode &lt;url veya kod&gt;</code>",
+    "invalid_code": "⚠️ <b>Geçersiz Google URL veya Kod</b>\n━━━━━━━━━━━━━━━━━━━━━━\nMesajınızdan geçerli bir Google yetkilendirme kodu çıkarılamadı.\nLütfen tam yönlendirme URL'sini veya yetkilendirme kodunu yapıştırın.",
+    "invalid_code_attempt": "\n<i>İptal öncesi deneme: {count}/3</i>"
   },
   "switchacc": {
     "title": "🔄 <b>Hesap #{id} konumuna geçiliyor</b>",

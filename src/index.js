@@ -151,12 +151,7 @@ function checkAuth(ctx, next) {
         
         if (!isLoginCallback && !isTextMessage) {
             // Block other non-text interactions (like photo uploads, other inline buttons) during login
-            return ctx.reply([
-                '⚠️ <b>Google Login in progress</b>',
-                '━'.repeat(22),
-                'Other bot services are temporarily suspended.',
-                'Please complete the sign-in with Google or cancel the current login flow first using the Cancel button or typing /cancel.',
-            ].join('\n'), { parse_mode: 'HTML' });
+            return ctx.reply(t('login.in_progress'), { parse_mode: 'HTML' });
         }
     }
 
@@ -190,11 +185,7 @@ bot.use(async (ctx, next) => {
         if (session && typeof session.reject === 'function') {
             session.reject(new Error('Login cancelled by user'));
         }
-        await ctx.reply([
-            '🚫 <b>Login cancelled</b>',
-            '',
-            'Send /login whenever you\'re ready to try again.',
-        ].join('\n'), { parse_mode: 'HTML' });
+        await ctx.reply(t('login.cancelled'), { parse_mode: 'HTML' });
         return; // Consume message
     }
 
@@ -224,7 +215,7 @@ bot.use(async (ctx, next) => {
     if (code) {
         const completed = await completePendingLogin(chatId, code);
         if (completed) {
-            await ctx.reply('⏳ <b>Code received!</b> Completing sign-in…', { parse_mode: 'HTML' });
+            await ctx.reply(t('login.code_received'), { parse_mode: 'HTML' });
             return; // Consume message, do not pass to other handlers
         }
     } else {
@@ -240,21 +231,17 @@ bot.use(async (ctx, next) => {
             }
 
             await ctx.reply([
-                '🚫 <b>Login cancelled</b>',
+                '🚫 <b>' + t('login.cancelled').split('\n')[0].replace(/<[^>]+>/g, '').trim() + '</b>',
                 '━'.repeat(22),
-                'The Google login flow was cancelled after 3 failed attempts to paste a valid link/code.',
+                t('login.failed_attempts'),
                 '',
-                'Send /login whenever you\'re ready to try again.',
+                t('login.cancelled').split('\n').pop(),
             ].join('\n'), { parse_mode: 'HTML' });
         } else {
-            await ctx.reply([
-                '⚠️ <b>Invalid Google URL or Code</b>',
-                '━'.repeat(22),
-                'Could not extract a valid Google authorization code from your message.',
-                'Please paste the full redirect URL or the authorization code.',
-                '',
-                `<i>Attempt ${session.tryCount} of 3 before cancellation.</i>`,
-            ].join('\n'), { parse_mode: 'HTML' });
+            await ctx.reply(
+                t('login.invalid_code') + t('login.invalid_code_attempt', { count: session.tryCount }),
+                { parse_mode: 'HTML' }
+            );
         }
         return; // Consume message, do not pass to other handlers
     }
@@ -781,6 +768,9 @@ ${t('help.ide_text')}
 
 ${t('help.chat_title')}
 ${t('help.chat_text')}
+
+${t('help.account_title')}
+${t('help.account_text')}
     `.trim();
     ctx.reply(helpMessage, { parse_mode: 'HTML' });
 });
@@ -3356,7 +3346,7 @@ async function processAgentRequest(ctx, query, explicitTargetId, explicitThreadN
     const targetId = await sendViaCDP(query, CDP_PORT, explicitTargetId);
     
     if (targetId === "INVALID_MODAL_OPTION") {
-        ctx.reply("❌ Şu anda aktif bir soru paneli (modal) açık. Lütfen seçeneklerden birini girin veya iptal etmek için /stop komutunu kullanın. (Görsel veya serbest metin bu soru için geçerli değil)");
+        ctx.reply(t('error.modal_active'));
         return;
     }
 
@@ -3867,7 +3857,7 @@ async function completePendingLogin(chatId, code) {
  * Exchange auth code, retrieve user info, save account, fetch quota, and inject credentials.
  */
 async function processAuthCode(chatId, authCode, redirectUri) {
-    const processingMsg = await bot.telegram.sendMessage(chatId, '⏳ <b>Authenticating…</b>', { parse_mode: 'HTML' });
+    const processingMsg = await bot.telegram.sendMessage(chatId, t('login.authenticating'), { parse_mode: 'HTML' });
 
     try {
         // Exchange code for tokens
@@ -3944,16 +3934,9 @@ async function processAuthCode(chatId, authCode, redirectUri) {
         accountManager.logInfo(`[bot] Sign-in complete for #${numericId}. Editing Telegram message.`);
         await bot.telegram.editMessageText(chatId, processingMsg.message_id, undefined,
             [
-                '✅ <b>Signed in successfully!</b>',
+                t('login.success_title'),
                 '━'.repeat(22),
-                `👤 <b>${userInfo.name || userInfo.email}</b>`,
-                `📧 <code>${userInfo.email}</code>`,
-                `🆔 Account  <b>#${numericId}</b>  <i>(${action})</i>`,
-                '',
-                '<i>What\'s next?</i>',
-                `• Switch  →  <code>/switchacc ${numericId}</code>`,
-                `• Quota   →  <code>/getinfo ${numericId}</code>`,
-                `• All accounts  →  <code>/accounts</code>`,
+                t('login.success_body', { name: userInfo.name || userInfo.email, email: userInfo.email, numericId, action }),
             ].join('\n'),
             { parse_mode: 'HTML' }
         );
@@ -3963,7 +3946,7 @@ async function processAuthCode(chatId, authCode, redirectUri) {
         console.error('[processAuthCode] Unexpected error:', e.message, e.stack);
         await bot.telegram.editMessageText(chatId, processingMsg.message_id, undefined,
             [
-                '❌ <b>Authentication failed</b>',
+                '❌ <b>' + (t('login.failed').split('\n')[0] || 'Authentication failed') + '</b>',
                 '',
                 `<code>${e.message}</code>`,
             ].join('\n'), { parse_mode: 'HTML' }).catch(() => {});
@@ -4013,7 +3996,7 @@ bot.action(/^login_confirm_(\d+)$/, async (ctx) => {
     try {
         statusMsg = await ctx.editMessageText('🔄 <b>Starting secure login…</b>', { parse_mode: 'HTML' });
     } catch {
-        statusMsg = await ctx.reply('🔄 <b>Starting secure login…</b>', { parse_mode: 'HTML' });
+        statusMsg = await ctx.reply(t('login.starting'), { parse_mode: 'HTML' });
     }
 
     try {
@@ -4031,7 +4014,7 @@ bot.action(/^login_confirm_(\d+)$/, async (ctx) => {
                     const session = pendingLogins.get(chatId);
                     if (session) {
                         pendingLogins.delete(chatId);
-                        await bot.telegram.sendMessage(chatId, `❌ <b>Login server error:</b> <code>${errMsg}</code>`, { parse_mode: 'HTML' }).catch(() => {});
+                        await bot.telegram.sendMessage(chatId, t('login.server_error', { error: errMsg }), { parse_mode: 'HTML' }).catch(() => {});
                     }
                 }
             );
@@ -4057,7 +4040,7 @@ bot.action(/^login_confirm_(\d+)$/, async (ctx) => {
             if (pendingLogins.has(chatId)) {
                 pendingLogins.delete(chatId);
                 try { await oauthServer.stop(); } catch { /* ignore */ }
-                await bot.telegram.sendMessage(chatId, '🚫 <b>Login timed out (10 minutes).</b> Use /login to try again.', { parse_mode: 'HTML' }).catch(() => {});
+                await bot.telegram.sendMessage(chatId, t('login.timeout'), { parse_mode: 'HTML' }).catch(() => {});
             }
         }, 10 * 60 * 1000);
 

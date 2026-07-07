@@ -25,7 +25,9 @@
     "ide_title": "🛠️ <i>Controles del Sistema:</i>",
     "ide_text": "- /start_ide → Iniciar IDE/Agente si está cerrado\n- /close → Cerrar la aplicación por completo\n- /app → Cambiar entre IDE y Agente\n- /workspace → Cambiar de proyecto\n- /window → Seleccionar ventana activa\n- /fix_shortcuts → Reparar accesos directos\n- /lang → Cambiar idioma\n- /menu → Actualizar menú\n- /cmd &lt;comando&gt; → Ejecutar un comando en la terminal",
     "chat_title": "💬 <i>Controles de Chat:</i>",
-    "chat_text": "- /new → Abrir un nuevo chat\n- /agents → Lista de chats recientes\n- /artifacts → Lista de artefactos\n- /model → Seleccionar el modelo a usar\n- /autoaccept → Alternar auto-aceptar\n- /help → Mostrar este mensaje de ayuda"
+    "chat_text": "- /new → Abrir un nuevo chat\n- /agents → Lista de chats recientes\n- /artifacts → Lista de artefactos\n- /model → Seleccionar el modelo a usar\n- /autoaccept → Alternar auto-aceptar\n- /help → Mostrar este mensaje de ayuda",
+    "account_title": "📱 <b>Gestión de Cuentas</b>",
+    "account_text": "/login - Iniciar sesión con Google\n/accounts - Listar cuentas de Google guardadas\n/switchacc N - Cambiar cuenta activa\n/getinfo N - Ver información de cuota\n/delacc N - Eliminar una cuenta guardada"
   },
   "ide": {
     "already_running": "✅ ¡Antigravity IDE ya está en ejecución! No necesitas abrir otra ventana.\n💡 Usa /close para cerrarlo.",
@@ -379,7 +381,8 @@
   },
   "error": {
     "start_error": "❌ Error al iniciar: {error}",
-    "general_error": "❌ Error: {error}"
+    "general_error": "❌ Error: {error}",
+    "modal_active": "❌ Hay un panel de preguntas interactivo abierto. Por favor, selecciona una de las opciones o usa /stop para cancelar."
   },
   "agent": {
     "swipe_to_reply": "<i>(Desliza este mensaje a la izquierda para responder al agente)</i>"
@@ -466,7 +469,9 @@
     "failed_attempts": "El flujo de inicio de sesión de Google fue cancelado tras 3 intentos fallidos de pegar un enlace/código válido.",
     "in_progress": "⚠️ <b>Inicio de sesión de Google en curso</b>\n━━━━━━━━━━━━━━━━━━━━━━\nOtros servicios de bot están suspendidos temporalmente.\nPor favor, complete el inicio de sesión con Google o cancele el flujo actual primero usando el botón Cancelar o escribiendo /cancel.",
     "no_accounts": "📭 <b>No hay cuentas guardadas aún</b>\n\nUse /login para agregar una.",
-    "code_usage": "📋 <b>Pegue su código de inicio de sesión</b>\n━━━━━━━━━━━━━━━━━━━━━━\nTras iniciar sesión en Google, si la redirección falló, copie la URL completa de su navegador (o solo el valor de <code>code=…</code>) y envíela aquí:\n\n<code>/logincode &lt;url o código&gt;</code>"
+    "code_usage": "📋 <b>Pegue su código de inicio de sesión</b>\n━━━━━━━━━━━━━━━━━━━━━━\nTras iniciar sesión en Google, si la redirección falló, copie la URL completa de su navegador (o solo el valor de <code>code=…</code>) y envíela aquí:\n\n<code>/logincode &lt;url o código&gt;</code>",
+    "invalid_code": "⚠️ <b>URL o código de Google no válido</b>\n━━━━━━━━━━━━━━━━━━━━━━\nNo se pudo extraer un código de autorización válido de Google de tu mensaje.\nPor favor, pega la URL de redirección completa o el código de autorización.",
+    "invalid_code_attempt": "\n<i>Intento {count} de 3 antes de la cancelación.</i>"
   },
   "switchacc": {
     "title": "🔄 <b>Cambiando a la Cuenta #{id}</b>",

@@ -25,7 +25,9 @@
     "ide_title": "🛠️ <i>Systemsteuerung:</i>",
     "ide_text": "- /start_ide → IDE/Agent starten, falls geschlossen\n- /close → App vollständig schließen\n- /app → Zwischen IDE und Agent wechseln\n- /workspace → Projekt wechseln\n- /window → Aktives Fenster auswählen\n- /fix_shortcuts → Desktop-Verknüpfungen reparieren\n- /lang → Sprache wechseln\n- /menu → Menü aktualisieren\n- /cmd &lt;Befehl&gt; → Terminalbefehl ausführen",
     "chat_title": "💬 <i>Chat-Steuerung:</i>",
-    "chat_text": "- /new → Neuen Chat öffnen\n- /agents → Letzte Chats anzeigen\n- /artifacts → Artefakte anzeigen\n- /model → Modell auswählen\n- /autoaccept → Auto-Accept umschalten\n- /help → Diese Hilfemeldung anzeigen"
+    "chat_text": "- /new → Neuen Chat öffnen\n- /agents → Letzte Chats anzeigen\n- /artifacts → Artefakte anzeigen\n- /model → Modell auswählen\n- /autoaccept → Auto-Accept umschalten\n- /help → Diese Hilfemeldung anzeigen",
+    "account_title": "📱 <b>Kontoverwaltung</b>",
+    "account_text": "/login - Mit Google anmelden\n/accounts - Gespeicherte Google-Konten auflisten\n/switchacc N - Aktives Konto wechseln\n/getinfo N - Kontokontingent anzeigen\n/delacc N - Gespeichertes Konto löschen"
   },
   "ide": {
     "already_running": "✅ Antigravity IDE läuft bereits! Du musst kein neues Fenster öffnen.\n💡 Nutze /close zum Schließen.",
@@ -379,7 +381,8 @@
   },
   "error": {
     "start_error": "❌ Startfehler: {error}",
-    "general_error": "❌ Fehler: {error}"
+    "general_error": "❌ Fehler: {error}",
+    "modal_active": "❌ Ein interaktives Fragepanel ist derzeit geöffnet. Bitte wählen Sie eine der Optionen oder verwenden Sie /stop zum Abbrechen."
   },
   "agent": {
     "swipe_to_reply": "<i>(Wische diese Nachricht nach links, um dem Agenten zu antworten)</i>"
@@ -466,7 +469,9 @@
     "failed_attempts": "Der Google-Anmeldevorgang wurde nach 3 fehlgeschlagenen Versuchen, einen gültigen Link/Code einzufügen, abgebrochen.",
     "in_progress": "⚠️ <b>Google-Anmeldung läuft</b>\n━━━━━━━━━━━━━━━━━━━━━━\nAndere Bot-Dienste sind vorübergehend ausgesetzt.\nBitte schließen Sie die Anmeldung mit Google ab oder brechen Sie den aktuellen Anmeldevorgang ab, indem Sie auf Abbrechen klicken oder /cancel eingeben.",
     "no_accounts": "📭 <b>Noch keine Konten gespeichert</b>\n\nVerwenden Sie /login, um eines hinzuzufügen.",
-    "code_usage": "📋 <b>Fügen Sie Ihren Anmeldecode ein</b>\n━━━━━━━━━━━━━━━━━━━━━━\nWenn die Weiterleitung nach der Anmeldung bei Google fehlgeschlagen ist, kopieren Sie die vollständige URL aus Ihrem Browser (oder nur den Wert <code>code=…</code>) und senden Sie ihn hierher:\n\n<code>/logincode &lt;URL oder Code&gt;</code>"
+    "code_usage": "📋 <b>Fügen Sie Ihren Anmeldecode ein</b>\n━━━━━━━━━━━━━━━━━━━━━━\nWenn die Weiterleitung nach der Anmeldung bei Google fehlgeschlagen ist, kopieren Sie die vollständige URL aus Ihrem Browser (oder nur den Wert <code>code=…</code>) und senden Sie ihn hierher:\n\n<code>/logincode &lt;URL oder Code&gt;</code>",
+    "invalid_code": "⚠️ <b>Ungültige Google-URL oder Code</b>\n━━━━━━━━━━━━━━━━━━━━━━\nAus Ihrer Nachricht konnte kein gültiger Google-Autorisierungscode extrahiert werden.\nBitte fügen Sie die vollständige Weiterleitungs-URL oder den Autorisierungscode ein.",
+    "invalid_code_attempt": "\n<i>Versuch {count} von 3 vor Abbruch.</i>"
   },
   "switchacc": {
     "title": "🔄 <b>Wechseln zu Konto #{id}</b>",
