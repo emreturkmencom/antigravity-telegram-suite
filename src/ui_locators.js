@@ -52,7 +52,8 @@ const UI_LOCATORS_SCRIPT = `
                 '.interactive-session',
                 '.chat-container',
                 '#chat',
-                '.flex.w-full.grow.flex-col.overflow-hidden'
+                '.flex.w-full.grow.flex-col.overflow-hidden',
+                '.relative.flex.flex-col.gap-y-3.px-4'
             ];
             
             const containers = Array.from(document.querySelectorAll(candidates.join(', ')));

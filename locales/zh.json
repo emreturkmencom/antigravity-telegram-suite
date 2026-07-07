@@ -366,9 +366,9 @@
     "checking": "🔍 正在检查更新...",
     "error": "❌ 更新错误：{error}",
     "success": "✅ 代码已更新，依赖已安装。\nBot 正在重启...",
-    "bot_updated": "🚀 Antigravity Bot 已成功更新！",
+    "bot_updated": "🚀 Antigravity Bot 已成功更新！\n\n📢 加入 @agts_updates 获取新闻，加入 @agts_community 参与聊天！",
     "up_to_date": "✅ 已是最新版本！\n\nv{version}（{commit}）",
-    "available": "🔄 <b>有可用更新！</b>\n\n",
+    "available": "🔄 <b>有可用更新！</b>\n\n📢 加入 @agts_updates 获取新闻，加入 @agts_community 参与聊天！\n\n",
     "new_version": "🚀 新版本：<code>{remote}</code>",
     "click_to_download": "⬇️ 点击下载：/update",
     "current_version": "当前：v{version}（{commit}）\n",
@@ -495,5 +495,17 @@
     "step_done": "✅ <b>已成功切换至账号 #{id}</b>",
     "step_done_email": "📧 {email}",
     "error": "❌ <b>错误</b>\n\n<code>{error}</code>"
+  },
+  "accounts": {
+    "title": "已保存的账户",
+    "btn_add": "添加账户",
+    "btn_back": "返回账户",
+    "btn_confirm_delete": "是的，删除",
+    "btn_cancel": "取消",
+    "delete_confirm_title": "删除账户",
+    "delete_confirm_body": "这将从此机器人中删除已保存的令牌。",
+    "delete_confirm_note": "Antigravity 本身不会受到影响。",
+    "btn_quota": "配额",
+    "btn_delete": "删除"
   }
 }

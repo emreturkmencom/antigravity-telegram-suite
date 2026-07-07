@@ -20,6 +20,10 @@ Telefonunuzdan mesaj gönderin, yapay zeka modellerini değiştirin, çalışma 
 
 ---
 
+## 📢 Topluluk
+- **Duyuru Kanalı:** [@agts_updates](https://t.me/agts_updates)
+- **Sohbet Grubu:** [@agts_community](https://t.me/agts_community)
+
 ## ✨ Özellikler
 
 | Özellik | Açıklama |

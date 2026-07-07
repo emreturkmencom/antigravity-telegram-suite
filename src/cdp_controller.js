@@ -349,14 +349,15 @@ const CHAT_EXTRACT_EXPR = `
                 
                 const inlineTags = ['a', 'strong', 'b', 'em', 'i', 'code', 'span', '#text'];
                 if (!inlineTags.includes(tag) && tag !== 'p' && tag !== 'div' && tag !== 'li' && !tag.match(/^h[1-6]$/)) {
-                    return md.trim() + '\n';
+                    return md.trim() + '\\n';
                 }
                 
                 return md;
             }
 
             if (container) {
-                const list = container.querySelector('.relative.flex.flex-col.gap-y-3.px-4, .monaco-list-rows, [class*="message-list"], .chat-messages, [data-testid*="message-list"]');
+                const listSelector = '.relative.flex.flex-col.gap-y-3.px-4, .monaco-list-rows, [class*="message-list"], .chat-messages, [data-testid*="message-list"]';
+                const list = container.matches && container.matches(listSelector) ? container : (container.querySelector ? container.querySelector(listSelector) : null);
                 if (list) {
                     const msgs = [];
                     for (let child of list.children) {

@@ -20,6 +20,10 @@ Telegram으로 Antigravity AI 에이전트를 원격 제어하세요.
 
 ---
 
+## 📢 커뮤니티
+- **업데이트 채널:** [@agts_updates](https://t.me/agts_updates)
+- **토론 그룹:** [@agts_community](https://t.me/agts_community)
+
 ## ✨ 기능
 
 | 기능 | 설명 |

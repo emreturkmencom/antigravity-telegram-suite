@@ -366,9 +366,9 @@
     "checking": "🔍 Checking for updates...",
     "error": "❌ Update error: {error}",
     "success": "✅ Code updated and dependencies installed.\nBot is restarting now...",
-    "bot_updated": "🚀 Antigravity Bot başarıyla güncellendi!",
+    "bot_updated": "🚀 Antigravity Bot başarıyla güncellendi!\n\n📢 Haberler için @agts_updates kanalına, sohbet için @agts_community grubuna katılın!",
     "up_to_date": "✅ Güncelsiniz!\n\nv{version} ({commit})",
-    "available": "🔄 <b>Güncelleme Mevcut!</b>\n\n",
+    "available": "🔄 <b>Güncelleme Mevcut!</b>\n\n📢 Haberler için @agts_updates kanalına, sohbet için @agts_community grubuna katılın!\n\n",
     "new_version": "🚀 Yeni sürüm: <code>{remote}</code>",
     "click_to_download": "⬇️ İndirmek için tıklayın: /update",
     "current_version": "Mevcut: v{version} ({commit})\n",
@@ -495,5 +495,17 @@
     "step_done": "✅ <b>Artık hesap #{id} aktif</b>",
     "step_done_email": "📧 {email}",
     "error": "❌ <b>Hata</b>\n\n<code>{error}</code>"
+  },
+  "accounts": {
+    "title": "Kayıtlı Hesaplar",
+    "btn_add": "Hesap Ekle",
+    "btn_back": "Hesaplara Dön",
+    "btn_confirm_delete": "Evet, sil",
+    "btn_cancel": "İptal",
+    "delete_confirm_title": "Hesabı Sil",
+    "delete_confirm_body": "Bu işlem kayıtlı token'ı bu bottan kaldırır.",
+    "delete_confirm_note": "Antigravity'nin kendisi etkilenmez.",
+    "btn_quota": "Kota",
+    "btn_delete": "Sil"
   }
 }

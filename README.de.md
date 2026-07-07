@@ -20,6 +20,10 @@ Sende Nachrichten, wechsle KI-Modelle, verwalte Arbeitsbereiche, nimm Screenshot
 
 ---
 
+## 📢 Community
+- **Update-Kanal:** [@agts_updates](https://t.me/agts_updates)
+- **Diskussionsgruppe:** [@agts_community](https://t.me/agts_community)
+
 ## ✨ Funktionen
 
 | Funktion | Beschreibung |

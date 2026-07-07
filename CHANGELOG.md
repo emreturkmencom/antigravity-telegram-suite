@@ -4,7 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [3.5.5] - 2026-06-27
+## [3.6.0] - 2026-07-08
+
+### Added
+- **Multi-Account Switching**: Complete overhaul of the `/accounts` command. You can now authenticate and switch between multiple Google accounts. Accounts are persisted securely in `accounts.json` and credentials are automatically injected into the IDE's SQLite database or OS keychain when switching.
+- **Telegraph Publishing**: Task checklists, implementation plans, and walkthroughs (like `/gettask` or `/getplan`) are now automatically published to telegra.ph. Links are shared in Telegram as tap-to-open Instant View articles for better readability.
+- **Community Links**: Added Official Telegram Channel (`@agts_updates`) and Discussion Group (`@agts_community`) links to auto-update notifications and README for users to stay connected.
+
+### Changed
+- **Account Panel Redesign**: The `/accounts` panel now uses a two-row button layout per account, preventing email truncation while keeping action icons accessible.
+- **Active Account Highlight**: The active account is now marked with a 🟢 green indicator, switching to 🔴 if the token is expired, or 🔄 for other registered accounts.
+
+### Fixed
+- **Standalone App New Chat Crash**: Fixed a bug where clicking the 'New Chat' button globally without a workspace context caused the Standalone IDE (`ag`) to crash or freeze.
+- **Workspace State Persistence**: `switchacc` now remembers the last active workspace and restores it properly after restarting the IDE.
+- **SQLite Python Fallback Pathing**: Fixed an issue where the Python SQLite fallback would fail if the IDE directory contained spaces (e.g., `Antigravity IDE`). Used `execFile` with piped standard input to securely execute queries.
+- **New IDE Chat DOM Locator**: Updated `ui_locators.js` to correctly locate the active chat container (`.relative.flex.flex-col.gap-y-3.px-4`) in the newer VS Code-based Antigravity IDE, preventing `/latest` from incorrectly reporting "Active chat not found".## [3.5.5] - 2026-06-27
 
 ### Fixed
 - **CDP Connection Failed — No Longer Requires PC Restart**: Fixed a persistent issue where the bot would report "CDP connection failed" after the IDE was closed or crashed. The root cause was stale Electron `SingletonLock` files left behind in the IDE's data directory, preventing the next instance from properly initializing its debugging port. Both `killIDE()` and `cleanLockFile()` in `platform.js` now automatically clean up `SingletonLock`, `SingletonCookie`, and `SingletonSocket` files.

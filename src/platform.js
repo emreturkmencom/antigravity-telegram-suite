@@ -377,6 +377,33 @@ function clearBackupWorkspaces(app = getPreferredApp()) {
 }
 
 /**
+ * Read the last active workspace folder from storage.json.
+ * Returns the folder path (string) or null if not found.
+ * @param {string} [app=PREFERRED_APP] - 'agent' or 'ide'
+ * @returns {string|null}
+ */
+function getLastWorkspace(app = getPreferredApp()) {
+    const fs = require('fs');
+    const storageFile = path.join(getAppDataDir(app), 'User', 'globalStorage', 'storage.json');
+    try {
+        if (!fs.existsSync(storageFile)) return null;
+        const data = JSON.parse(fs.readFileSync(storageFile, 'utf8'));
+        const folders = data.backupWorkspaces?.folders;
+        if (folders && folders.length > 0) {
+            const uri = folders[0].folderUri;
+            if (uri && uri.startsWith('file://')) {
+                const wsPath = decodeURIComponent(uri.replace('file://', ''));
+                console.log(`[platform] getLastWorkspace(${app}): ${wsPath}`);
+                return wsPath;
+            }
+        }
+    } catch (e) {
+        console.error(`[platform] getLastWorkspace(${app}) error:`, e.message);
+    }
+    return null;
+}
+
+/**
  * Launch the specified Antigravity application with an optional workspace path.
  * Supports running both Standalone and Classic IDE concurrently by isolating user data directories.
  * 
@@ -678,6 +705,7 @@ module.exports = {
     killIDE,
     cleanLockFile,
     launchIDE,
+    getLastWorkspace,
     trustWorkspaceViaCDP,
     PLATFORM
 };

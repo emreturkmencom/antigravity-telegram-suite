@@ -405,8 +405,8 @@
   "update": {
     "auto_update_failed": "❌ <b>[자동 업데이트]</b> 업데이트 실패: {error}",
     "auto_updating": "🔄 <b>[자동 업데이트]</b> 개발자 업데이트 감지됨 (v{version} - {commit}).\n변경사항을 병합하고 업데이트 중...",
-    "available": "🔄 <b>업데이트 가능!</b>\n\n",
-    "bot_updated": "🚀 Antigravity Bot이 성공적으로 업데이트되었습니다!",
+    "available": "🔄 <b>업데이트 가능!</b>\n\n📢 새로운 소식은 @agts_updates, 채팅은 @agts_community 에 참여하세요!\n\n",
+    "bot_updated": "🚀 Antigravity Bot이 성공적으로 업데이트되었습니다!\n\n📢 새로운 소식은 @agts_updates, 채팅은 @agts_community 에 참여하세요!",
     "changelog": "📝 <b>변경 로그:</b> <i>{message}</i>\n\n",
     "checking": "🔍 업데이트 확인 중...",
     "click_to_download": "⬇️ 다운로드하려면 클릭: /update",
@@ -495,5 +495,17 @@
     "step_done": "✅ <b>현재 계정: #{id}</b>",
     "step_done_email": "📧 {email}",
     "error": "❌ <b>오류</b>\n\n<code>{error}</code>"
+  },
+  "accounts": {
+    "title": "저장된 계정",
+    "btn_add": "계정 추가",
+    "btn_back": "계정으로 돌아가기",
+    "btn_confirm_delete": "예, 삭제",
+    "btn_cancel": "취소",
+    "delete_confirm_title": "계정 삭제",
+    "delete_confirm_body": "이 작업은 이 봇에서 저장된 토큰을 제거합니다.",
+    "delete_confirm_note": "Antigravity 자체는 영향을 받지 않습니다.",
+    "btn_quota": "할당량",
+    "btn_delete": "삭제"
   }
 }

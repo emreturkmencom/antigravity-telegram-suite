@@ -1058,9 +1058,16 @@ async function querySqlite(dbPath, sqlQuery) {
     }
     const pythonCmd = await resolvePythonCommand();
     if (pythonCmd) {
+        const { execFile: execFileCb } = require('child_process');
         return new Promise((resolve) => {
-            const pyScript = `import sqlite3; conn = sqlite3.connect("${dbPath.replace(/\\/g, '/')}"); c = conn.cursor(); c.execute("${sqlQuery.replace(/"/g, '\\"')}"); row = c.fetchone(); print(row[0] if row else "")`;
-            exec(`${pythonCmd} -c "${pyScript}"`, { timeout: 5000 }, (err, stdout) => {
+            const pyScript = 'import sqlite3,sys\n'
+                + 'conn=sqlite3.connect(sys.argv[1])\n'
+                + 'c=conn.cursor()\n'
+                + 'c.execute(sys.argv[2])\n'
+                + 'row=c.fetchone()\n'
+                + 'print(row[0] if row else "")\n'
+                + 'conn.close()';
+            execFileCb(pythonCmd, ['-c', pyScript, dbPath, sqlQuery], { timeout: 5000 }, (err, stdout) => {
                 if (err) resolve(null);
                 else resolve(stdout ? stdout.trim() : null);
             });

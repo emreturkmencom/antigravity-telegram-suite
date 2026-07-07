@@ -7,7 +7,7 @@ const http = require('http');
 const https = require('https');
 const { exec } = require('child_process');
 const { loadLocale, t, getLang } = require('./i18n');
-const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, trustWorkspaceViaCDP, PLATFORM } = require('./platform');
+const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, getLastWorkspace, trustWorkspaceViaCDP, PLATFORM } = require('./platform');
 const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getPreferredTargetId, getCachedWindows, closeWindow, listAgentThreads, switchAgentThread, getActiveThreadId, getActiveThreadInfo, setActiveWorkspace, switchStandaloneWorkspace, getLastResolvedThreadId, setOnThreadResolved } = require('./cdp_controller');
 const autoaccept = require('./autoaccept');
 const updater = require('./updater');
@@ -3873,7 +3873,7 @@ async function processAuthCode(chatId, authCode, redirectUri) {
         // Save account
         const accounts = accountManager.loadAccounts();
         const existing = Object.values(accounts).find(
-            a => a.email.toLowerCase() === userInfo.email.toLowerCase()
+            a => a && typeof a === 'object' && a.email && a.email.toLowerCase() === userInfo.email.toLowerCase()
         );
 
         const now = Math.floor(Date.now() / 1000);
@@ -3910,25 +3910,7 @@ async function processAuthCode(chatId, authCode, redirectUri) {
             accountManager.logInfo(`[bot] Best-effort initial quota fetch failed: ${e.message}`);
         }
 
-        // Try to inject credentials into IDE
-        try {
-            accountManager.logInfo(`[bot] Injecting credentials to IDE...`);
-            await accountManager.injectTokenIntoIde(account, "ide");
-            accountManager.logInfo(`[bot] Injected successfully to IDE`);
-        } catch (e) {
-            accountManager.logInfo(`[bot] IDE injection warning: ${e.message}`);
-        }
-
-        // Try to inject credentials into Agent
-        try {
-            accountManager.logInfo(`[bot] Injecting credentials to Agent...`);
-            await accountManager.injectTokenIntoIde(account, "agent");
-            accountManager.logInfo(`[bot] Injected successfully to Agent`);
-        } catch (e) {
-            accountManager.logInfo(`[bot] Agent injection warning: ${e.message}`);
-        }
-
-        pendingLogins.delete(chatId); 
+        pendingLogins.delete(chatId);
 
         const action = existing ? 'updated' : 'added';
         accountManager.logInfo(`[bot] Sign-in complete for #${numericId}. Editing Telegram message.`);
@@ -3960,18 +3942,17 @@ bot.command('login', async (ctx) => {
     accountManager.logInfo(`[bot] /login command received from chatId: ${chatId}. Sending warning.`);
 
     const warningMsg = [
-        '⚠️ <b>Google Login Notice</b>',
+        t('login.notice_title'),
         '━'.repeat(22),
-        'Starting the login flow will temporarily suspend other bot commands.',
-        'The AI Agent will continue running in your IDE in the background.',
+        t('login.notice_body'),
         '',
-        'Do you want to proceed?',
+        t('login.prompt_title'),
     ].join('\n');
 
     const keyboard = Markup.inlineKeyboard([
         [
-            Markup.button.callback('👉 Yes, Continue', `login_confirm_${chatId}`),
-            Markup.button.callback('✖ Cancel', `login_cancel_${chatId}`)
+            Markup.button.callback(t('login.btn_continue'), `login_confirm_${chatId}`),
+            Markup.button.callback(t('login.btn_cancel_login'), `login_cancel_${chatId}`)
         ]
     ]);
 
@@ -3982,7 +3963,7 @@ bot.action(/^login_confirm_(\d+)$/, async (ctx) => {
     const chatId = parseInt(ctx.match[1]);
     accountManager.logInfo(`[bot] Login confirmed for chatId: ${chatId}. Initiating OAuth callback server...`);
     
-    await ctx.answerCbQuery('Starting secure login...').catch(() => {});
+    await ctx.answerCbQuery(t('login.starting').replace(/<[^>]+>/g, '').trim()).catch(() => {});
 
     // Cancel any existing pending login for this chat
     if (pendingLogins.has(chatId)) {
@@ -3994,7 +3975,7 @@ bot.action(/^login_confirm_(\d+)$/, async (ctx) => {
 
     let statusMsg;
     try {
-        statusMsg = await ctx.editMessageText('🔄 <b>Starting secure login…</b>', { parse_mode: 'HTML' });
+        statusMsg = await ctx.editMessageText(t('login.starting'), { parse_mode: 'HTML' });
     } catch {
         statusMsg = await ctx.reply(t('login.starting'), { parse_mode: 'HTML' });
     }
@@ -4089,12 +4070,8 @@ bot.action(/^login_cancel_(\d+)$/, async (ctx) => {
         pendingLogins.delete(chatId);
         try { await session.oauthServer.stop(); } catch { /* ignore */ }
     }
-    await ctx.answerCbQuery('🚫 Cancelled');
-    await ctx.editMessageText([
-        '🚫 <b>Login cancelled</b>',
-        '',
-        'Send /login whenever you\'re ready to try again.',
-    ].join('\n'), { parse_mode: 'HTML' }).catch(() => {});
+    await ctx.answerCbQuery(t('login.cancelled').split('\n')[0].replace(/<[^>]+>/g, '').trim());
+    await ctx.editMessageText(t('login.cancelled'), { parse_mode: 'HTML' }).catch(() => {});
 });
 
 // ── /logincode ────────────────────────────────────────────────────────────────
@@ -4129,44 +4106,266 @@ bot.command('logincode', async (ctx) => {
 // ── /accounts ─────────────────────────────────────────────────────────────────
 
 bot.command('accounts', async (ctx) => {
+    await renderAccountsPanel(ctx);
+});
+
+/**
+ * Render the interactive accounts panel with inline buttons.
+ * Used by /accounts command and acc_refresh callback.
+ */
+async function renderAccountsPanel(ctx, editMessageId = null) {
     const accounts = accountManager.loadAccounts();
-    const entries = Object.values(accounts).sort((a, b) => a.numericId - b.numericId);
+    const entries = Object.entries(accounts)
+        .filter(([k, v]) => !k.startsWith('__') && v && typeof v === 'object' && v.numericId)
+        .map(([, v]) => v)
+        .sort((a, b) => a.numericId - b.numericId);
 
     if (entries.length === 0) {
-        return ctx.reply(
-            [
-                '📭 <b>No accounts saved yet</b>',
-                '',
-                'Use /login to add a Google account.',
-            ].join('\n'),
-            { parse_mode: 'HTML' }
-        );
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.callback('➕ ' + (t('accounts.btn_add') || 'Add Account'), 'acc_login')],
+        ]);
+        const msg = t('login.no_accounts') || '📭 <b>No accounts saved yet</b>\n\nUse /login to add a Google account.';
+        if (editMessageId) {
+            return ctx.telegram.editMessageText(ctx.chat.id, editMessageId, undefined, msg, { parse_mode: 'HTML', ...keyboard }).catch(() => {});
+        }
+        return ctx.reply(msg, { parse_mode: 'HTML', ...keyboard });
     }
 
     const now = Math.floor(Date.now() / 1000);
-    const L = [
-        `🔐 <b>Saved Accounts</b>  (${entries.length})`,
-        '━'.repeat(22),
-    ];
 
-    for (const acc of entries) {
-        const addedDate = new Date(acc.addedAt * 1000).toLocaleDateString('en-US', {
-            year: 'numeric', month: 'short', day: 'numeric',
-        });
-        const isExpired = acc.token.expiry_timestamp < now;
-        const dot = isExpired ? '🔴' : '🟢';
-        const expiredNote = isExpired ? '  <i>(expired — /login)</i>' : '';
-        L.push(`${dot} <b>#${acc.numericId}</b>  —  ${acc.email}${expiredNote}`);
-        L.push(`   📅 Added ${addedDate}`);
+    // Determine which account is currently active
+    const app = process.env.ANTIGRAVITY_PREFERRED_APP || 'ide';
+    let activeId = accounts.__activeId || null;
+    if (!activeId) {
+        try {
+            const ideEmail = await accountManager.getActiveEmail(app);
+            if (ideEmail) {
+                const match = entries.find(e => e.email.toLowerCase() === ideEmail.toLowerCase());
+                if (match) activeId = String(match.numericId);
+            }
+        } catch { /* ignore */ }
     }
 
-    L.push('');
-    L.push('<i>Commands</i>');
-    L.push(`• <code>/switchacc &lt;id&gt;</code>  —  switch account`);
-    L.push(`• <code>/getinfo &lt;id&gt;</code>  —  view quota`);
-    L.push(`• <code>/login</code>  —  add another account`);
+    // Compact header — just title
+    const L = [
+        `🔐 <b>${t('accounts.title') || 'Saved Accounts'}</b>`,
+    ];
 
-    await ctx.reply(L.join('\n'), { parse_mode: 'HTML' });
+    // Build inline buttons: one row per account
+    // Active: 🟢 email (no switch needed)  |  📊  |  🗑
+    // Others: 🔄 email (click to switch)   |  📊  |  🗑
+    const buttons = [];
+    for (const acc of entries) {
+        const isActive = activeId && String(acc.numericId) === String(activeId);
+        const isAccessExpired = (acc.token?.expiry_timestamp || 0) < now;
+        const hasRefreshToken = !!acc.token?.refresh_token;
+
+        // Short email label (truncate if > 25 chars for button fit)
+        const emailLabel = acc.email.length > 25
+            ? acc.email.slice(0, 22) + '…'
+            : acc.email;
+
+
+        let switchLabel;
+        if (isActive) {
+            switchLabel = `🟢 ${acc.email}`;
+        } else if (isAccessExpired && !hasRefreshToken) {
+            switchLabel = `🔴 ${acc.email}`;
+        } else {
+            switchLabel = `🔄 ${acc.email}`;
+        }
+
+        // Row 1: full-width email button
+        buttons.push([
+            Markup.button.callback(switchLabel, isActive ? `acc_info_${acc.numericId}` : `acc_switch_${acc.numericId}`),
+        ]);
+        // Row 2: action icons
+        buttons.push([
+            Markup.button.callback(`📊 ${t('accounts.btn_quota') || 'Quota'}`, `acc_info_${acc.numericId}`),
+            Markup.button.callback(`🗑 ${t('accounts.btn_delete') || 'Delete'}`, `acc_del_${acc.numericId}`),
+        ]);
+    }
+    buttons.push([
+        Markup.button.callback('➕ ' + (t('accounts.btn_add') || 'Add Account'), 'acc_login'),
+    ]);
+
+    const keyboard = Markup.inlineKeyboard(buttons);
+    const text = L.join('\n');
+
+    if (editMessageId) {
+        return ctx.telegram.editMessageText(ctx.chat.id, editMessageId, undefined, text, { parse_mode: 'HTML', ...keyboard }).catch(() => {});
+    }
+    await ctx.reply(text, { parse_mode: 'HTML', ...keyboard });
+}
+
+// ── Account Panel Callback Handlers ──────────────────────────────────────────
+
+// Switch account via button
+bot.action(/^acc_switch_(\d+)$/, async (ctx) => {
+    const id = ctx.match[1];
+    await ctx.answerCbQuery(`Switching to #${id}...`);
+
+    const accounts = accountManager.loadAccounts();
+    const account = accountManager.findAccount(accounts, id);
+    if (!account) {
+        return ctx.editMessageText(t('switchacc.not_found', { id }), { parse_mode: 'HTML' }).catch(() => {});
+    }
+    
+    const app = process.env.ANTIGRAVITY_PREFERRED_APP || 'ide';
+    const steps = [];
+    const editStatus = async (text) => {
+        try { await ctx.editMessageText(text, { parse_mode: 'HTML' }); } catch { /* ignore */ }
+    };
+
+    try {
+        steps.push(t('switchacc.step_refreshing'));
+        await editStatus(buildSwitchStatus(account, steps));
+
+        const { account: freshAccount, refreshed } = await accountManager.ensureFreshToken(account);
+        if (refreshed) { accounts[id] = freshAccount; accountManager.saveAccounts(accounts); steps[steps.length - 1] = t('switchacc.step_refreshed'); }
+        else { steps[steps.length - 1] = t('switchacc.step_valid'); }
+        await editStatus(buildSwitchStatus(account, steps));
+
+        steps.push(t('switchacc.step_stopping', { app }));
+        await editStatus(buildSwitchStatus(account, steps));
+
+        const wasRunning = await isIDERunning(app);
+        if (wasRunning) {
+            await killIDE(app);
+            const exited = await waitForProcessDead(app, 8000);
+            steps[steps.length - 1] = exited ? t('switchacc.step_stopped', { app }) : t('switchacc.step_still_closing', { app });
+        } else { steps[steps.length - 1] = t('switchacc.step_not_running', { app }); }
+        await editStatus(buildSwitchStatus(account, steps));
+
+        steps.push(t('switchacc.step_writing'));
+        await editStatus(buildSwitchStatus(account, steps));
+
+        try {
+            await accountManager.injectTokenIntoIde(freshAccount, app);
+            steps[steps.length - 1] = t('switchacc.step_written', { app });
+        } catch (injErr) {
+            try { await accountManager.writeToCredentialStore(freshAccount.token); steps[steps.length - 1] = t('switchacc.step_written_keyring', { error: injErr.message.slice(0, 50) }); }
+            catch { steps[steps.length - 1] = t('switchacc.step_write_failed', { error: injErr.message.slice(0, 60) }); }
+        }
+        await editStatus(buildSwitchStatus(account, steps));
+
+        steps.push(t('switchacc.step_starting', { app }));
+        await editStatus(buildSwitchStatus(account, steps));
+
+        const appPort = getCDPPort(app);
+        const lastWs = getLastWorkspace(app);
+        try { cleanLockFile(app); await launchIDE(lastWs, appPort, app); steps[steps.length - 1] = t('switchacc.step_started', { app }); }
+        catch (e) { steps[steps.length - 1] = t('switchacc.step_start_failed', { app, error: e.message.slice(0, 70) }); }
+
+        // Mark this account as active for the panel display
+        accounts.__activeId = String(account.numericId);
+        accountManager.saveAccounts(accounts);
+
+        steps.push('━'.repeat(22));
+        steps.push(t('switchacc.step_done', { id: account.numericId }));
+        steps.push(t('switchacc.step_done_email', { email: account.email }));
+        await editStatus(buildSwitchStatus(account, steps));
+    } catch (e) {
+        console.error('[acc_switch] Error:', e.message);
+        steps.push('━'.repeat(22));
+        steps.push(t('switchacc.error', { error: e.message }));
+        await editStatus(buildSwitchStatus(account, steps));
+    }
+});
+
+// View quota via button
+bot.action(/^acc_info_(\d+)$/, async (ctx) => {
+    const id = ctx.match[1];
+    await ctx.answerCbQuery(`Loading quota for #${id}...`);
+
+    const accounts = accountManager.loadAccounts();
+    const account = accountManager.findAccount(accounts, id);
+    if (!account) {
+        return ctx.editMessageText(t('quota.not_found', { id }), { parse_mode: 'HTML' }).catch(() => {});
+    }
+
+    await ctx.editMessageText(t('quota.fetching', { id: account.numericId }), { parse_mode: 'HTML' }).catch(() => {});
+
+    try {
+        const { account: fresh, refreshed } = await accountManager.ensureFreshToken(account);
+        if (refreshed) { accounts[id] = fresh; accountManager.saveAccounts(accounts); }
+
+        const quota = await accountManager.fetchQuota(fresh.token.access_token);
+        accounts[id].quota = quota;
+        accountManager.saveAccounts(accounts);
+
+        const text = formatQuotaHtml(account, quota);
+
+        const backBtn = Markup.inlineKeyboard([
+            [Markup.button.callback('◀️ ' + (t('accounts.btn_back') || 'Back to Accounts'), 'acc_refresh')],
+        ]);
+
+        await ctx.editMessageText(text, { parse_mode: 'HTML', ...backBtn }).catch(() => {});
+    } catch (e) {
+        await ctx.editMessageText(`❌ ${e.message}`, { parse_mode: 'HTML' }).catch(() => {});
+    }
+});
+
+// Delete via button — triggers confirmation
+bot.action(/^acc_del_(\d+)$/, async (ctx) => {
+    const id = ctx.match[1];
+    await ctx.answerCbQuery();
+
+    const accounts = accountManager.loadAccounts();
+    const account = accountManager.findAccount(accounts, id);
+    if (!account) {
+        return ctx.editMessageText(t('quota.not_found', { id }), { parse_mode: 'HTML' }).catch(() => {});
+    }
+
+    const confirmKeyboard = Markup.inlineKeyboard([
+        [
+            Markup.button.callback(`🗑 ${t('accounts.btn_confirm_delete') || 'Yes, delete'} #${account.numericId}`, `delacc_confirm_${account.numericId}`),
+            Markup.button.callback('✖ ' + (t('accounts.btn_cancel') || 'Cancel'), `delacc_cancel_${account.numericId}`),
+        ],
+    ]);
+
+    await ctx.editMessageText(
+        [
+            `⚠️ <b>${t('accounts.delete_confirm_title') || 'Delete Account'} #${account.numericId}?</b>`,
+            '━'.repeat(22),
+            `👤 <b>${account.name || account.email}</b>`,
+            `📧 <code>${account.email}</code>`,
+            '',
+            t('accounts.delete_confirm_body') || 'This removes the saved token from this bot.',
+            '<i>' + (t('accounts.delete_confirm_note') || 'Antigravity itself will not be affected.') + '</i>',
+        ].join('\n'),
+        { parse_mode: 'HTML', ...confirmKeyboard }
+    ).catch(() => {});
+});
+
+// Refresh / back to accounts panel
+bot.action('acc_refresh', async (ctx) => {
+    await ctx.answerCbQuery();
+    await renderAccountsPanel(ctx, ctx.callbackQuery.message.message_id);
+});
+
+// Login new account via panel button
+bot.action('acc_login', async (ctx) => {
+    const chatId = ctx.chat.id;
+    await ctx.answerCbQuery();
+    accountManager.logInfo(`[bot] acc_login button pressed from chatId: ${chatId}. Sending login notice.`);
+
+    const warningMsg = [
+        t('login.notice_title'),
+        '━'.repeat(22),
+        t('login.notice_body'),
+        '',
+        t('login.prompt_title') || 'Do you want to proceed?',
+    ].join('\n');
+
+    const keyboard = Markup.inlineKeyboard([
+        [
+            Markup.button.callback(t('login.btn_continue') || '👉 Yes, Continue', `login_confirm_${chatId}`),
+            Markup.button.callback(t('login.btn_cancel') || '✖ Cancel', `login_cancel_${chatId}`)
+        ]
+    ]);
+
+    await ctx.reply(warningMsg, { parse_mode: 'HTML', ...keyboard });
 });
 
 // ── /switchacc ────────────────────────────────────────────────────────────────
@@ -4307,15 +4506,20 @@ bot.command('switchacc', async (ctx) => {
         await editStatus(buildSwitchStatus(account, steps));
 
         const appPort = getCDPPort(app);
+        const lastWs = getLastWorkspace(app);
         try {
             cleanLockFile(app);
-            await launchIDE(null, appPort, app);
+            await launchIDE(lastWs, appPort, app);
             steps[steps.length - 1] = t('switchacc.step_started', { app });
         } catch (e) {
             steps[steps.length - 1] = t('switchacc.step_start_failed', { app, error: e.message.slice(0, 70) });
         }
 
         // Step 5 — Done
+        // Mark this account as active for the panel display
+        accounts.__activeId = String(account.numericId);
+        accountManager.saveAccounts(accounts);
+
         steps.push('━'.repeat(22));
         steps.push(t('switchacc.step_done', { id: account.numericId }));
         steps.push(t('switchacc.step_done_email', { email: account.email }));
@@ -4336,7 +4540,7 @@ bot.command('getinfo', async (ctx) => {
     const idArg = parts[1] ? parts[1].replace(/^#/, '').trim() : null;
 
     const accounts = accountManager.loadAccounts();
-    const allAccounts = Object.values(accounts).sort((a, b) => a.numericId - b.numericId);
+    const allAccounts = Object.values(accounts).filter(a => a && typeof a === 'object').sort((a, b) => a.numericId - b.numericId);
 
     if (allAccounts.length === 0) {
         return ctx.reply(t('quota.no_accounts'), { parse_mode: 'HTML' });
@@ -4492,7 +4696,7 @@ bot.action(/^delacc_confirm_(\d+)$/, async (ctx) => {
     delete accounts[String(numericId)];
     accountManager.saveAccounts(accounts);
 
-    const remaining = Object.keys(accounts).length;
+    const remaining = Object.keys(accounts).filter(k => !k.startsWith('__')).length;
     
     let logoutNote = '';
     if (loggedOutApps.length > 0) {

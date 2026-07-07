@@ -20,6 +20,10 @@
 
 ---
 
+## 📢 社区
+- **更新频道:** [@agts_updates](https://t.me/agts_updates)
+- **讨论组:** [@agts_community](https://t.me/agts_community)
+
 ## ✨ 功能
 
 | 功能 | 描述 |

@@ -20,6 +20,10 @@ Envía mensajes, cambia modelos de IA, administra espacios de trabajo, toma capt
 
 ---
 
+## 📢 Comunidad
+- **Canal de Noticias:** [@agts_updates](https://t.me/agts_updates)
+- **Grupo de Discusión:** [@agts_community](https://t.me/agts_community)
+
 ## ✨ Características
 
 | Característica | Descripción |

@@ -20,6 +20,10 @@ Envoyez des messages, changez de modèle d'IA, gérez les espaces de travail, pr
 
 ---
 
+## 📢 Communauté
+- **Canal d'Actualités:** [@agts_updates](https://t.me/agts_updates)
+- **Groupe de Discussion:** [@agts_community](https://t.me/agts_community)
+
 ## ✨ Fonctionnalités
 
 | Fonctionnalité | Description |

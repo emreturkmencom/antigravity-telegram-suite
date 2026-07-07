@@ -366,9 +366,9 @@
     "checking": "🔍 Checking for updates...",
     "error": "❌ Update error: {error}",
     "success": "✅ Code updated and dependencies installed.\nBot is restarting now...",
-    "bot_updated": "🚀 Antigravity Bot successfully updated!",
+    "bot_updated": "🚀 Antigravity Bot successfully updated!\n\n📢 Join @agts_updates for news & @agts_community to chat!",
     "up_to_date": "✅ You are up to date!\n\nv{version} ({commit})",
-    "available": "🔄 <b>Update Available!</b>\n\n",
+    "available": "🔄 <b>Update Available!</b>\n\n📢 Join @agts_updates for news & @agts_community to chat!\n\n",
     "new_version": "🚀 New version: <code>{remote}</code>",
     "click_to_download": "⬇️ Click to download: /update",
     "current_version": "Current: v{version} ({commit})\n",
@@ -495,5 +495,17 @@
     "step_done": "✅ <b>Now on account #{id}</b>",
     "step_done_email": "📧 {email}",
     "error": "❌ <b>Error</b>\n\n<code>{error}</code>"
+  },
+  "accounts": {
+    "title": "Saved Accounts",
+    "btn_add": "Add Account",
+    "btn_back": "Back to Accounts",
+    "btn_confirm_delete": "Yes, delete",
+    "btn_cancel": "Cancel",
+    "delete_confirm_title": "Delete Account",
+    "delete_confirm_body": "This removes the saved token from this bot.",
+    "delete_confirm_note": "Antigravity itself will not be affected.",
+    "btn_quota": "Quota",
+    "btn_delete": "Delete"
   }
 }

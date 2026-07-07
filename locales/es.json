@@ -366,9 +366,9 @@
     "checking": "🔍 Buscando actualizaciones...",
     "error": "❌ Error de actualización: {error}",
     "success": "✅ Código actualizado y dependencias instaladas.\nEl bot se está reiniciando ahora...",
-    "bot_updated": "🚀 ¡Bot de Antigravity actualizado con éxito!",
+    "bot_updated": "🚀 ¡Bot de Antigravity actualizado con éxito!\n\n📢 ¡Únete a @agts_updates para noticias y @agts_community para chatear!",
     "up_to_date": "✅ ¡Estás al día!\n\nv{version} ({commit})",
-    "available": "🔄 <b>¡Actualización disponible!</b>\n\n",
+    "available": "🔄 <b>¡Actualización disponible!</b>\n\n📢 ¡Únete a @agts_updates para noticias y @agts_community para chatear!\n\n",
     "new_version": "🚀 Nueva versión: <code>{remote}</code>",
     "click_to_download": "⬇️ Haz clic para descargar: /update",
     "current_version": "Actual: v{version} ({commit})\n",
@@ -495,5 +495,17 @@
     "step_done": "✅ <b>Ahora en la cuenta #{id}</b>",
     "step_done_email": "📧 {email}",
     "error": "❌ <b>Error</b>\n\n<code>{error}</code>"
+  },
+  "accounts": {
+    "title": "Cuentas Guardadas",
+    "btn_add": "Agregar Cuenta",
+    "btn_back": "Volver a Cuentas",
+    "btn_confirm_delete": "Sí, eliminar",
+    "btn_cancel": "Cancelar",
+    "delete_confirm_title": "Eliminar Cuenta",
+    "delete_confirm_body": "Esto elimina el token guardado de este bot.",
+    "delete_confirm_note": "Antigravity en sí no se verá afectado.",
+    "btn_quota": "Cuota",
+    "btn_delete": "Eliminar"
   }
 }

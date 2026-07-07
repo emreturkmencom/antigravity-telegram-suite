@@ -366,9 +366,9 @@
     "checking": "🔍 Recherche de mises à jour...",
     "error": "❌ Erreur de mise à jour : {error}",
     "success": "✅ Code mis à jour et dépendances installées.\nLe bot redémarre maintenant...",
-    "bot_updated": "🚀 Le bot Antigravity a été mis à jour avec succès !",
+    "bot_updated": "🚀 Le bot Antigravity a été mis à jour avec succès !\n\n📢 Rejoignez @agts_updates pour les actus et @agts_community pour discuter!",
     "up_to_date": "✅ Vous êtes à jour !\n\nv{version} ({commit})",
-    "available": "🔄 <b>Mise à jour disponible !</b>\n\n",
+    "available": "🔄 <b>Mise à jour disponible !</b>\n\n📢 Rejoignez @agts_updates pour les actus et @agts_community pour discuter!\n\n",
     "new_version": "🚀 Nouvelle version : <code>{remote}</code>",
     "click_to_download": "⬇️ Cliquez pour télécharger : /update",
     "current_version": "Actuelle : v{version} ({commit})\n",
@@ -495,5 +495,17 @@
     "step_done": "✅ <b>Désormais sur le compte #{id}</b>",
     "step_done_email": "📧 {email}",
     "error": "❌ <b>Erreur</b>\n\n<code>{error}</code>"
+  },
+  "accounts": {
+    "title": "Comptes Enregistrés",
+    "btn_add": "Ajouter un Compte",
+    "btn_back": "Retour aux Comptes",
+    "btn_confirm_delete": "Oui, supprimer",
+    "btn_cancel": "Annuler",
+    "delete_confirm_title": "Supprimer le Compte",
+    "delete_confirm_body": "Cela supprime le jeton enregistré de ce bot.",
+    "delete_confirm_note": "Antigravity lui-même ne sera pas affecté.",
+    "btn_quota": "Quota",
+    "btn_delete": "Supprimer"
   }
 }

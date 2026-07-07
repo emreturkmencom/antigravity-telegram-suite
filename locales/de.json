@@ -366,9 +366,9 @@
     "checking": "🔍 Suche nach Updates...",
     "error": "❌ Update-Fehler: {error}",
     "success": "✅ Code aktualisiert und Abhängigkeiten installiert.\nBot startet jetzt neu...",
-    "bot_updated": "🚀 Antigravity Bot erfolgreich aktualisiert!",
+    "bot_updated": "🚀 Antigravity Bot erfolgreich aktualisiert!\n\n📢 Tritt @agts_updates für Neuigkeiten & @agts_community zum Chatten bei!",
     "up_to_date": "✅ Du bist auf dem neuesten Stand!\n\nv{version} ({commit})",
-    "available": "🔄 <b>Update verfügbar!</b>\n\n",
+    "available": "🔄 <b>Update verfügbar!</b>\n\n📢 Tritt @agts_updates für Neuigkeiten & @agts_community zum Chatten bei!\n\n",
     "new_version": "🚀 Neue Version: <code>{remote}</code>",
     "click_to_download": "⬇️ Klicke hier zum Herunterladen: /update",
     "current_version": "Aktuell: v{version} ({commit})\n",
@@ -495,5 +495,17 @@
     "step_done": "✅ <b>Jetzt auf Konto #{id}</b>",
     "step_done_email": "📧 {email}",
     "error": "❌ <b>Fehler</b>\n\n<code>{error}</code>"
+  },
+  "accounts": {
+    "title": "Gespeicherte Konten",
+    "btn_add": "Konto hinzufügen",
+    "btn_back": "Zurück zu Konten",
+    "btn_confirm_delete": "Ja, löschen",
+    "btn_cancel": "Abbrechen",
+    "delete_confirm_title": "Konto löschen",
+    "delete_confirm_body": "Dies entfernt das gespeicherte Token aus diesem Bot.",
+    "delete_confirm_note": "Antigravity selbst wird nicht beeinflusst.",
+    "btn_quota": "Kontingent",
+    "btn_delete": "Löschen"
   }
 }

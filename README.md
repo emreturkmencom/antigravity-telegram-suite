@@ -20,6 +20,10 @@ Send messages, switch AI models, manage workspaces, take screenshots, and run mu
 
 ---
 
+## 📢 Community
+- **Updates Channel:** [@agts_updates](https://t.me/agts_updates)
+- **Discussion Group:** [@agts_community](https://t.me/agts_community)
+
 ## ✨ Features
 
 | Feature | Description |
