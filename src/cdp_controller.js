@@ -42,6 +42,31 @@ const PENDING_ACTION_TEXTS = [
     '运行', '接受', '允许', '继续', '重试'
 ];
 
+function isLikelyClassicIDETarget(target = {}) {
+    const text = `${target.title || ''} ${target.url || ''}`.toLowerCase();
+    return (
+        text.includes('antigravity ide') ||
+        text.includes('classic ide') ||
+        text.includes('vscode-webview') ||
+        text.includes('vscode-') ||
+        text.includes('monaco')
+    );
+}
+
+function parseSelectableSlashCommand(prompt) {
+    const match = String(prompt || '').trim().match(/^\/([a-zA-Z][\w-]*)(?:\s+([\s\S]*))?$/);
+    if (!match) return null;
+    const command = match[1].toLowerCase();
+    if (command !== 'goal') return null;
+    return { command, args: (match[2] || '').trim() };
+}
+
+function getSelectableSlashCommandForTarget(prompt, target = {}) {
+    const preferredApp = (process.env.ANTIGRAVITY_PREFERRED_APP || 'agent').toLowerCase();
+    if (preferredApp === 'ide' || isLikelyClassicIDETarget(target)) return null;
+    return parseSelectableSlashCommand(prompt);
+}
+
 // Cache for the active workspace name, refreshed on each resolveTargets call
 let activeWorkspaceName = null;
 const threadNameToIdCache = new Map();
@@ -1098,12 +1123,66 @@ async function sendViaCDP(text, port, specificTargetId = null) {
             const { Runtime, Input } = client;
             await Runtime.enable();
 
+            const slashCommand = getSelectableSlashCommandForTarget(text, target);
+            const focusComposer = async () => {
+                const res = await Runtime.evaluate({
+                    expression: `
+                        ${UI_LOCATORS_SCRIPT}
+                        (() => {
+                            const editor = AG_UI.getChatInput();
+                            if (!editor) return false;
+                            editor.focus();
+                            return true;
+                        })()
+                    `,
+                    returnByValue: true
+                });
+                return !!res?.result?.value;
+            };
+            const nativeClearComposer = async () => {
+                const isMac = process.platform === 'darwin';
+                const modifier = isMac ? 4 : 2;
+                const modifierKey = isMac ? 'Meta' : 'Control';
+                const modifierCode = isMac ? 'MetaLeft' : 'ControlLeft';
+                const modifierVk = isMac ? 91 : 17;
+                await Input.dispatchKeyEvent({ type: 'keyDown', key: modifierKey, code: modifierCode, windowsVirtualKeyCode: modifierVk, nativeVirtualKeyCode: modifierVk, modifiers: modifier });
+                await Input.dispatchKeyEvent({ type: 'keyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, nativeVirtualKeyCode: 65, modifiers: modifier });
+                await Input.dispatchKeyEvent({ type: 'keyUp', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, nativeVirtualKeyCode: 65, modifiers: modifier });
+                await Input.dispatchKeyEvent({ type: 'keyUp', key: modifierKey, code: modifierCode, windowsVirtualKeyCode: modifierVk, nativeVirtualKeyCode: modifierVk, modifiers: 0 });
+                await Input.dispatchKeyEvent({ type: 'keyDown', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8 });
+                await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 });
+            };
+            const nativeTypeComposer = async (value) => {
+                await Input.insertText({ text: value || '' });
+            };
+            const preparedSlashCommand = slashCommand && await focusComposer().then(async focused => {
+                if (!focused) return { slashPrefixTyped: false };
+                await nativeClearComposer();
+                await new Promise(r => setTimeout(r, 100));
+                await nativeTypeComposer('/');
+                return { slashPrefixTyped: true };
+            }).catch(() => ({ slashPrefixTyped: false }));
+
             const focusResult = await withTimeout(Runtime.evaluate({
                 expression: `
                     ${UI_LOCATORS_SCRIPT}
                     (async function() {
                         try {
                             const escapedText = ${JSON.stringify(text)};
+                            const slashCommand = ${JSON.stringify(slashCommand)};
+                            const preparedSlashCommand = ${JSON.stringify(preparedSlashCommand)};
+                            const rectOf = (el) => {
+                                if (!el) return null;
+                                const r = el.getBoundingClientRect();
+                                return {
+                                    x: r.x,
+                                    y: r.y,
+                                    width: r.width,
+                                    height: r.height,
+                                    centerX: r.x + r.width / 2,
+                                    centerY: r.y + r.height / 2
+                                };
+                            };
                             
                             // Check if an interactive modal is active
                             const container = document.querySelector('.antigravity-agent-side-panel, .modal, [role="dialog"], [data-testid="interactive-modal"]') || document;
@@ -1173,6 +1252,29 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                             const editor = AG_UI.getChatInput();
                             
                             if (!editor) return { found: false, reason: "no_editor", editorCount: 0 };
+
+                            if (slashCommand) {
+                                if (!preparedSlashCommand || !preparedSlashCommand.slashPrefixTyped) {
+                                    return { found: false, reason: "slash_command_prefix_not_typed", command: slashCommand.command };
+                                }
+                                await new Promise(r => setTimeout(r, 400));
+                                const optionCandidates = Array.from(document.querySelectorAll('button, [role="option"], [role="menuitem"], [cmdk-item], div[role="button"]'))
+                                    .filter(el => el.offsetParent !== null);
+                                const slashOption = optionCandidates.find(el => {
+                                    const optionText = (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+                                    return optionText === slashCommand.command || optionText.startsWith(slashCommand.command + ' ');
+                                });
+                                if (!slashOption) {
+                                    return { found: false, reason: "slash_command_option_not_found", command: slashCommand.command };
+                                }
+                                return {
+                                    found: true,
+                                    method: 'slash_' + slashCommand.command,
+                                    slashOptionRect: rectOf(slashOption),
+                                    nativeTextAfterSelect: slashCommand.args,
+                                    target: '${target.title?.substring(0, 30) || 'unknown'}'
+                                };
+                            }
 
                             editor.focus();
                             try {
@@ -1251,6 +1353,23 @@ async function sendViaCDP(text, port, specificTargetId = null) {
             if (val && val.found) {
                 await new Promise(r => setTimeout(r, 50));
                 try {
+                    const dispatchNativeClick = async (rect) => {
+                        if (!rect || !Number.isFinite(rect.centerX) || !Number.isFinite(rect.centerY)) return;
+                        await Input.dispatchMouseEvent({ type: 'mouseMoved', x: rect.centerX, y: rect.centerY, button: 'none' });
+                        await Input.dispatchMouseEvent({ type: 'mousePressed', x: rect.centerX, y: rect.centerY, button: 'left', clickCount: 1 });
+                        await Input.dispatchMouseEvent({ type: 'mouseReleased', x: rect.centerX, y: rect.centerY, button: 'left', clickCount: 1 });
+                    };
+
+                    if (val.slashOptionRect) {
+                        await dispatchNativeClick(val.slashOptionRect);
+                        await new Promise(r => setTimeout(r, 500));
+                    }
+
+                    if (Object.prototype.hasOwnProperty.call(val, 'nativeTextAfterSelect')) {
+                        await Input.insertText({ text: val.nativeTextAfterSelect || '' });
+                        await new Promise(r => setTimeout(r, 200));
+                    }
+
                     let isMac = process.platform === 'darwin';
                     try {
                         const versionInfo = await client.send('Browser.getVersion');
@@ -2216,6 +2335,7 @@ async function switchStandaloneWorkspace(port, wsName) {
 module.exports = {
     PENDING_ACTION_TEXTS,
     SUBMIT_ACTION_TEXTS,
+    getSelectableSlashCommandForTarget,
     findConversationIdByTitle,
     isAgentWorking,
     getFullLatestResponse,
