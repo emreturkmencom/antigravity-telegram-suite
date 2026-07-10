@@ -774,6 +774,9 @@ async function fetchQuotaSummary(accessToken, projectId) {
  * @returns {Promise<{account, refreshed: boolean}>}
  */
 async function ensureFreshToken(account) {
+    if (!account || !account.token) {
+        throw new Error('Invalid account configuration: token missing. Please /login again.');
+    }
     const now = Math.floor(Date.now() / 1000);
     const expiresAt = account.token.expiry_timestamp || 0;
 
@@ -1379,13 +1382,17 @@ function syncAntigravityGlobalFiles(account) {
 
     // 2. oauth_creds.json
     const oauthCredsPath = path.join(geminiDir, 'oauth_creds.json');
+    if (!account.token) {
+        logInfo(`[account_manager] Skipping oauth_creds.json sync: token missing`);
+        return;
+    }
     try {
         const oauthData = {
             access_token: account.token.access_token,
             scope: "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/cloud-platform",
             token_type: "Bearer",
             id_token: account.token.id_token || "",
-            expiry_date: account.token.expiry_timestamp * 1000,
+            expiry_date: (account.token.expiry_timestamp || 0) * 1000,
             refresh_token: account.token.refresh_token
         };
         fs.writeFileSync(oauthCredsPath, JSON.stringify(oauthData, null, 2), 'utf8');

@@ -3865,12 +3865,15 @@ async function processAuthCode(chatId, authCode, redirectUri) {
         // Get user info
         accountManager.logInfo(`[bot] Fetching user info...`);
         const userInfo = await accountManager.getUserInfo(tokenResp.access_token);
+        if (!userInfo || !userInfo.email) {
+            throw new Error('Failed to retrieve user email from Google. Check your account settings.');
+        }
         accountManager.logInfo(`[bot] User info retrieved: email=${userInfo.email}`);
 
         // Save account
         const accounts = accountManager.loadAccounts();
         const existing = Object.values(accounts).find(
-            a => a && typeof a === 'object' && a.email && a.email.toLowerCase() === userInfo.email.toLowerCase()
+            a => a && typeof a === 'object' && a.email && userInfo?.email && a.email.toLowerCase() === userInfo.email.toLowerCase()
         );
 
         const now = Math.floor(Date.now() / 1000);
