@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Multi-Account Sync Between IDE & Standalone App**: Fixed a critical issue where the Antigravity IDE and Standalone App showed different active accounts after switching. Root cause: the Standalone App uses the OS keyring (GNOME Secret Service) and `~/.gemini/` global config files instead of `state.vscdb`, but `writeToCredentialStore()` required `secret-tool` CLI which was often not installed on Linux.
+- **Linux Keyring Write via Python DBus**: Replaced `secret-tool` dependency with a new `keyring_helper.py` that uses Python's built-in `dbus` module to write directly to GNOME Keyring — no extra packages needed.
+- **Graceful Agent SQLite Skip**: `injectTokenIntoIde()` no longer throws an error when the Standalone App's `state.vscdb` doesn't exist; it logs and skips since the app reads credentials from the keyring.
+
+### Changed
+- **Dual-App Account Switching**: `/switchacc` now injects credentials into both IDE and Standalone App simultaneously, syncs `~/.gemini/google_accounts.json`, `oauth_creds.json`, and the OS keyring in a single operation, then restarts only the apps that were previously running.
+
 ## [3.6.0] - 2026-07-08
 
 ### Added

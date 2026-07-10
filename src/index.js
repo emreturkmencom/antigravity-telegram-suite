@@ -3660,12 +3660,9 @@ function formatQuotaHtml(account, quotaData) {
         L.push(t('quota.credits', { credits: quotaData.ai_credits.credits.toLocaleString() }));
     }
 
-    // ── Model Quota ──
+    // ── Detailed Quota Groups ──
+    const groups = quotaData.quota_groups || [];
     const models = quotaData.models || {};
-
-    // Build the allowed-model filter from QUOTA_DISPLAY_MODELS env var.
-    // Each entry is matched case-insensitively as a substring of displayName.
-    // Empty / unset → show all models (no filter applied).
     const quotaFilterRaw = (process.env.QUOTA_DISPLAY_MODELS || '').trim();
     const quotaFilter = quotaFilterRaw
         ? quotaFilterRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
@@ -3691,7 +3688,56 @@ function formatQuotaHtml(account, quotaData) {
             return a.localeCompare(b);
         });
 
-    if (trackedModels.length > 0) {
+    if (groups.length > 0) {
+        // Helper to format ISO resetTime string to a relative string (e.g., '2d 9h' or '3h 8m')
+        const formatRelativeTime = (isoString) => {
+            if (!isoString) return '';
+            const diffMs = new Date(isoString) - Date.now();
+            if (diffMs <= 0) return 'now';
+
+            const diffSecs = Math.floor(diffMs / 1000);
+            const diffMins = Math.floor(diffSecs / 60);
+            const diffHours = Math.floor(diffMins / 60);
+            const diffDays = Math.floor(diffHours / 24);
+
+            if (diffDays > 0) {
+                const remainingHours = diffHours % 24;
+                return `${diffDays}d ${remainingHours}h`;
+            }
+            if (diffHours > 0) {
+                const remainingMins = diffMins % 60;
+                return `${diffHours}h ${remainingMins}m`;
+            }
+            return `${diffMins}m`;
+        };
+
+        L.push('');
+        L.push(t('quota.detailed_quota_title'));
+        L.push('━'.repeat(22));
+
+        for (const group of groups) {
+            L.push(`<b>${group.display_name}</b>`);
+            if (group.description) {
+                L.push(`<i>${group.description}</i>`);
+            }
+
+            for (const bucket of group.buckets) {
+                const pct = Math.round(bucket.remaining_fraction * 100);
+                const resetStr = formatRelativeTime(bucket.reset_time);
+
+                L.push(`  • <b>${bucket.display_name || bucket.bucket_id}</b>`);
+
+                // 8-segment bar: █ = filled, ░ = empty
+                const filled = Math.round(bucket.remaining_fraction * 8);
+                const bar = '█'.repeat(filled) + '░'.repeat(8 - filled);
+
+                L.push(`    <code>${bar}</code>  <b>${pct}%</b>`);
+                if (resetStr) {
+                    L.push(t('quota.reset_relative', { time: resetStr }));
+                }
+            }
+        }
+    } else if (trackedModels.length > 0) {
         L.push('');
         L.push(t('quota.model_quota_title'));
         L.push('━'.repeat(22));
@@ -3746,59 +3792,6 @@ function formatQuotaHtml(account, quotaData) {
     } else {
         L.push('');
         L.push(t('quota.no_data'));
-    }
-
-    // ── Detailed Quota Groups ──
-    const groups = quotaData.quota_groups || [];
-    if (groups.length > 0) {
-        // Helper to format ISO resetTime string to a relative string (e.g., '2d 9h' or '3h 8m')
-        const formatRelativeTime = (isoString) => {
-            if (!isoString) return '';
-            const diffMs = new Date(isoString) - Date.now();
-            if (diffMs <= 0) return 'now';
-
-            const diffSecs = Math.floor(diffMs / 1000);
-            const diffMins = Math.floor(diffSecs / 60);
-            const diffHours = Math.floor(diffMins / 60);
-            const diffDays = Math.floor(diffHours / 24);
-
-            if (diffDays > 0) {
-                const remainingHours = diffHours % 24;
-                return `${diffDays}d ${remainingHours}h`;
-            }
-            if (diffHours > 0) {
-                const remainingMins = diffMins % 60;
-                return `${diffHours}h ${remainingMins}m`;
-            }
-            return `${diffMins}m`;
-        };
-
-        L.push('');
-        L.push(t('quota.detailed_quota_title'));
-        L.push('━'.repeat(22));
-
-        for (const group of groups) {
-            L.push(`<b>${group.display_name}</b>`);
-            if (group.description) {
-                L.push(`<i>${group.description}</i>`);
-            }
-
-            for (const bucket of group.buckets) {
-                const pct = Math.round(bucket.remaining_fraction * 100);
-                const resetStr = formatRelativeTime(bucket.reset_time);
-
-                L.push(`  • <b>${bucket.display_name || bucket.bucket_id}</b>`);
-
-                // 8-segment bar: █ = filled, ░ = empty
-                const filled = Math.round(bucket.remaining_fraction * 8);
-                const bar = '█'.repeat(filled) + '░'.repeat(8 - filled);
-
-                L.push(`    <code>${bar}</code>  <b>${pct}%</b>`);
-                if (resetStr) {
-                    L.push(t('quota.reset_relative', { time: resetStr }));
-                }
-            }
-        }
     }
 
     // ── Token status ──
@@ -4230,36 +4223,67 @@ bot.action(/^acc_switch_(\d+)$/, async (ctx) => {
         else { steps[steps.length - 1] = t('switchacc.step_valid'); }
         await editStatus(buildSwitchStatus(account, steps));
 
-        steps.push(t('switchacc.step_stopping', { app }));
+        // Sync global config files for Antigravity
+        accountManager.syncAntigravityGlobalFiles(freshAccount);
+
+        const targetApps = ['agent', 'ide'];
+        const runningStates = {};
+
+        steps.push(t('switchacc.step_stopping', { app: 'all' }) || 'Stopping Antigravity instances...');
         await editStatus(buildSwitchStatus(account, steps));
 
-        const wasRunning = await isIDERunning(app);
-        if (wasRunning) {
-            await killIDE(app);
-            const exited = await waitForProcessDead(app, 8000);
-            steps[steps.length - 1] = exited ? t('switchacc.step_stopped', { app }) : t('switchacc.step_still_closing', { app });
-        } else { steps[steps.length - 1] = t('switchacc.step_not_running', { app }); }
+        for (const targetApp of targetApps) {
+            const wasRunning = await isIDERunning(targetApp);
+            runningStates[targetApp] = wasRunning;
+            if (wasRunning) {
+                await killIDE(targetApp);
+                await waitForProcessDead(targetApp, 4000);
+            }
+        }
+        steps[steps.length - 1] = t('switchacc.step_stopped', { app: 'all' }) || 'Stopped Antigravity instances';
         await editStatus(buildSwitchStatus(account, steps));
 
         steps.push(t('switchacc.step_writing'));
         await editStatus(buildSwitchStatus(account, steps));
 
+        let writeErrors = [];
+        for (const targetApp of targetApps) {
+            try {
+                await accountManager.injectTokenIntoIde(freshAccount, targetApp);
+            } catch (injErr) {
+                writeErrors.push(`${targetApp}:${injErr.message.slice(0,30)}`);
+            }
+        }
+        
         try {
-            await accountManager.injectTokenIntoIde(freshAccount, app);
-            steps[steps.length - 1] = t('switchacc.step_written', { app });
-        } catch (injErr) {
-            try { await accountManager.writeToCredentialStore(freshAccount.token); steps[steps.length - 1] = t('switchacc.step_written_keyring', { error: injErr.message.slice(0, 50) }); }
-            catch { steps[steps.length - 1] = t('switchacc.step_write_failed', { error: injErr.message.slice(0, 60) }); }
+            await accountManager.writeToCredentialStore(freshAccount.token);
+        } catch (credErr) {
+            writeErrors.push(`keyring:${credErr.message.slice(0,30)}`);
+        }
+        
+        if (writeErrors.length > 0) {
+            steps[steps.length - 1] = t('switchacc.step_written', { app: 'all' }) + ` (Errors: ${writeErrors.join(', ')})`;
+        } else {
+            steps[steps.length - 1] = t('switchacc.step_written', { app: 'all' });
         }
         await editStatus(buildSwitchStatus(account, steps));
 
-        steps.push(t('switchacc.step_starting', { app }));
+        steps.push(t('switchacc.step_starting', { app: 'apps' }) || 'Restarting apps...');
         await editStatus(buildSwitchStatus(account, steps));
 
-        const appPort = getCDPPort(app);
-        const lastWs = getLastWorkspace(app);
-        try { cleanLockFile(app); await launchIDE(lastWs, appPort, app); steps[steps.length - 1] = t('switchacc.step_started', { app }); }
-        catch (e) { steps[steps.length - 1] = t('switchacc.step_start_failed', { app, error: e.message.slice(0, 70) }); }
+        for (const targetApp of targetApps) {
+            if (runningStates[targetApp]) {
+                const appPort = getCDPPort(targetApp);
+                const lastWs = getLastWorkspace(targetApp);
+                try {
+                    cleanLockFile(targetApp);
+                    await launchIDE(lastWs, appPort, targetApp);
+                } catch (e) {
+                    console.error(`[acc_switch] Failed to restart ${targetApp}: ${e.message}`);
+                }
+            }
+        }
+        steps[steps.length - 1] = t('switchacc.step_started', { app: 'apps' }) || 'Restarted apps';
 
         // Mark this account as active for the panel display
         accounts.__activeId = String(account.numericId);
@@ -4465,59 +4489,67 @@ bot.command('switchacc', async (ctx) => {
         }
         await editStatus(buildSwitchStatus(account, steps));
 
-        // Step 2 — Kill Antigravity (preferred app only)
-        // Mirrors AntigravityManager's closeAntigravity(appTarget) call
-        steps.push(t('switchacc.step_stopping', { app }));
+        // Sync global config files for Antigravity
+        accountManager.syncAntigravityGlobalFiles(freshAccount);
+
+        const targetApps = ['agent', 'ide'];
+        const runningStates = {};
+
+        steps.push(t('switchacc.step_stopping', { app: 'all' }) || 'Stopping Antigravity instances...');
         await editStatus(buildSwitchStatus(account, steps));
 
-        const wasRunning = await isIDERunning(app);
-        if (wasRunning) {
-            await killIDE(app);
-            // Wait for the process to fully exit before injecting credentials
-            // Mirrors AntigravityManager's _waitForProcessExit(10_000ms, 100ms)
-            const exited = await waitForProcessDead(app, 8000);
-            steps[steps.length - 1] = exited
-                ? t('switchacc.step_stopped', { app })
-                : t('switchacc.step_still_closing', { app });
-        } else {
-            steps[steps.length - 1] = t('switchacc.step_not_running', { app });
+        for (const targetApp of targetApps) {
+            const wasRunning = await isIDERunning(targetApp);
+            runningStates[targetApp] = wasRunning;
+            if (wasRunning) {
+                await killIDE(targetApp);
+                await waitForProcessDead(targetApp, 4000);
+            }
         }
+        steps[steps.length - 1] = t('switchacc.step_stopped', { app: 'all' }) || 'Stopped Antigravity instances';
         await editStatus(buildSwitchStatus(account, steps));
 
-        // Step 3 — Inject credentials into the preferred app's state.vscdb
-        // Per config: targets only the preferred app (ANTIGRAVITY_PREFERRED_APP).
-        // Falls back to OS credential store if SQLite injection fails.
         steps.push(t('switchacc.step_writing'));
         await editStatus(buildSwitchStatus(account, steps));
 
-        try {
-            await accountManager.injectTokenIntoIde(freshAccount, app);
-            steps[steps.length - 1] = t('switchacc.step_written', { app });
-        } catch (injErr) {
-            // SQLite injection failed — fall back to OS credential store
+        let writeErrors = [];
+        for (const targetApp of targetApps) {
             try {
-                await accountManager.writeToCredentialStore(freshAccount.token);
-                steps[steps.length - 1] = t('switchacc.step_written_keyring', { error: injErr.message.slice(0, 50) });
-            } catch (credErr) {
-                steps[steps.length - 1] = t('switchacc.step_write_failed', { error: injErr.message.slice(0, 60) });
+                await accountManager.injectTokenIntoIde(freshAccount, targetApp);
+            } catch (injErr) {
+                writeErrors.push(`${targetApp}:${injErr.message.slice(0,30)}`);
             }
         }
-        await editStatus(buildSwitchStatus(account, steps));
-
-        // Step 4 — Restart Antigravity (same preferred app that was killed)
-        // Mirrors AntigravityManager's startAntigravity(appTarget) call
-        steps.push(t('switchacc.step_starting', { app }));
-        await editStatus(buildSwitchStatus(account, steps));
-
-        const appPort = getCDPPort(app);
-        const lastWs = getLastWorkspace(app);
+        
         try {
-            cleanLockFile(app);
-            await launchIDE(lastWs, appPort, app);
-            steps[steps.length - 1] = t('switchacc.step_started', { app });
-        } catch (e) {
-            steps[steps.length - 1] = t('switchacc.step_start_failed', { app, error: e.message.slice(0, 70) });
+            await accountManager.writeToCredentialStore(freshAccount.token);
+        } catch (credErr) {
+            writeErrors.push(`keyring:${credErr.message.slice(0,30)}`);
         }
+        
+        if (writeErrors.length > 0) {
+            steps[steps.length - 1] = t('switchacc.step_written', { app: 'all' }) + ` (Errors: ${writeErrors.join(', ')})`;
+        } else {
+            steps[steps.length - 1] = t('switchacc.step_written', { app: 'all' });
+        }
+        await editStatus(buildSwitchStatus(account, steps));
+
+        steps.push(t('switchacc.step_starting', { app: 'apps' }) || 'Restarting apps...');
+        await editStatus(buildSwitchStatus(account, steps));
+
+        for (const targetApp of targetApps) {
+            if (runningStates[targetApp]) {
+                const appPort = getCDPPort(targetApp);
+                const lastWs = getLastWorkspace(targetApp);
+                try {
+                    cleanLockFile(targetApp);
+                    await launchIDE(lastWs, appPort, targetApp);
+                } catch (e) {
+                    console.error(`[switchacc] Failed to restart ${targetApp}: ${e.message}`);
+                }
+            }
+        }
+        steps[steps.length - 1] = t('switchacc.step_started', { app: 'apps' }) || 'Restarted apps';
 
         // Step 5 — Done
         // Mark this account as active for the panel display

@@ -909,6 +909,10 @@ async function injectTokenIntoIde(tokenData, app) {
     const dbPath = candidatePaths.find(p => fs.existsSync(p));
 
     if (!dbPath) {
+        if (app === 'agent') {
+            logInfo(`[account_manager] state.vscdb not found for agent (standalone). Skipping SQLite injection as it uses Keyring/global files.`);
+            return null;
+        }
         throw new Error(
             `Antigravity state.vscdb not found. Checked:\n${candidatePaths.join('\n')}\n\n` +
             `Please start Antigravity at least once before switching accounts.`
@@ -1280,28 +1284,25 @@ Write-Output $res
     }
 
     if (platform === 'linux') {
-        // Try secret-tool
-        const available = await checkCommandAvailable('secret-tool');
-        if (available) {
-            await new Promise((resolve, reject) => {
-                const proc = require('child_process').spawn(
-                    'secret-tool',
-                    ['store', '--label=gemini', 'service', 'gemini', 'username', 'antigravity'],
-                    { stdio: ['pipe', 'ignore', 'ignore'] }
-                );
-                proc.stdin.write(payload);
-                proc.stdin.end();
-                proc.on('close', (code) => {
-                    if (code === 0) {
-                        resolve();
-                    } else {
-                        reject(new Error(`secret-tool exited with code ${code}`));
-                    }
-                });
-                proc.on('error', reject);
+        const helperPath = path.join(__dirname, 'keyring_helper.py');
+        await new Promise((resolve, reject) => {
+            const proc = require('child_process').spawn(
+                'python3',
+                [helperPath, '--action', 'store', '--label', 'gemini', '--service', 'gemini', '--username', 'antigravity'],
+                { stdio: ['pipe', 'ignore', 'ignore'] }
+            );
+            proc.stdin.write(payload);
+            proc.stdin.end();
+            proc.on('close', (code) => {
+                if (code === 0) {
+                    resolve();
+                } else {
+                    reject(new Error(`keyring_helper.py exited with code ${code}`));
+                }
             });
-            return;
-        }
+            proc.on('error', reject);
+        });
+        return;
     }
 
     // Fallback: note that on unsupported platforms we fall through to SQLite injection only.
@@ -1336,8 +1337,62 @@ async function resolvePythonCommand() {
         if (await checkCommandAvailable(cmd)) {
             return cmd;
         }
-    }
+}
     return null;
+}
+
+/**
+ * Synchronize the global ~/.gemini/google_accounts.json and oauth_creds.json
+ * used by Antigravity directly, ensuring they match the new active account.
+ *
+ * @param {object} account
+ */
+function syncAntigravityGlobalFiles(account) {
+    const geminiDir = path.join(os.homedir(), '.gemini');
+    
+    // 1. google_accounts.json
+    const googleAccountsPath = path.join(geminiDir, 'google_accounts.json');
+    try {
+        let gaData = { active: "", old: [] };
+        if (fs.existsSync(googleAccountsPath)) {
+            gaData = JSON.parse(fs.readFileSync(googleAccountsPath, 'utf8'));
+        }
+        
+        if (gaData.active && gaData.active !== account.email) {
+            if (!gaData.old) gaData.old = [];
+            if (!gaData.old.includes(gaData.active)) {
+                gaData.old.push(gaData.active);
+            }
+        }
+        
+        // Remove the new active email from old list if it exists
+        if (gaData.old) {
+            gaData.old = gaData.old.filter(e => e !== account.email);
+        }
+        
+        gaData.active = account.email;
+        fs.writeFileSync(googleAccountsPath, JSON.stringify(gaData, null, 2), 'utf8');
+        logInfo(`[account_manager] Synced google_accounts.json active account to ${account.email}`);
+    } catch (e) {
+        logInfo(`[account_manager] Error syncing google_accounts.json: ${e.message}`);
+    }
+
+    // 2. oauth_creds.json
+    const oauthCredsPath = path.join(geminiDir, 'oauth_creds.json');
+    try {
+        const oauthData = {
+            access_token: account.token.access_token,
+            scope: "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/cloud-platform",
+            token_type: "Bearer",
+            id_token: account.token.id_token || "",
+            expiry_date: account.token.expiry_timestamp * 1000,
+            refresh_token: account.token.refresh_token
+        };
+        fs.writeFileSync(oauthCredsPath, JSON.stringify(oauthData, null, 2), 'utf8');
+        logInfo(`[account_manager] Synced oauth_creds.json`);
+    } catch (e) {
+        logInfo(`[account_manager] Error syncing oauth_creds.json: ${e.message}`);
+    }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -1359,6 +1414,7 @@ module.exports = {
     logoutIde,
     getActiveEmail,
     writeToCredentialStore,
+    syncAntigravityGlobalFiles,
     getStatevscdbPaths,
     OAUTH_PORT,
     logInfo,
