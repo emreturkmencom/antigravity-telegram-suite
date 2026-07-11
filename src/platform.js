@@ -231,42 +231,26 @@ function killIDE(app = getPreferredApp()) {
     return new Promise((resolve) => {
         const fs = require('fs');
         const procName = getAppProcessName(app);
-        const binary = getAppBinary(app);
         const lock = path.join(getAppDataDir(app), 'code.lock');
         let cmd;
 
-        // Two-stage termination: SIGTERM first (graceful) → wait → SIGKILL (fallback)
-        // SIGKILL alone prevents Electron from flushing state.vscdb to disk,
+        // SIGKILL (-9) prevents Electron from flushing state.vscdb to disk,
         // causing chat history and settings to be lost on restart.
+        // We use SIGTERM first, poll for termination, and only force-kill as a last resort.
         switch (PLATFORM) {
             case 'win32':
-                // Try graceful termination first, then fallback to force-kill
-                cmd = `taskkill /IM "${procName}" 2>nul & timeout /t 3 /nobreak >nul & taskkill /F /IM "${procName}" 2>nul & timeout /t 1 /nobreak >nul`;
+                // Try graceful termination first, allowing up to 8s for state saving
+                cmd = `taskkill /IM "${procName}" 2>nul & timeout /t 8 /nobreak >nul & taskkill /F /IM "${procName}" 2>nul`;
                 break;
             case 'darwin':
                 // macOS Native quit triggers the graceful shutdown and state saving perfectly
                 cmd = `osascript -e 'quit app "${procName}"'`;
                 break;
             default: // linux
-                // Kill ALL app-related processes including child processes
-                // (chrome-sandbox, crashpad_handler, language_server, utility processes)
+                // Send SIGTERM *only* to the main process, allowing Electron to coordinate child shutdown and save state.
                 cmd = [
-                    // Stage 1: Graceful SIGTERM — lets Electron flush state.vscdb
                     `pkill -15 -x "${procName}" 2>/dev/null`,
-                    `pkill -15 -f "${binary}" 2>/dev/null`,
-                    `pkill -15 -f "antigravity-launcher" 2>/dev/null`,
-                    `sleep 3`,
-                    // Stage 2: Forceful SIGKILL fallback for any lingering processes
-                    `pkill -9 -x "${procName}" 2>/dev/null`,
-                    `pkill -9 -f "${binary}" 2>/dev/null`,
-                    `pkill -9 -f "antigravity-launcher" 2>/dev/null`,
-                    `pkill -9 -f "chrome_crashpad_handler" 2>/dev/null`,
-                    `pkill -9 -f "chrome-sandbox" 2>/dev/null`,
-                    `pkill -9 -f "language_server_linux" 2>/dev/null`,
-                    `pkill -9 -f "user-data-dir.*${app === 'ide' ? 'Antigravity.IDE' : 'Antigravity'}" 2>/dev/null`,
-                    `sleep 1`,
-                    // Ensure the debugging port is freed
-                    `fuser -k ${app === 'ide' ? (process.env.IDE_CDP_PORT || 9334) : (process.env.AGENT_CDP_PORT || process.env.DEBUGGING_PORT || 9333)}/tcp 2>/dev/null || true`
+                    `pkill -15 -f "antigravity-launcher" 2>/dev/null`
                 ].join('; ');
         }
 
@@ -276,15 +260,12 @@ function killIDE(app = getPreferredApp()) {
             try { fs.unlinkSync(lock); } catch (_) {}
 
             // Clean Electron SingletonLock/SingletonCookie files
-            // These stale lock files prevent the next IDE instance from properly
-            // initializing its CDP debugging port, causing "CDP connection failed"
-            // errors that previously required a full PC restart to resolve.
             const dataDir = getAppDataDir(app);
             try { fs.unlinkSync(path.join(dataDir, 'SingletonLock')); } catch (_) {}
             try { fs.unlinkSync(path.join(dataDir, 'SingletonCookie')); } catch (_) {}
             try { fs.unlinkSync(path.join(dataDir, 'SingletonSocket')); } catch (_) {}
 
-            // Verification loop: wait until all processes are truly dead (max 5s)
+            // Verification loop: wait until the main process is dead (max 10s on Linux/macOS)
             if (PLATFORM === 'linux' || PLATFORM === 'darwin') {
                 let attempts = 0;
                 const verifyCmd = PLATFORM === 'darwin' 
@@ -295,15 +276,28 @@ function killIDE(app = getPreferredApp()) {
                     attempts++;
                     exec(verifyCmd, (err, stdout) => {
                         const pids = (stdout || '').trim();
-                        if (!pids || attempts >= 10) {
-                            if (pids && attempts >= 10) {
-                                console.log(`[platform] killIDE app=${app}: force-killing surviving PIDs:`, pids);
+                        if (!pids || attempts >= 20) { // 20 * 500ms = 10s
+                            if (pids && attempts >= 20) {
+                                console.log(`[platform] killIDE app=${app}: force-killing surviving main PIDs after timeout:`, pids);
                                 exec(`echo "${pids}" | xargs kill -9 2>/dev/null`);
                             }
                             console.log(`[platform] killIDE app=${app} verified after ${attempts} checks`);
-                            resolve();
+                            
+                            // Perform final cleanup of any leftover helper/renderer/language-server processes and free port on Linux
+                            if (PLATFORM === 'linux') {
+                                const cleanupCmd = [
+                                    `pkill -9 -f "user-data-dir.*${app === 'ide' ? 'Antigravity IDE' : 'Antigravity'}" 2>/dev/null`,
+                                    `pkill -9 -f "language_server.*${app === 'ide' ? 'antigravity-ide' : 'antigravity'}" 2>/dev/null`,
+                                    `fuser -k ${app === 'ide' ? (process.env.IDE_CDP_PORT || 9334) : (process.env.AGENT_CDP_PORT || process.env.DEBUGGING_PORT || 9333)}/tcp 2>/dev/null || true`
+                                ].join('; ');
+                                exec(cleanupCmd, () => resolve());
+                            } else {
+                                resolve();
+                            }
                         } else {
-                            console.log(`[platform] killIDE: ${pids.split('\n').length} processes still alive, waiting... (${attempts}/10)`);
+                            if (attempts % 4 === 0) {
+                                console.log(`[platform] killIDE: ${pids.split('\n').length} processes still alive, waiting... (${attempts}/20)`);
+                            }
                             setTimeout(verifyDead, 500);
                         }
                     });
