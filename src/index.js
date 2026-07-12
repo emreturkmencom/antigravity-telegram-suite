@@ -8,7 +8,7 @@ const https = require('https');
 const { exec } = require('child_process');
 const { loadLocale, t, getLang } = require('./i18n');
 const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, getLastWorkspace, trustWorkspaceViaCDP, PLATFORM } = require('./platform');
-const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getPreferredTargetId, getCachedWindows, closeWindow, listAgentThreads, switchAgentThread, getActiveThreadId, getActiveThreadInfo, setActiveWorkspace, switchStandaloneWorkspace, getLastResolvedThreadId, setOnThreadResolved } = require('./cdp_controller');
+const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getPreferredTargetId, getCachedWindows, closeWindow, closeAllEditors, listAgentThreads, switchAgentThread, getActiveThreadId, getActiveThreadInfo, setActiveWorkspace, switchStandaloneWorkspace, getLastResolvedThreadId, setOnThreadResolved } = require('./cdp_controller');
 const autoaccept = require('./autoaccept');
 const updater = require('./updater');
 const { runTurboOrchestration } = require('./turbo_orchestrator');
@@ -879,6 +879,22 @@ bot.command('close_window', async (ctx) => {
         ctx.deleteMessage(closingMsg.message_id).catch(()=>{});
     }
     ctx.reply(resultMsg);
+});
+
+bot.command('closeall', async (ctx) => {
+    let closingMsg = await ctx.reply('🗂️ Closing all open file tabs...').catch(()=>{});
+    try {
+        const count = await closeAllEditors(CDP_PORT);
+        if (closingMsg && closingMsg.message_id) {
+            ctx.deleteMessage(closingMsg.message_id).catch(()=>{});
+        }
+        ctx.reply(`✅ Closed ${count} open file tab(s).`);
+    } catch (err) {
+        if (closingMsg && closingMsg.message_id) {
+            ctx.deleteMessage(closingMsg.message_id).catch(()=>{});
+        }
+        ctx.reply(`❌ Failed to close all tabs: ${err.message}`);
+    }
 });
 
 const handleStatus = async (ctx) => {
@@ -2909,6 +2925,7 @@ function getMenuCommands() {
         { command: 'workspace', description: t('menu.workspace_desc') },
         { command: 'window', description: t('menu.window_desc') || 'Select IDE window' },
         { command: 'close_window', description: t('menu.close_window_desc') || 'Close current window' },
+        { command: 'closeall', description: t('menu.closeall_desc') || 'Close all open file tabs' },
         { command: 'lang', description: t('menu.lang_desc') },
         { command: 'cmd', description: t('menu.cmd_desc') },
         { command: 'file', description: t('menu.file_desc') },

@@ -23,7 +23,7 @@
     "status_title": "👁️ <i>状态与信息：</i>",
     "status_text": "- /latest → 获取最新回复\n- /screenshot → 截取 IDE 屏幕\n- /status → 系统状态\n- /quota → 查看 AI 配额\n- /version → 显示 Bot 版本\n- /update → 检查 Bot 更新",
     "ide_title": "🛠️ <i>系统控制：</i>",
-    "ide_text": "- /start_ide → 启动 IDE/Agent\n- /close → 完全关闭应用\n- /app → 在 IDE 和 Agent 之间切换\n- /workspace → 切换项目\n- /window → 选择活动窗口\n- /fix_shortcuts → 修复桌面快捷方式\n- /lang → 切换语言\n- /menu → 刷新菜单\n- /cmd &lt;命令&gt; → 执行终端命令",
+    "ide_text": "- /start_ide → 启动 IDE/Agent\n- /close → 完全关闭应用\n- /app → 在 IDE 和 Agent 之间切换\n- /workspace → 切换项目\n- /window → 选择活动窗口\n- /fix_shortcuts → 修复桌面快捷方式\n- /lang → 切换语言\n- /menu → 刷新菜单\n- /cmd &lt;命令&gt; → 执行终端命令\n- /closeall → 关闭所有打开的文件标签",
     "chat_title": "💬 <i>聊天控制：</i>",
     "chat_text": "- /new → 打开新聊天\n- /agents → 列出最近聊天\n- /artifacts → 列出产物\n- /model → 选择使用的模型\n- /autoaccept → 切换自动接受\n- /help → 显示帮助",
     "account_title": "📱 <b>账户管理</b>",
@@ -187,7 +187,8 @@
     "delacc_desc": "删除已保存的 Google 账号",
     "gettask_desc": "获取最新的任务清单",
     "getplan_desc": "获取最新的实施计划",
-    "getwalk_desc": "获取最新的走查/Walkthrough"
+    "getwalk_desc": "获取最新的走查/Walkthrough",
+    "closeall_desc": "关闭所有打开的文件标签"
   },
   "photo": {
     "downloaded": "✅ 文件已下载，正在转发给 Agent...",

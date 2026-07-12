@@ -23,7 +23,7 @@
     "status_title": "👁️ <i>Durum & Bilgi:</i>",
     "status_text": "- /latest → Son yanıtı getirir\n- /screenshot → IDE ekran görüntüsü alır\n- /status → Sistem durumunu gösterir\n- /quota → Kalan AI kotalarını gösterir\n- /version → Mevcut bot sürümünü gösterir\n- /update → Bot için güncellemeleri kontrol eder",
     "ide_title": "🛠️ <i>Sistem Kontrolleri:</i>",
-    "ide_text": "- /start_ide → IDE/Agent kapalıysa başlatır\n- /close → Uygulamayı tamamen kapatır\n- /app → IDE ve Agent arasında geçiş yapar\n- /workspace → Projeyi değiştirir\n- /window → Aktif pencereyi seçer\n- /fix_shortcuts → Masaüstü kısayollarını onarır\n- /lang → Dil değiştirir\n- /menu → Menüyü yeniler\n- /cmd &lt;komut&gt; → Terminalde komut çalıştırır",
+    "ide_text": "- /start_ide → IDE/Agent kapalıysa başlatır\n- /close → Uygulamayı tamamen kapatır\n- /app → IDE ve Agent arasında geçiş yapar\n- /workspace → Projeyi değiştirir\n- /window → Aktif pencereyi seçer\n- /fix_shortcuts → Masaüstü kısayollarını onarır\n- /lang → Dil değiştirir\n- /menu → Menüyü yeniler\n- /cmd &lt;komut&gt; → Terminalde komut çalıştırır\n- /closeall → Açık tüm dosya sekmelerini kapatır",
     "chat_title": "💬 <i>Sohbet Kontrolleri:</i>",
     "chat_text": "- /new → Yeni sohbet açar\n- /agents → Son sohbetleri listeler\n- /artifacts → Artifact'leri listeler\n- /model → Kullanılacak modeli seçer\n- /autoaccept → Otomatik onay modunu açar/kapatır\n- /help → Bu yardım mesajını gösterir",
     "account_title": "📱 <b>Hesap Yönetimi</b>",
@@ -187,7 +187,8 @@
     "model_not_selected": "⚠️ Model seçilmedi",
     "gettask_desc": "En son Görev Listesini getir",
     "getplan_desc": "En son Uygulama Planını getir",
-    "getwalk_desc": "En son İncelemeyi (Walkthrough) getir"
+    "getwalk_desc": "En son İncelemeyi (Walkthrough) getir",
+    "closeall_desc": "Açık olan tüm dosya sekmelerini kapatır"
   },
   "photo": {
     "downloaded": "✅ Dosya indirildi ve ajana yönlendiriliyor...",

@@ -112,7 +112,7 @@
     "agent_title": "🎯 <i>에이전트 모드:</i>",
     "chat_text": "- /new → 새 채팅 열기\n- /agents → 최근 채팅 목록\n- /artifacts → 아티팩트 목록\n- /model → 사용할 모델 선택\n- /autoaccept → 자동 승인 전환\n- /help → 이 도움말 표시",
     "chat_title": "💬 <i>채팅 제어:</i>",
-    "ide_text": "- /start_ide → IDE/에이전트가 닫혀 있으면 시작\n- /close → 앱 완전 종료\n- /app → IDE와 에이전트 전환\n- /workspace → 프로젝트 전환\n- /window → 활성 창 선택\n- /fix_shortcuts → 데스크톱 바로가기 수정\n- /lang → 언어 전환\n- /menu → 메뉴 새로고침\n- /cmd &lt;command&gt; → 터미널 명령 실행",
+    "ide_text": "- /start_ide → IDE/에이전트가 닫혀 있으면 시작\n- /close → 앱 완전 종료\n- /app → IDE와 에이전트 전환\n- /workspace → 프로젝트 전환\n- /window → 활성 창 선택\n- /fix_shortcuts → 데스크톱 바로가기 수정\n- /lang → 언어 전환\n- /menu → 메뉴 새로고침\n- /cmd &lt;command&gt; → 터미널 명령 실행\n- /closeall → 모든 파일 탭 닫기",
     "ide_title": "🛠️ <i>시스템 제어:</i>",
     "messaging_text": "- 텍스트 입력 → 에이전트와 대화\n- 📎 이미지/파일 전송 → 에이전트로 전달\n- /stop → 실행 중인 에이전트 중지\n- /file → 파일 탐색기 열기\n- /turbo → 터보 플래닝 모드 전환\n- /panel → 제어 패널 다시 표시",
     "messaging_title": "📝 <i>메시지 &amp; 상호작용:</i>",
@@ -209,7 +209,8 @@
     "delacc_desc": "저장된 Google 계정 삭제",
     "gettask_desc": "최신 작업 체크리스트 가져오기",
     "getplan_desc": "최신 구현 계획 가져오기",
-    "getwalk_desc": "최신 워크스루 가져오기"
+    "getwalk_desc": "최신 워크스루 가져오기",
+    "closeall_desc": "열려 있는 모든 파일 탭 닫기"
   },
   "model": {
     "changed": "✅ 모델이 변경되었습니다: {model}",

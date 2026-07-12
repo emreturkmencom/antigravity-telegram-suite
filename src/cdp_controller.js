@@ -2392,6 +2392,7 @@ module.exports = {
     getPreferredTargetId,
     getCachedWindows,
     closeWindow,
+    closeAllEditors,
     listAgentThreads,
     switchAgentThread,
     CHAT_EXTRACT_EXPR,
@@ -2875,4 +2876,26 @@ async function closeWindow(port) {
         preferredTargetId = null;
     }
     return true;
+}
+
+async function closeAllEditors(port) {
+    const activeTarget = await resolveTargets(port, true);
+    if (!activeTarget) throw new Error("No active workspace found.");
+    
+    const client = await CDP({ port, target: activeTarget.webSocketDebuggerUrl });
+    const { Runtime } = client;
+    await Runtime.enable();
+    
+    const count = await Runtime.evaluate({
+        expression: `
+            (function() {
+                const tabs = document.querySelectorAll('.tab [title^="Close"], .tab [aria-label^="Close"]');
+                let c = 0;
+                tabs.forEach(t => { t.click(); c++; });
+                return c;
+            })()
+        `, returnByValue: true
+    });
+    await client.close();
+    return count?.result?.value || 0;
 }

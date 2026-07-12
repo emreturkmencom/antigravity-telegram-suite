@@ -208,7 +208,7 @@ const UI_LOCATORS_SCRIPT = `
          */
         getModelSelectorButton: () => {
             const direct = document.querySelector(
-                '[aria-label*="Select model" i], [title*="Select model" i], [aria-label*="model" i], [aria-label*="选择模型"], [title*="选择模型"], [aria-label*="当前"]'
+                '[aria-label*="Select model" i], [title*="Select model" i], [aria-label*="选择模型"], [title*="选择模型"], [aria-label*="当前"]'
             );
             if (direct) return direct;
 

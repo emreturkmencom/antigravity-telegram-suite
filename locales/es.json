@@ -23,7 +23,7 @@
     "status_title": "👁️ <i>Estado e Info:</i>",
     "status_text": "- /latest → Obtener la última respuesta\n- /screenshot → Captura de pantalla de la IDE\n- /status → Estado del sistema\n- /quota → Consultar cuota de IA\n- /version → Mostrar versión del bot\n- /update → Buscar actualizaciones",
     "ide_title": "🛠️ <i>Controles del Sistema:</i>",
-    "ide_text": "- /start_ide → Iniciar IDE/Agente si está cerrado\n- /close → Cerrar la aplicación por completo\n- /app → Cambiar entre IDE y Agente\n- /workspace → Cambiar de proyecto\n- /window → Seleccionar ventana activa\n- /fix_shortcuts → Reparar accesos directos\n- /lang → Cambiar idioma\n- /menu → Actualizar menú\n- /cmd &lt;comando&gt; → Ejecutar un comando en la terminal",
+    "ide_text": "- /start_ide → Iniciar IDE/Agente si está cerrado\n- /close → Cerrar la aplicación por completo\n- /app → Cambiar entre IDE y Agente\n- /workspace → Cambiar de proyecto\n- /window → Seleccionar ventana activa\n- /fix_shortcuts → Reparar accesos directos\n- /lang → Cambiar idioma\n- /menu → Actualizar menú\n- /cmd &lt;comando&gt; → Ejecutar un comando en la terminal\n- /closeall → Cerrar todas las pestañas abiertas",
     "chat_title": "💬 <i>Controles de Chat:</i>",
     "chat_text": "- /new → Abrir un nuevo chat\n- /agents → Lista de chats recientes\n- /artifacts → Lista de artefactos\n- /model → Seleccionar el modelo a usar\n- /autoaccept → Alternar auto-aceptar\n- /help → Mostrar este mensaje de ayuda",
     "account_title": "📱 <b>Gestión de Cuentas</b>",
@@ -187,7 +187,8 @@
     "model_not_selected": "⚠️ Ningún modelo seleccionado",
     "gettask_desc": "Obtener la última lista de tareas",
     "getplan_desc": "Obtener el último plan de implementación",
-    "getwalk_desc": "Obtener el último recorrido (Walkthrough)"
+    "getwalk_desc": "Obtener el último recorrido (Walkthrough)",
+    "closeall_desc": "Cerrar todas las pestañas de archivos"
   },
   "photo": {
     "downloaded": "✅ Archivo descargado y enviando al agente...",

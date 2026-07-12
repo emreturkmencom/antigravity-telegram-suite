@@ -25,10 +25,19 @@ function isQuotaError(text) {
            lower.includes('out of credits');
 }
 
+const TURBO_PHASE1_MODEL = process.env.TURBO_PHASE1_MODEL || "Claude Opus 4.6 (Thinking)";
+const TURBO_PHASE1_FALLBACK = process.env.TURBO_PHASE1_FALLBACK || "Gemini 3.5 Flash";
+const TURBO_PHASE2_MODEL = process.env.TURBO_PHASE2_MODEL || "Gemini 3.1 Pro (High)";
+const TURBO_PHASE3_MODEL = process.env.TURBO_PHASE3_MODEL || "Claude Opus 4.6 (Thinking)";
+const TURBO_PHASE3_FALLBACK = process.env.TURBO_PHASE3_FALLBACK || "Gemini 3.1 Pro (High)";
+const TURBO_PHASE4_MODEL = process.env.TURBO_PHASE4_MODEL || "Gemini 3.1 Pro (High)";
+const TURBO_PHASE5_MODEL = process.env.TURBO_PHASE5_MODEL || "Gemini 3.5 Flash";
+
 async function checkClaudeQuota(CDP_PORT) {
     try {
         const quotaInfo = await getQuota(CDP_PORT, null, true);
-        const claudeModel = quotaInfo?.userStatus?.cascadeModelConfigData?.clientModelConfigs?.find(c => (c.label || '').includes('Claude Opus 4.6'));
+        const claudeModelName = TURBO_PHASE1_MODEL.replace(/ \\(.*?\\)/, '');
+        const claudeModel = quotaInfo?.userStatus?.cascadeModelConfigData?.clientModelConfigs?.find(c => (c.label || '').includes(claudeModelName));
         if (claudeModel && claudeModel.quotaInfo) {
             const rem = claudeModel.quotaInfo.remainingFraction;
             if (rem !== undefined && rem < 0.1) {
@@ -66,11 +75,11 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
         if (skipClaude) {
             await ctx.telegram.editMessageText(
                 ctx.chat.id, statusMsgId, undefined,
-                t('turbo.p1_fallback') || '🚀 <b>Turbo Mode Active:</b>\n\n⚠️ Claude limit is under 10%.\n⏳ <b>Phase 1:</b> Automatically selected Gemini 3.5 Flash for planning...',
+                t('turbo.p1_fallback') || `🚀 <b>Turbo Mode Active:</b>\n\n⚠️ Claude limit is under 10%.\n⏳ <b>Phase 1:</b> Automatically selected ${TURBO_PHASE1_FALLBACK} for planning...`,
                 { parse_mode: 'HTML' }
             ).catch(() => {});
 
-            await selectModel(CDP_PORT, "Gemini 3.5 Flash", explicitTargetId);
+            await selectModel(CDP_PORT, TURBO_PHASE1_FALLBACK, explicitTargetId);
             await new Promise(r => setTimeout(r, 800));
 
             sentTargetId = await sendViaCDP(pmPrompt, CDP_PORT, explicitTargetId);
@@ -84,7 +93,7 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
             planText = typeof _planTextRaw === 'string' ? _planTextRaw : _planTextRaw.text;
             planText = stripQueryFromResponse(planText, pmPrompt);
         } else {
-            await selectModel(CDP_PORT, "Claude Opus 4.6 (Thinking)", explicitTargetId);
+            await selectModel(CDP_PORT, TURBO_PHASE1_MODEL, explicitTargetId);
             await new Promise(r => setTimeout(r, 800));
 
             await ctx.telegram.editMessageText(
@@ -98,24 +107,22 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
             await snapshotChatState(CDP_PORT, explicitTargetId).catch(() => {});
             
             let isDone = await waitForAgentResponse(CDP_PORT, 600000, createProgressHandler(ctx), sentTargetId);
-            if (!isDone) throw new Error(t('turbo.p1_error') || "Claude timed out during the planning phase.");
-
-            let _planTextRaw = await getFullLatestResponse(CDP_PORT, sentTargetId);
+            let _planTextRaw = isDone ? await getFullLatestResponse(CDP_PORT, sentTargetId) : "";
             planText = typeof _planTextRaw === 'string' ? _planTextRaw : _planTextRaw.text;
             planText = stripQueryFromResponse(planText, pmPrompt);
 
-            if (isQuotaError(planText)) {
-                console.log('[turbo] Claude quota hit during Phase 1. Falling back to Gemini 3.5 Flash.');
+            if (!isDone || isQuotaError(planText)) {
+                console.log(`[turbo] Claude Phase 1 failed/timed-out/quota-hit. Falling back to ${TURBO_PHASE1_FALLBACK}.`);
                 await sendViaCDP('reject', CDP_PORT, sentTargetId).catch(() => {});
                 await new Promise(r => setTimeout(r, 500));
                 
                 await ctx.telegram.editMessageText(
                     ctx.chat.id, statusMsgId, undefined,
-                    t('turbo.p1_fallback') || '🚀 <b>Turbo Mode Active:</b>\n\n⚠️ Claude limit reached.\n⏳ <b>Phase 1:</b> Falling back to Gemini 3.5 Flash for planning...',
+                    t('turbo.p1_fallback') || `🚀 <b>Turbo Mode Active:</b>\n\n⚠️ Claude limit reached or timeout.\n⏳ <b>Phase 1:</b> Falling back to ${TURBO_PHASE1_FALLBACK} for planning...`,
                     { parse_mode: 'HTML' }
                 ).catch(() => {});
 
-                await selectModel(CDP_PORT, "Gemini 3.5 Flash", sentTargetId);
+                await selectModel(CDP_PORT, TURBO_PHASE1_FALLBACK, sentTargetId);
                 await new Promise(r => setTimeout(r, 800));
 
                 sentTargetId = await sendViaCDP(pmPrompt, CDP_PORT, sentTargetId);
@@ -139,7 +146,7 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
         ).catch(() => {});
 
         // --- PHASE 2: EXECUTION (Gemini) ---
-        await selectModel(CDP_PORT, "Gemini 3.1 Pro (High)", sentTargetId);
+        await selectModel(CDP_PORT, TURBO_PHASE2_MODEL, sentTargetId);
         await new Promise(r => setTimeout(r, 800));
 
         await ctx.telegram.editMessageText(
@@ -170,11 +177,11 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
         if (skipClaudeP3) {
             await ctx.telegram.editMessageText(
                 ctx.chat.id, statusMsgId, undefined,
-                t('turbo.p3_fallback') || '🚀 <b>Turbo Mode Active:</b>\n\n✅ <b>Phase 1:</b> Planning\n✅ <b>Phase 2:</b> Coding\n⚠️ Claude limit is under 10%.\n⏳ <b>Phase 3:</b> Automatically selected Gemini 3.1 Pro for review...',
+                t('turbo.p3_fallback') || `🚀 <b>Turbo Mode Active:</b>\n\n✅ <b>Phase 1:</b> Planning\n✅ <b>Phase 2:</b> Coding\n⚠️ Claude limit is under 10%.\n⏳ <b>Phase 3:</b> Automatically selected ${TURBO_PHASE3_FALLBACK} for review...`,
                 { parse_mode: 'HTML' }
             ).catch(() => {});
 
-            await selectModel(CDP_PORT, "Gemini 3.1 Pro (High)", sentTargetId2);
+            await selectModel(CDP_PORT, TURBO_PHASE3_FALLBACK, sentTargetId2);
             await new Promise(r => setTimeout(r, 800));
 
             sentTargetId3 = await sendViaCDP(reviewPrompt, CDP_PORT, sentTargetId2);
@@ -194,7 +201,7 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
                 { parse_mode: 'HTML' }
             ).catch(() => {});
 
-            await selectModel(CDP_PORT, "Claude Opus 4.6 (Thinking)", sentTargetId2);
+            await selectModel(CDP_PORT, TURBO_PHASE3_MODEL, sentTargetId2);
             await new Promise(r => setTimeout(r, 800));
 
             await ctx.telegram.editMessageText(
@@ -208,24 +215,22 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
             await snapshotChatState(CDP_PORT, sentTargetId2).catch(() => {});
             
             isDone = await waitForAgentResponse(CDP_PORT, 600000, createProgressHandler(ctx), sentTargetId3);
-            if (!isDone) throw new Error(t('turbo.p3_error') || "Claude timed out during the review phase.");
-
-            let _reviewTextRaw = await getFullLatestResponse(CDP_PORT, sentTargetId3);
+            let _reviewTextRaw = isDone ? await getFullLatestResponse(CDP_PORT, sentTargetId3) : "";
             reviewText = typeof _reviewTextRaw === 'string' ? _reviewTextRaw : _reviewTextRaw.text;
             reviewText = stripQueryFromResponse(reviewText, reviewPrompt);
 
-            if (isQuotaError(reviewText)) {
-                console.log('[turbo] Claude quota hit during Phase 3. Falling back to Gemini 3.1 Pro.');
+            if (!isDone || isQuotaError(reviewText)) {
+                console.log(`[turbo] Claude Phase 3 failed/timed-out/quota-hit. Falling back to ${TURBO_PHASE3_FALLBACK}.`);
                 await sendViaCDP('reject', CDP_PORT, sentTargetId3).catch(() => {});
                 await new Promise(r => setTimeout(r, 500));
                 
                 await ctx.telegram.editMessageText(
                     ctx.chat.id, statusMsgId, undefined,
-                    t('turbo.p3_fallback') || '🚀 <b>Turbo Mode Active:</b>\n\n✅ <b>Phase 1:</b> Planning\n✅ <b>Phase 2:</b> Coding\n⚠️ Claude limit reached.\n⏳ <b>Phase 3:</b> Falling back to Gemini 3.1 Pro for review...',
+                    t('turbo.p3_fallback') || `🚀 <b>Turbo Mode Active:</b>\n\n✅ <b>Phase 1:</b> Planning\n✅ <b>Phase 2:</b> Coding\n⚠️ Claude limit reached or timeout.\n⏳ <b>Phase 3:</b> Falling back to ${TURBO_PHASE3_FALLBACK} for review...`,
                     { parse_mode: 'HTML' }
                 ).catch(() => {});
 
-                await selectModel(CDP_PORT, "Gemini 3.1 Pro (High)", sentTargetId3);
+                await selectModel(CDP_PORT, TURBO_PHASE3_FALLBACK, sentTargetId3);
                 await new Promise(r => setTimeout(r, 800));
 
                 sentTargetId3 = await sendViaCDP(reviewPrompt, CDP_PORT, sentTargetId3);
@@ -249,18 +254,12 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
             // --- PHASE 4: FIX (Gemini) ---
             await ctx.telegram.editMessageText(
                 ctx.chat.id, statusMsgId, undefined,
-                t('turbo.p4_switching') || '🚀 <b>Turbo Mode Active:</b>\n\n✅ <b>Phase 1:</b> Planning\n✅ <b>Phase 2:</b> Coding\n⚠️ <b>Phase 3:</b> Issues found!\n⏳ <b>Phase 4:</b> Switching model (Gemini) - Fixing...',
-                { parse_mode: 'HTML' }
-            ).catch(() => {});
-
-            await selectModel(CDP_PORT, "Gemini 3.1 Pro (High)", sentTargetId3);
-            await new Promise(r => setTimeout(r, 800));
-
-            await ctx.telegram.editMessageText(
-                ctx.chat.id, statusMsgId, undefined,
                 t('turbo.p4_fixing') || '🚀 <b>Turbo Mode Active:</b>\n\n✅ <b>Phase 1:</b> Planning\n✅ <b>Phase 2:</b> Coding\n⚠️ <b>Phase 3:</b> Issues found!\n⏳ <b>Phase 4:</b> Gemini is fixing the issues...',
                 { parse_mode: 'HTML' }
             ).catch(() => {});
+
+            await selectModel(CDP_PORT, TURBO_PHASE4_MODEL, sentTargetId3);
+            await new Promise(r => setTimeout(r, 800));
 
             const fixPrompt = `You are the Lead Developer. The Security Auditor found issues in the previous implementation. Please fix all the issues mentioned by the Auditor.`;
             
@@ -269,7 +268,7 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
             await snapshotChatState(CDP_PORT, sentTargetId3).catch(() => {});
             
             isDone = await waitForAgentResponse(CDP_PORT, 600000, createProgressHandler(ctx), sentTargetId4);
-            if (!isDone) throw new Error(t('turbo.p4_error') || "Gemini timed out during the fixing phase.");
+            if (!isDone) throw new Error(t('turbo.p4_error') || "Fixing phase failed.");
 
             let _fixTextRaw = await getFullLatestResponse(CDP_PORT, sentTargetId4);
             fixText = typeof _fixTextRaw === 'string' ? _fixTextRaw : _fixTextRaw.text;
@@ -287,9 +286,9 @@ async function runTurboOrchestration(query, CDP_PORT, explicitTargetId, ctx, cre
                 { parse_mode: 'HTML' }
             ).catch(() => {});
 
-        if (!hasIssues) {
+        if (!skipClaudeP3) {
             // Model is currently Claude (from Review phase), switch to Gemini for summary
-            await selectModel(CDP_PORT, "Gemini 3.1 Pro (High)", sentTargetId3);
+            await selectModel(CDP_PORT, TURBO_PHASE5_MODEL, sentTargetId4 || sentTargetId3);
             await new Promise(r => setTimeout(r, 800));
         }
 

@@ -23,7 +23,7 @@
     "status_title": "👁️ <i>Status &amp; Info:</i>",
     "status_text": "- /latest → Get latest response\n- /screenshot → Take IDE screenshot\n- /status → System status\n- /quota → Check AI quotas\n- /version → Show bot version\n- /update → Check for bot updates",
     "ide_title": "🛠️ <i>System Controls:</i>",
-    "ide_text": "- /start_ide → Start IDE/Agent if closed\n- /close → Fully close the app\n- /app → Switch between IDE and Agent\n- /workspace → Switch project\n- /window → Select active window\n- /fix_shortcuts → Fix desktop shortcuts\n- /lang → Switch language\n- /menu → Refresh menu\n- /cmd &lt;command&gt; → Run a terminal command",
+    "ide_text": "- /start_ide → Start IDE/Agent if closed\n- /close → Fully close the app\n- /app → Switch between IDE and Agent\n- /workspace → Switch project\n- /window → Select active window\n- /fix_shortcuts → Fix desktop shortcuts\n- /lang → Switch language\n- /menu → Refresh menu\n- /cmd &lt;command&gt; → Run a terminal command\n- /closeall → Close all open file tabs",
     "chat_title": "💬 <i>Chat Controls:</i>",
     "chat_text": "- /new → Open a new chat\n- /agents → List recent chats\n- /artifacts → List artifacts\n- /model → Select model to use\n- /autoaccept → Toggle auto-accept\n- /help → Show this help message",
     "account_title": "📱 <b>Account Management</b>",
@@ -187,7 +187,8 @@
     "model_not_selected": "⚠️ No model selected",
     "gettask_desc": "Get the latest Task Checklist",
     "getplan_desc": "Get the latest Implementation Plan",
-    "getwalk_desc": "Get the latest Walkthrough"
+    "getwalk_desc": "Get the latest Walkthrough",
+    "closeall_desc": "Close all open file tabs"
   },
   "photo": {
     "downloaded": "✅ File downloaded and forwarding to agent...",

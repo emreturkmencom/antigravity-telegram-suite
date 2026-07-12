@@ -23,7 +23,7 @@
     "status_title": "👁️ <i>Status & Info:</i>",
     "status_text": "- /latest → Letzte Antwort abrufen\n- /screenshot → IDE-Screenshot aufnehmen\n- /status → Systemstatus\n- /quota → KI-Kontingente prüfen\n- /version → Bot-Version anzeigen\n- /update → Nach Updates suchen",
     "ide_title": "🛠️ <i>Systemsteuerung:</i>",
-    "ide_text": "- /start_ide → IDE/Agent starten, falls geschlossen\n- /close → App vollständig schließen\n- /app → Zwischen IDE und Agent wechseln\n- /workspace → Projekt wechseln\n- /window → Aktives Fenster auswählen\n- /fix_shortcuts → Desktop-Verknüpfungen reparieren\n- /lang → Sprache wechseln\n- /menu → Menü aktualisieren\n- /cmd &lt;Befehl&gt; → Terminalbefehl ausführen",
+    "ide_text": "- /start_ide → IDE/Agent starten, falls geschlossen\n- /close → App vollständig schließen\n- /app → Zwischen IDE und Agent wechseln\n- /workspace → Projekt wechseln\n- /window → Aktives Fenster auswählen\n- /fix_shortcuts → Desktop-Verknüpfungen reparieren\n- /lang → Sprache wechseln\n- /menu → Menü aktualisieren\n- /cmd &lt;Befehl&gt; → Terminalbefehl ausführen\n- /closeall → Alle geöffneten Dateireiter schließen",
     "chat_title": "💬 <i>Chat-Steuerung:</i>",
     "chat_text": "- /new → Neuen Chat öffnen\n- /agents → Letzte Chats anzeigen\n- /artifacts → Artefakte anzeigen\n- /model → Modell auswählen\n- /autoaccept → Auto-Accept umschalten\n- /help → Diese Hilfemeldung anzeigen",
     "account_title": "📱 <b>Kontoverwaltung</b>",
@@ -187,7 +187,8 @@
     "model_not_selected": "⚠️ Kein Modell ausgewählt",
     "gettask_desc": "Holen Sie sich die neueste Aufgaben-Checkliste",
     "getplan_desc": "Holen Sie sich den neuesten Implementierungsplan",
-    "getwalk_desc": "Holen Sie sich den neuesten Walkthrough"
+    "getwalk_desc": "Holen Sie sich den neuesten Walkthrough",
+    "closeall_desc": "Alle geöffneten Dateireiter schließen"
   },
   "photo": {
     "downloaded": "✅ Datei heruntergeladen und wird an den Agenten weitergeleitet...",

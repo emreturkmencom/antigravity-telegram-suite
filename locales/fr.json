@@ -23,7 +23,7 @@
     "status_title": "👁️ <i>Statut & Info :</i>",
     "status_text": "- /latest → Obtenir la dernière réponse\n- /screenshot → Capture d'écran de l'IDE\n- /status → Statut du système\n- /quota → Vérifier les quotas de l'IA\n- /version → Afficher la version du bot\n- /update → Rechercher des mises à jour",
     "ide_title": "🛠️ <i>Contrôles du système :</i>",
-    "ide_text": "- /start_ide → Démarrer l'IDE/Agent s'il est fermé\n- /close → Fermer complètement l'application\n- /app → Basculer entre IDE et Agent\n- /workspace → Changer de projet\n- /window → Sélectionner la fenêtre active\n- /fix_shortcuts → Réparer les raccourcis bureau\n- /lang → Changer de langue\n- /menu → Rafraîchir le menu\n- /cmd &lt;commande&gt; → Exécuter une commande terminal",
+    "ide_text": "- /start_ide → Démarrer l'IDE/Agent s'il est fermé\n- /close → Fermer complètement l'application\n- /app → Basculer entre IDE et Agent\n- /workspace → Changer de projet\n- /window → Sélectionner la fenêtre active\n- /fix_shortcuts → Réparer les raccourcis bureau\n- /lang → Changer de langue\n- /menu → Rafraîchir le menu\n- /cmd &lt;commande&gt; → Exécuter une commande terminal\n- /closeall → Fermer tous les onglets ouverts",
     "chat_title": "💬 <i>Contrôles du chat :</i>",
     "chat_text": "- /new → Ouvrir un nouveau chat\n- /agents → Liste des chats récents\n- /artifacts → Liste des artefacts\n- /model → Sélectionner le modèle à utiliser\n- /autoaccept → Activer/Désactiver l'acceptation auto\n- /help → Afficher ce message d'aide",
     "account_title": "📱 <b>Gestion des Comptes</b>",
@@ -187,7 +187,8 @@
     "model_not_selected": "⚠️ Aucun modèle sélectionné",
     "gettask_desc": "Obtenir la dernière liste de tâches",
     "getplan_desc": "Obtenir le dernier plan d'implémentation",
-    "getwalk_desc": "Obtenir le dernier walkthrough"
+    "getwalk_desc": "Obtenir le dernier walkthrough",
+    "closeall_desc": "Fermer tous les onglets de fichiers"
   },
   "photo": {
     "downloaded": "✅ Fichier téléchargé et transmission à l'agent en cours...",
