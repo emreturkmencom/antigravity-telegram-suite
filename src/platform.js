@@ -434,6 +434,13 @@ function launchIDE(workspace, port = 9333, app = getPreferredApp()) {
             // so both apps can run concurrently without instance locking conflicts!
             const dataDirArg = `--user-data-dir="${dataDir}"`;
 
+            // Prevent stale/orphaned processes (e.g. node, opencli) from blocking the CDP port
+            if (!isRunning && PLATFORM === 'linux') {
+                try {
+                    require('child_process').execSync(`fuser -k ${port}/tcp 2>/dev/null || true`);
+                } catch (e) {}
+            }
+
             console.log(`[platform] launchIDE: app=${app}, workspace=${workspace || 'none'}, port=${port}, isRunning=${isRunning}`);
 
             switch (PLATFORM) {
