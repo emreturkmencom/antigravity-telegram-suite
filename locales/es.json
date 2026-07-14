@@ -25,7 +25,7 @@
     "ide_title": "🛠️ <i>Controles del Sistema:</i>",
     "ide_text": "- /start_ide → Iniciar IDE/Agente si está cerrado\n- /close → Cerrar la aplicación por completo\n- /app → Cambiar entre IDE y Agente\n- /workspace → Cambiar de proyecto\n- /window → Seleccionar ventana activa\n- /fix_shortcuts → Reparar accesos directos\n- /lang → Cambiar idioma\n- /menu → Actualizar menú\n- /cmd &lt;comando&gt; → Ejecutar un comando en la terminal\n- /closeall → Cerrar todas las pestañas abiertas",
     "chat_title": "💬 <i>Controles de Chat:</i>",
-    "chat_text": "- /new → Abrir un nuevo chat\n- /agents → Lista de chats recientes\n- /artifacts → Lista de artefactos\n- /model → Seleccionar el modelo a usar\n- /autoaccept → Alternar auto-aceptar\n- /help → Mostrar este mensaje de ayuda",
+    "chat_text": "- /new → Abrir un nuevo chat\n- /agents → Lista de chats recientes\n- /artifacts → Lista de artefactos\n- /model → Seleccionar el modelo a usar\n- /undo → Deshacer una solicitud entregada con Undo nativo de la GUI\n- /autoaccept → Alternar auto-aceptar\n- /help → Mostrar este mensaje de ayuda",
     "account_title": "📱 <b>Gestión de Cuentas</b>",
     "account_text": "- /login → Iniciar sesión con Google\n- /accounts → Listar cuentas guardadas\n- /switchacc N → Cambiar cuenta activa\n- /getinfo N → Ver información de cuota\n- /delacc N → Eliminar una cuenta guardada"
   },
@@ -188,7 +188,8 @@
     "gettask_desc": "Obtener la última lista de tareas",
     "getplan_desc": "Obtener el último plan de implementación",
     "getwalk_desc": "Obtener el último recorrido (Walkthrough)",
-    "closeall_desc": "Cerrar todas las pestañas de archivos"
+    "closeall_desc": "Cerrar todas las pestañas de archivos",
+    "undo_desc": "Deshacer una solicitud entregada en la GUI"
   },
   "photo": {
     "downloaded": "✅ Archivo descargado y enviando al agente...",
@@ -508,5 +509,26 @@
     "delete_confirm_note": "Antigravity en sí no se verá afectado.",
     "btn_quota": "Cuota",
     "btn_delete": "Eliminar"
+  },
+  "undo": {
+    "previous": "« Más recientes",
+    "next": "Más antiguos »",
+    "pick_title": "↩️ Elige una solicitud para deshacer en la GUI:",
+    "pick_count": "{count} solicitud(es) elegible(s) en la conversación activa.",
+    "none": "ℹ️ No hay solicitudes entregadas para deshacer en la conversación activa.",
+    "confirm_prompt": "Confirmar deshacer para:\n{label}",
+    "confirm": "✅ Confirmar deshacer",
+    "cancel": "❌ Cancelar",
+    "cancelled": "ℹ️ Deshacer cancelado. No se modificó la GUI.",
+    "working": "Trabajando…",
+    "done": "✅ Deshacer completado en la GUI.",
+    "failed": "❌ No se ejecutó deshacer. No se pudo confirmar el objetivo con seguridad.",
+    "session_expired": "Esta selección expiró. Ejecuta /undo de nuevo.",
+    "agent_working": "❌ Rechazado: el agente sigue generando en primer plano.",
+    "thread_unavailable": "❌ Rechazado: no se pudo verificar la conversación activa de la GUI.",
+    "state_unavailable": "❌ Rechazado: no se pudo confirmar el estado del agente.",
+    "ambiguous": "❌ Rechazado: se encontraron varios mensajes/controles coincidentes.",
+    "anchor_missing": "❌ Rechazado: no se encontró el control nativo de deshacer.",
+    "confirmation_failed": "❌ Rechazado: no se pudo completar el diálogo de confirmación de la GUI."
   }
 }

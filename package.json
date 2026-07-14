@@ -9,7 +9,7 @@
     "watchdog": "node src/watchdog.js",
     "setup": "bash scripts/install.sh",
     "setup:win": "powershell -ExecutionPolicy Bypass -File scripts/install.ps1",
-    "test": "node test/i18n.test.js && node test/updater.test.js && node test/local_media.test.js && node test/cdp_health.test.js && node test/cdp_slash_command.test.js && node test/model_utils.test.js",
+    "test": "node test/i18n.test.js && node test/updater.test.js && node test/local_media.test.js && node test/cdp_health.test.js && node test/cdp_slash_command.test.js && node test/model_utils.test.js && node test/undo_history.test.js && node test/undo_anchor.test.js && node test/undo_thread.test.js && node test/undo_confirmation.test.js && node test/undo_working_state.test.js && node test/undo_store.test.js && node test/cdp_undo_usage.test.js",
     "test:smoke": "node test/smoke.test.js",
     "test:all": "npm test && npm run test:smoke",
     "i18n:validate": "node scripts/validate_i18n.js",

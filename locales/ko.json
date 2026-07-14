@@ -110,7 +110,7 @@
   "help": {
     "agent_text": "- /goal &lt;task&gt; → 자율 목표 실행 (완료될 때까지 동작)\n- /plan &lt;task&gt; → 구현 계획 생성\n- /schedule_task &lt;task&gt; → 반복 작업 예약",
     "agent_title": "🎯 <i>에이전트 모드:</i>",
-    "chat_text": "- /new → 새 채팅 열기\n- /agents → 최근 채팅 목록\n- /artifacts → 아티팩트 목록\n- /model → 사용할 모델 선택\n- /autoaccept → 자동 승인 전환\n- /help → 이 도움말 표시",
+    "chat_text": "- /new → 새 채팅 열기\n- /agents → 최근 채팅 목록\n- /artifacts → 아티팩트 목록\n- /model → 사용할 모델 선택\n- /undo → GUI 네이티브 Undo로 전달된 요청 취소\n- /autoaccept → 자동 승인 전환\n- /help → 이 도움말 표시",
     "chat_title": "💬 <i>채팅 제어:</i>",
     "ide_text": "- /start_ide → IDE/에이전트가 닫혀 있으면 시작\n- /close → 앱 완전 종료\n- /app → IDE와 에이전트 전환\n- /workspace → 프로젝트 전환\n- /window → 활성 창 선택\n- /fix_shortcuts → 데스크톱 바로가기 수정\n- /lang → 언어 전환\n- /menu → 메뉴 새로고침\n- /cmd &lt;command&gt; → 터미널 명령 실행\n- /closeall → 모든 파일 탭 닫기",
     "ide_title": "🛠️ <i>시스템 제어:</i>",
@@ -210,7 +210,8 @@
     "gettask_desc": "최신 작업 체크리스트 가져오기",
     "getplan_desc": "최신 구현 계획 가져오기",
     "getwalk_desc": "최신 워크스루 가져오기",
-    "closeall_desc": "열려 있는 모든 파일 탭 닫기"
+    "closeall_desc": "열려 있는 모든 파일 탭 닫기",
+    "undo_desc": "GUI에 전달된 요청 취소"
   },
   "model": {
     "changed": "✅ 모델이 변경되었습니다: {model}",
@@ -508,5 +509,26 @@
     "delete_confirm_note": "Antigravity 자체는 영향을 받지 않습니다.",
     "btn_quota": "할당량",
     "btn_delete": "삭제"
+  },
+  "undo": {
+    "previous": "« 최근",
+    "next": "이전 »",
+    "pick_title": "↩️ GUI에서 취소할 요청을 선택하세요:",
+    "pick_count": "활성 대화에서 취소 가능한 요청 {count}개.",
+    "none": "ℹ️ 활성 대화에 취소할 수 있는 전달된 요청이 없습니다.",
+    "confirm_prompt": "취소 확인:\n{label}",
+    "confirm": "✅ 취소 확인",
+    "cancel": "❌ 닫기",
+    "cancelled": "ℹ️ 취소가 중단되었습니다. GUI는 변경되지 않았습니다.",
+    "working": "처리 중…",
+    "done": "✅ GUI에서 취소가 완료되었습니다.",
+    "failed": "❌ 취소를 실행하지 않았습니다. 대상을 안전하게 확인할 수 없습니다.",
+    "session_expired": "선택 세션이 만료되었습니다. /undo를 다시 실행하세요.",
+    "agent_working": "❌ 거부됨: 포그라운드에서 에이전트가 아직 생성 중입니다.",
+    "thread_unavailable": "❌ 거부됨: 활성 GUI 대화를 확인할 수 없습니다.",
+    "state_unavailable": "❌ 거부됨: 에이전트 작업 상태를 확인할 수 없습니다.",
+    "ambiguous": "❌ 거부됨: 일치하는 메시지/컨트롤이 여러 개입니다.",
+    "anchor_missing": "❌ 거부됨: 네이티브 취소 컨트롤을 찾지 못했습니다.",
+    "confirmation_failed": "❌ 거부됨: GUI 확인 대화상자를 완료할 수 없습니다."
   }
 }

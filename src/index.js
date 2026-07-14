@@ -8,7 +8,7 @@ const https = require('https');
 const { exec } = require('child_process');
 const { loadLocale, t, getLang } = require('./i18n');
 const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, getLastWorkspace, trustWorkspaceViaCDP, PLATFORM } = require('./platform');
-const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getPreferredTargetId, getCachedWindows, closeWindow, closeAllEditors, listAgentThreads, switchAgentThread, getActiveThreadId, getActiveThreadInfo, setActiveWorkspace, switchStandaloneWorkspace, getLastResolvedThreadId, setOnThreadResolved } = require('./cdp_controller');
+const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getPreferredTargetId, getCachedWindows, closeWindow, closeAllEditors, listAgentThreads, switchAgentThread, getActiveThreadId, getActiveThreadInfo, setActiveWorkspace, switchStandaloneWorkspace, getLastResolvedThreadId, setOnThreadResolved, captureUndoAnchor, undoToAnchor } = require('./cdp_controller');
 const autoaccept = require('./autoaccept');
 const updater = require('./updater');
 const { runTurboOrchestration } = require('./turbo_orchestrator');
@@ -17,6 +17,18 @@ const { extractLocalImageMarkdown } = require('./local_media');
 const { ensureCdpReady, isConnectionRefusedError } = require('./cdp_health');
 const accountManager = require('./account_manager');
 const telegraphPublisher = require('./telegraph_publisher');
+const {
+    listUndoCandidates,
+    getUndoPage,
+    createUndoSessionStore,
+    formatUndoLabel
+} = require('./undo_history');
+const {
+    matchesUndoThread,
+    hasUniqueUndoThreadName,
+    filterUndoCandidatesByActiveThread
+} = require('./undo_thread');
+const { createUndoStore } = require('./undo_store');
 let scheduleClient = null;
 try {
     scheduleClient = require('./schedule_client');
@@ -259,12 +271,14 @@ const TURBO_SAFE_COMMANDS = [
     '/turbo', '/stop', '/screenshot', '/latest', '/status',
     '/quota', '/help', '/version', '/panel', '/menu',
     '/file', '/cmd', '/autoaccept', '/lang', '/window',
-    '/artifacts', '/restart',
+    '/artifacts', '/restart', '/undo',
     '/login', '/accounts', '/switchacc', '/getinfo', '/logincode', '/delacc'
 ];
 const TURBO_SAFE_BUTTONS = [
     '📸', '💬', '📦', '📊', '🚀'
 ];
+const undoStore = createUndoStore();
+const undoSessions = createUndoSessionStore();
 
 // Middleware to prevent project switching or concurrent tasks while Turbo Mode is executing
 bot.use(async (ctx, next) => {
@@ -287,7 +301,7 @@ bot.use(async (ctx, next) => {
                 [Markup.button.callback('❌ Cancel', 'turbo_cancel')]
             ]));
         } else if (cbData) {
-            if (cbData.startsWith('file_') || cbData.startsWith('artifact_') || cbData.startsWith('turbo_')) {
+            if (cbData.startsWith('file_') || cbData.startsWith('artifact_') || cbData.startsWith('turbo_') || cbData.startsWith('undo_')) {
                 return next();
             }
             return ctx.answerCbQuery(t('turbo.is_running_short') || '⏳ Please wait', { show_alert: true }).catch(()=>{});
@@ -322,6 +336,108 @@ async function sendViaCDPWithRecovery(text, specificTargetId = null) {
         await ensureCdpReady({ port: CDP_PORT, app });
         return sendViaCDP(text, CDP_PORT, null);
     }
+}
+
+/**
+ * After a prompt is delivered to the GUI, record a minimal undo candidate.
+ * Failures here must never break message delivery.
+ */
+async function recordUndoHistory(chatId, query, targetId) {
+    if (!chatId || !targetId || !query) return;
+    try {
+        // Give the GUI a moment to attach native Undo controls to the user step.
+        await new Promise(r => setTimeout(r, 800));
+        const threadInfo = await getActiveThreadInfo(CDP_PORT, targetId).catch(() => null);
+        let undoAnchor = { text: String(query).trim(), matchIndex: null, scopeKey: null };
+        try {
+            undoAnchor = await captureUndoAnchor(CDP_PORT, targetId, query);
+        } catch (err) {
+            console.warn(`[undo] Anchor capture fallback: ${err.message}`);
+        }
+
+        const record = {
+            chatId,
+            targetId,
+            displayText: String(query).trim(),
+            undoAnchor,
+            status: 'sent_to_gui',
+            deliveredToGui: true
+        };
+        if (threadInfo?.name) record.threadName = threadInfo.name;
+        if (threadInfo?.id && ['url', 'dom'].includes(threadInfo.idSource)) {
+            record.threadId = threadInfo.id;
+        }
+        if (threadInfo?.workspace && threadInfo.workspaceSource === 'dom') {
+            record.workspace = threadInfo.workspace;
+        }
+        // Require enough identity to avoid cross-thread undo guesses.
+        if (!record.threadId && !(record.threadName && record.workspace)) {
+            console.warn('[undo] Skipping history entry without proven conversation identity');
+            return;
+        }
+        undoStore.add(record);
+    } catch (err) {
+        console.warn(`[undo] Failed to record history: ${err.message}`);
+    }
+}
+
+async function getUndoCandidates(chatId) {
+    const candidates = listUndoCandidates(undoStore.list(), chatId);
+    const activeThread = await getActiveThreadInfo(CDP_PORT, getPreferredTargetId() || null);
+    if (!activeThread) throw new Error('undo_thread_unavailable');
+    const groups = ['url', 'dom'].includes(activeThread.idSource)
+        ? []
+        : await listAgentThreads(CDP_PORT);
+    return filterUndoCandidatesByActiveThread(candidates, activeThread, groups);
+}
+
+async function verifyUndoThread(port, targetId, candidate) {
+    const legacyNameIsUnique = candidate.threadId
+        ? false
+        : hasUniqueUndoThreadName(candidate, await listAgentThreads(port));
+    const attempts = 5;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+        const activeThread = await getActiveThreadInfo(port, targetId);
+        if (matchesUndoThread(candidate, activeThread, { legacyNameIsUnique })) return activeThread;
+        if (attempt + 1 < attempts) await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    throw new Error('undo_thread_unavailable');
+}
+
+function buildUndoPickerKeyboard(undoPage) {
+    const buttons = undoPage.items.map((candidate, index) => {
+        const token = undoSessions.issue(candidate);
+        const position = undoPage.page * undoPage.pageSize + index;
+        return [Markup.button.callback(formatUndoLabel(candidate, position), `undo_pick_${token}`)];
+    });
+    const navigation = [];
+    if (undoPage.hasPrevious) {
+        navigation.push(Markup.button.callback(t('undo.previous'), `undo_page_${undoPage.page - 1}`));
+    }
+    if (undoPage.hasNext) {
+        navigation.push(Markup.button.callback(t('undo.next'), `undo_page_${undoPage.page + 1}`));
+    }
+    if (navigation.length > 0) buttons.push(navigation);
+    return Markup.inlineKeyboard(buttons);
+}
+
+async function showUndoPicker(ctx, requestedPage = 0) {
+    const chatId = ctx.chat?.id;
+    let candidates;
+    try {
+        candidates = await getUndoCandidates(chatId);
+    } catch (_) {
+        return ctx.reply(t('undo.thread_unavailable'));
+    }
+    const undoPage = getUndoPage(candidates, requestedPage);
+    if (undoPage.total === 0) return ctx.reply(t('undo.none'));
+
+    const text = `${t('undo.pick_title')}\n${t('undo.pick_count', { count: undoPage.total })}`;
+    const keyboard = buildUndoPickerKeyboard(undoPage);
+    if (ctx.callbackQuery) {
+        return ctx.editMessageText(text, keyboard).catch(() => ctx.reply(text, keyboard));
+    }
+    return ctx.reply(text, keyboard);
 }
 
 function updateEnvFile(key, value) {
@@ -1118,6 +1234,7 @@ bot.command('ask', (ctx) => {
         try {
             const targetId = await sendViaCDP(query, CDP_PORT);
             setReaction(ctx, REACTION.THINKING);
+            await recordUndoHistory(ctx.chat?.id, query, targetId);
 
             // Wait briefly for message to render in DOM before anchoring state
             await new Promise(r => setTimeout(r, 1500));
@@ -1168,6 +1285,76 @@ bot.command('cmd', async (ctx) => {
         
         await sendBotMessage(ctx, output, t('cmd.output_title'));
     });
+});
+
+bot.command('undo', async ctx => showUndoPicker(ctx));
+
+bot.action(/^undo_page_(\d+)$/, async ctx => {
+    await ctx.answerCbQuery().catch(() => {});
+    return showUndoPicker(ctx, Number(ctx.match[1]));
+});
+
+bot.action(/^undo_pick_(.+)$/, async ctx => {
+    const candidate = undoSessions.consume(ctx.match[1], ctx.chat?.id);
+    if (!candidate) {
+        return ctx.answerCbQuery(t('undo.session_expired'), { show_alert: true }).catch(() => {});
+    }
+
+    const confirmationToken = undoSessions.issue(candidate);
+    const prompt = t('undo.confirm_prompt', { label: formatUndoLabel(candidate) });
+    const confirmationKeyboard = Markup.inlineKeyboard([
+        [Markup.button.callback(t('undo.confirm'), `undo_confirm_${confirmationToken}`)],
+        [Markup.button.callback(t('undo.cancel'), `undo_cancel_${confirmationToken}`)]
+    ]);
+    await ctx.answerCbQuery().catch(() => {});
+    return ctx.editMessageText(prompt, confirmationKeyboard).catch(() => ctx.reply(prompt, confirmationKeyboard));
+});
+
+bot.action(/^undo_cancel_(.+)$/, async ctx => {
+    const candidate = undoSessions.consume(ctx.match[1], ctx.chat?.id);
+    if (!candidate) {
+        return ctx.answerCbQuery(t('undo.session_expired'), { show_alert: true }).catch(() => {});
+    }
+
+    await ctx.answerCbQuery(t('undo.cancelled')).catch(() => {});
+    return ctx.editMessageText(t('undo.cancelled')).catch(() => ctx.reply(t('undo.cancelled')));
+});
+
+bot.action(/^undo_confirm_(.+)$/, async ctx => {
+    const candidate = undoSessions.consume(ctx.match[1], ctx.chat?.id);
+    if (!candidate) {
+        return ctx.answerCbQuery(t('undo.session_expired'), { show_alert: true }).catch(() => {});
+    }
+
+    await ctx.answerCbQuery(t('undo.working')).catch(() => {});
+    try {
+        if (!candidate.threadId && !candidate.threadName) throw new Error('undo_thread_unavailable');
+        const targetId = getPreferredTargetId() || candidate.targetId || null;
+        if (!targetId) throw new Error('undo_anchor_not_found');
+
+        await verifyUndoThread(CDP_PORT, targetId, candidate);
+        if (await isAgentWorking(CDP_PORT, targetId, { strict: true })) {
+            throw new Error('undo_agent_working');
+        }
+        await undoToAnchor(CDP_PORT, targetId, candidate.undoAnchor);
+        if (candidate.id) undoStore.markUndone(candidate.id);
+        return ctx.editMessageText(t('undo.done')).catch(() => ctx.reply(t('undo.done')));
+    } catch (err) {
+        const key = err.message === 'undo_agent_working'
+            ? 'undo.agent_working'
+            : err.message === 'undo_thread_unavailable'
+                ? 'undo.thread_unavailable'
+                : err.message === 'agent_working_state_unknown'
+                    ? 'undo.state_unavailable'
+                    : err.message === 'undo_anchor_ambiguous'
+                        ? 'undo.ambiguous'
+                        : err.message === 'undo_anchor_not_found'
+                            ? 'undo.anchor_missing'
+                            : err.code && String(err.code).startsWith('undo_confirmation')
+                                ? 'undo.confirmation_failed'
+                                : 'undo.failed';
+        return ctx.editMessageText(t(key)).catch(() => ctx.reply(t(key)));
+    }
 });
 
 bot.command('stop', async (ctx) => {
@@ -2930,6 +3117,7 @@ function getMenuCommands() {
         { command: 'cmd', description: t('menu.cmd_desc') },
         { command: 'file', description: t('menu.file_desc') },
         { command: 'stop', description: t('menu.stop_desc') },
+        { command: 'undo', description: t('menu.undo_desc') || 'Undo a delivered request in the GUI' },
         { command: 'autoaccept', description: t('menu.autoaccept_desc') },
         { command: 'quota', description: t('menu.quota_desc') },
         { command: 'update', description: t('menu.update_desc') || 'Check for updates' },
@@ -3285,8 +3473,9 @@ bot.on('text', async (ctx, next) => {
     if (isAgentBusy && !isTurboMode) {
         try {
             if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
-            await sendViaCDPWithRecovery(query, explicitTargetId);
+            const followUpTargetId = await sendViaCDPWithRecovery(query, explicitTargetId);
             setReaction(ctx, REACTION.THINKING);
+            await recordUndoHistory(ctx.chat?.id, query, followUpTargetId);
         } catch (err) {
             ctx.reply(t('ask.headless_error', { error: err.message })).catch(() => {});
         }
@@ -3314,6 +3503,7 @@ bot.on('text', async (ctx, next) => {
                 isAgentBusy = true;
                 targetId = await sendViaCDPWithRecovery(query, explicitTargetId);
                 setReaction(ctx, REACTION.THINKING);
+                await recordUndoHistory(ctx.chat?.id, query, targetId);
 
                 // Wait briefly for message to render in DOM before anchoring state
                 await new Promise(r => setTimeout(r, 1500));
@@ -3370,6 +3560,8 @@ async function processAgentRequest(ctx, query, explicitTargetId, explicitThreadN
         ctx.reply(t('error.modal_active'));
         return;
     }
+    // Anchor against the exact text delivered into the GUI (not just the user caption).
+    await recordUndoHistory(ctx.chat?.id, query, targetId);
 
     // Wait briefly for message to render in DOM before anchoring state
     await new Promise(r => setTimeout(r, 1500));
