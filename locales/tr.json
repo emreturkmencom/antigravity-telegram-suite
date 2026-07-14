@@ -25,7 +25,7 @@
     "ide_title": "🛠️ <i>Sistem Kontrolleri:</i>",
     "ide_text": "- /start_ide → IDE/Agent kapalıysa başlatır\n- /close → Uygulamayı tamamen kapatır\n- /app → IDE ve Agent arasında geçiş yapar\n- /workspace → Projeyi değiştirir\n- /window → Aktif pencereyi seçer\n- /fix_shortcuts → Masaüstü kısayollarını onarır\n- /lang → Dil değiştirir\n- /menu → Menüyü yeniler\n- /cmd &lt;komut&gt; → Terminalde komut çalıştırır\n- /closeall → Açık tüm dosya sekmelerini kapatır",
     "chat_title": "💬 <i>Sohbet Kontrolleri:</i>",
-    "chat_text": "- /new → Yeni sohbet açar\n- /agents → Son sohbetleri listeler\n- /artifacts → Artifact'leri listeler\n- /model → Kullanılacak modeli seçer\n- /autoaccept → Otomatik onay modunu açar/kapatır\n- /help → Bu yardım mesajını gösterir",
+    "chat_text": "- /new → Yeni sohbet açar\n- /agents → Son sohbetleri listeler\n- /artifacts → Artifact'leri listeler\n- /model → Kullanılacak modeli seçer\n- /undo → Yerel GUI Undo ile iletilmiş isteği geri al\n- /autoaccept → Otomatik onay modunu açar/kapatır\n- /help → Bu yardım mesajını gösterir",
     "account_title": "📱 <b>Hesap Yönetimi</b>",
     "account_text": "- /login → Google ile giriş yap\n- /accounts → Kayıtlı Google hesaplarını listele\n- /switchacc N → Aktif hesabı değiştir\n- /getinfo N → Hesap kota bilgilerini görüntüle\n- /delacc N → Kayıtlı hesabı sil"
   },
@@ -188,7 +188,8 @@
     "gettask_desc": "En son Görev Listesini getir",
     "getplan_desc": "En son Uygulama Planını getir",
     "getwalk_desc": "En son İncelemeyi (Walkthrough) getir",
-    "closeall_desc": "Açık olan tüm dosya sekmelerini kapatır"
+    "closeall_desc": "Açık olan tüm dosya sekmelerini kapatır",
+    "undo_desc": "GUI'ye iletilmiş isteği geri al"
   },
   "photo": {
     "downloaded": "✅ Dosya indirildi ve ajana yönlendiriliyor...",
@@ -508,5 +509,26 @@
     "delete_confirm_note": "Antigravity'nin kendisi etkilenmez.",
     "btn_quota": "Kota",
     "btn_delete": "Sil"
+  },
+  "undo": {
+    "previous": "« Daha yeni",
+    "next": "Daha eski »",
+    "pick_title": "↩️ GUI'de geri alınacak isteği seçin:",
+    "pick_count": "Aktif sohbette {count} uygun istek var.",
+    "none": "ℹ️ Aktif sohbette geri alınabilecek iletilmiş istek yok.",
+    "confirm_prompt": "Geri almayı onayla:\n{label}",
+    "confirm": "✅ Geri Almayı Onayla",
+    "cancel": "❌ İptal",
+    "cancelled": "ℹ️ Geri alma iptal edildi. GUI değiştirilmedi.",
+    "working": "Çalışıyor…",
+    "done": "✅ GUI'de geri alma tamamlandı.",
+    "failed": "❌ Geri alma çalıştırılmadı. Hedef güvenle doğrulanamadı.",
+    "session_expired": "Bu seçim süresi doldu. /undo komutunu yeniden çalıştırın.",
+    "agent_working": "❌ Reddedildi: aracı ön planda hâlâ üretiyor.",
+    "thread_unavailable": "❌ Reddedildi: aktif GUI sohbeti doğrulanamadı.",
+    "state_unavailable": "❌ Reddedildi: aracı meşgul durumu doğrulanamadı.",
+    "ambiguous": "❌ Reddedildi: birden fazla eşleşen mesaj/kontrol bulundu.",
+    "anchor_missing": "❌ Reddedildi: yerel geri al kontrolü bulunamadı.",
+    "confirmation_failed": "❌ Reddedildi: GUI onay iletişim kutusu tamamlanamadı."
   }
 }

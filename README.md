@@ -37,6 +37,7 @@ Send messages, switch AI models, manage workspaces, take screenshots, and run mu
 | 🪟 **Multi-Window Support** | Route commands to a specific IDE window when multiple are open |
 | 👥 **Multi-User** | Share bot control with your team via comma-separated Chat IDs |
 | 💬 **Thread Management** | List, switch, and manage chat threads (agent conversations) |
+| ↩️ **Native Undo** | `/undo` lists delivered GUI requests and undoes via Antigravity's native Undo (fail-closed, no git rollback) |
 | ⚡ **Auto-Accept** | Automatically click Run, Accept, Allow, Continue buttons via a DOM MutationObserver |
 | 🚀 **Turbo Mode** | Multi-agent orchestration: Claude plans → Gemini codes → Claude reviews → Gemini fixes |
 | 🎯 **Goal Mode** | Autonomous long-running tasks — agent works until the goal is fully achieved |
@@ -192,6 +193,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/screenshot` | Take a screenshot of the active agent window |
 | `/status` | Show system status (IDE, CDP connection, Bot) |
 | `/stop` | Stop the currently running agent |
+| `/undo` | Undo a delivered request using Antigravity's native Undo control (with confirmation; fails closed) |
 | `/new` | Open a new chat session |
 
 ### AI Model & Agent

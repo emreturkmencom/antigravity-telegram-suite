@@ -37,6 +37,7 @@
 | 🪟 **多窗口支持** | 打开多个 IDE 窗口时可将命令路由到指定窗口 |
 | 👥 **多用户** | 通过逗号分隔的 Chat ID 与团队共享 Bot 控制权 |
 | 💬 **线程管理** | 查看、切换和管理聊天线程（代理对话） |
+| ↩️ **原生撤销** | `/undo` 列出已送入 GUI 的请求，并通过 Antigravity 原生 Undo 撤销（失败关闭，不做 git 回退） |
 | ⚡ **自动接受** | 通过 DOM MutationObserver 自动点击 Run、Accept、Allow、Continue 按钮 |
 | 🚀 **Turbo 模式** | 多代理协作：Claude 规划 → Gemini 编码 → Claude 审查 → Gemini 修复 |
 | 🎯 **Goal 模式** | 自主长时间任务 — 代理持续工作直到目标完全达成 |
@@ -169,6 +170,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/screenshot` | 截取当前活动代理窗口的截图 |
 | `/status` | 显示系统状态（IDE、CDP 连接、Bot） |
 | `/stop` | 停止当前运行中的代理 |
+| `/undo` | 使用 Antigravity 原生 Undo 撤销已送达的请求（需确认；失败关闭） |
 | `/new` | 开始新的聊天会话 |
 
 ### AI 模型与代理

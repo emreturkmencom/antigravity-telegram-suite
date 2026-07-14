@@ -25,7 +25,7 @@
     "ide_title": "🛠️ <i>System Controls:</i>",
     "ide_text": "- /start_ide → Start IDE/Agent if closed\n- /close → Fully close the app\n- /app → Switch between IDE and Agent\n- /workspace → Switch project\n- /window → Select active window\n- /fix_shortcuts → Fix desktop shortcuts\n- /lang → Switch language\n- /menu → Refresh menu\n- /cmd &lt;command&gt; → Run a terminal command\n- /closeall → Close all open file tabs",
     "chat_title": "💬 <i>Chat Controls:</i>",
-    "chat_text": "- /new → Open a new chat\n- /agents → List recent chats\n- /artifacts → List artifacts\n- /model → Select model to use\n- /autoaccept → Toggle auto-accept\n- /help → Show this help message",
+    "chat_text": "- /new → Open a new chat\n- /agents → List recent chats\n- /artifacts → List artifacts\n- /model → Select model to use\n- /undo → Undo a delivered request via native GUI Undo\n- /autoaccept → Toggle auto-accept\n- /help → Show this help message",
     "account_title": "📱 <b>Account Management</b>",
     "account_text": "- /login → Sign in with Google\n- /accounts → List saved Google accounts\n- /switchacc N → Switch active account\n- /getinfo N → View account quota info\n- /delacc N → Delete a saved account"
   },
@@ -188,7 +188,8 @@
     "gettask_desc": "Get the latest Task Checklist",
     "getplan_desc": "Get the latest Implementation Plan",
     "getwalk_desc": "Get the latest Walkthrough",
-    "closeall_desc": "Close all open file tabs"
+    "closeall_desc": "Close all open file tabs",
+    "undo_desc": "Undo a delivered request in the GUI"
   },
   "photo": {
     "downloaded": "✅ File downloaded and forwarding to agent...",
@@ -508,5 +509,26 @@
     "delete_confirm_note": "Antigravity itself will not be affected.",
     "btn_quota": "Quota",
     "btn_delete": "Delete"
+  },
+  "undo": {
+    "previous": "« Newer",
+    "next": "Older »",
+    "pick_title": "↩️ Choose a request to undo in the GUI:",
+    "pick_count": "{count} eligible request(s) in the active conversation.",
+    "none": "ℹ️ No delivered requests available to undo in the active conversation.",
+    "confirm_prompt": "Confirm undo for:\n{label}",
+    "confirm": "✅ Confirm Undo",
+    "cancel": "❌ Cancel",
+    "cancelled": "ℹ️ Undo cancelled. No GUI changes were made.",
+    "working": "Working…",
+    "done": "✅ Undo completed in the GUI.",
+    "failed": "❌ Undo did not run. The target could not be confirmed safely.",
+    "session_expired": "This undo selection expired. Run /undo again.",
+    "agent_working": "❌ Undo refused: the agent is still generating in the foreground.",
+    "thread_unavailable": "❌ Undo refused: the active GUI conversation could not be verified.",
+    "state_unavailable": "❌ Undo refused: agent busy state could not be confirmed.",
+    "ambiguous": "❌ Undo refused: multiple matching messages/controls were found.",
+    "anchor_missing": "❌ Undo refused: the matching native Undo control was not found.",
+    "confirmation_failed": "❌ Undo refused: the GUI confirmation dialog could not be completed."
   }
 }

@@ -25,7 +25,7 @@
     "ide_title": "🛠️ <i>Systemsteuerung:</i>",
     "ide_text": "- /start_ide → IDE/Agent starten, falls geschlossen\n- /close → App vollständig schließen\n- /app → Zwischen IDE und Agent wechseln\n- /workspace → Projekt wechseln\n- /window → Aktives Fenster auswählen\n- /fix_shortcuts → Desktop-Verknüpfungen reparieren\n- /lang → Sprache wechseln\n- /menu → Menü aktualisieren\n- /cmd &lt;Befehl&gt; → Terminalbefehl ausführen\n- /closeall → Alle geöffneten Dateireiter schließen",
     "chat_title": "💬 <i>Chat-Steuerung:</i>",
-    "chat_text": "- /new → Neuen Chat öffnen\n- /agents → Letzte Chats anzeigen\n- /artifacts → Artefakte anzeigen\n- /model → Modell auswählen\n- /autoaccept → Auto-Accept umschalten\n- /help → Diese Hilfemeldung anzeigen",
+    "chat_text": "- /new → Neuen Chat öffnen\n- /agents → Letzte Chats anzeigen\n- /artifacts → Artefakte anzeigen\n- /model → Modell auswählen\n- /undo → Zugestellte Anfrage über natives GUI-Undo rückgängig machen\n- /autoaccept → Auto-Accept umschalten\n- /help → Diese Hilfemeldung anzeigen",
     "account_title": "📱 <b>Kontoverwaltung</b>",
     "account_text": "- /login → Mit Google anmelden\n- /accounts → Gespeicherte Google-Konten auflisten\n- /switchacc N → Aktives Konto wechseln\n- /getinfo N → Kontokontingent anzeigen\n- /delacc N → Gespeichertes Konto löschen"
   },
@@ -188,7 +188,8 @@
     "gettask_desc": "Holen Sie sich die neueste Aufgaben-Checkliste",
     "getplan_desc": "Holen Sie sich den neuesten Implementierungsplan",
     "getwalk_desc": "Holen Sie sich den neuesten Walkthrough",
-    "closeall_desc": "Alle geöffneten Dateireiter schließen"
+    "closeall_desc": "Alle geöffneten Dateireiter schließen",
+    "undo_desc": "Zugestellte Anfrage in der GUI rückgängig machen"
   },
   "photo": {
     "downloaded": "✅ Datei heruntergeladen und wird an den Agenten weitergeleitet...",
@@ -508,5 +509,26 @@
     "delete_confirm_note": "Antigravity selbst wird nicht beeinflusst.",
     "btn_quota": "Kontingent",
     "btn_delete": "Löschen"
+  },
+  "undo": {
+    "previous": "« Neuere",
+    "next": "Ältere »",
+    "pick_title": "↩️ Wähle eine Anfrage zum Rückgängigmachen in der GUI:",
+    "pick_count": "{count} geeignete Anfrage(n) in der aktiven Unterhaltung.",
+    "none": "ℹ️ Keine zugestellten Anfragen zum Rückgängigmachen in der aktiven Unterhaltung.",
+    "confirm_prompt": "Rückgängig bestätigen für:\n{label}",
+    "confirm": "✅ Rückgängig bestätigen",
+    "cancel": "❌ Abbrechen",
+    "cancelled": "ℹ️ Rückgängig abgebrochen. Keine GUI-Änderungen.",
+    "working": "Arbeite…",
+    "done": "✅ Rückgängig in der GUI abgeschlossen.",
+    "failed": "❌ Rückgängig nicht ausgeführt. Ziel konnte nicht sicher bestätigt werden.",
+    "session_expired": "Diese Auswahl ist abgelaufen. Führe /undo erneut aus.",
+    "agent_working": "❌ Abgelehnt: Der Agent generiert noch im Vordergrund.",
+    "thread_unavailable": "❌ Abgelehnt: Aktive GUI-Unterhaltung konnte nicht verifiziert werden.",
+    "state_unavailable": "❌ Abgelehnt: Agent-Status konnte nicht bestätigt werden.",
+    "ambiguous": "❌ Abgelehnt: Mehrere passende Nachrichten/Steuerelemente gefunden.",
+    "anchor_missing": "❌ Abgelehnt: Natives Undo-Steuerelement nicht gefunden.",
+    "confirmation_failed": "❌ Abgelehnt: GUI-Bestätigungsdialog konnte nicht abgeschlossen werden."
   }
 }

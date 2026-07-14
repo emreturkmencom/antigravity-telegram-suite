@@ -31,6 +31,10 @@ function _notifyThreadResolved(threadId) {
  * @returns {Promise<Array>} sorted array of CDP target objects
  */
 const { UI_LOCATORS_SCRIPT } = require('./ui_locators');
+const { selectUndoMatch } = require('./undo_anchor');
+const { isForegroundAgentWorking } = require('./agent_working_state');
+const { confirmUndoDialog } = require('./undo_confirmation');
+const SELECT_UNDO_MATCH_SOURCE = selectUndoMatch.toString();
 
 const SUBMIT_ACTION_TEXTS = [
     'submit', 'send', 'send message', 'gönder', 'approve', 'allow', 'confirm',
@@ -224,7 +228,119 @@ async function resolveTargets(port, includeIframe = true) {
     return candidates;
 }
 
+function createUndoAnchorError(code) {
+    const error = new Error(code);
+    error.code = code;
+    return error;
+}
 
+function normalizeUndoAnchor(anchor) {
+    if (typeof anchor === 'string') return { text: anchor, matchIndex: null, scopeKey: null };
+    if (!anchor || typeof anchor !== 'object') return { text: '', matchIndex: null, scopeKey: null };
+    const scopeKey = typeof anchor.scopeKey === 'string' && anchor.scopeKey.trim()
+        ? anchor.scopeKey
+        : null;
+    const matchIndex = Number.isInteger(anchor.matchIndex) && anchor.matchIndex >= 0
+        ? anchor.matchIndex
+        : null;
+    return { text: String(anchor.text || ''), matchIndex: scopeKey ? matchIndex : null, scopeKey };
+}
+
+function buildUndoLocatorExpression(text, mode, anchor = {}) {
+    return `
+        ${UI_LOCATORS_SCRIPT}
+        (() => {
+            const text = ${JSON.stringify(text)};
+            const mode = ${JSON.stringify(mode)};
+            const anchor = ${JSON.stringify(anchor)};
+            const located = AG_UI.getPromptMatchedUndoControls(text);
+            if (located.ambiguous) return { status: 'ambiguous' };
+            const matches = located.matches;
+            if (!matches.length) return { status: 'not_found' };
+
+            let selectedIndex = matches.length - 1;
+            if (mode === 'undo') {
+                const selection = (${SELECT_UNDO_MATCH_SOURCE})(
+                    matches.map(match => ({ scopeKey: match.scopeKey })),
+                    anchor
+                );
+                if (selection.status !== 'selected') return selection;
+                selectedIndex = selection.index;
+            }
+
+            const selected = matches[selectedIndex];
+            if (!selected || !selected.control) return { status: 'not_found' };
+            if (mode === 'undo') {
+                selected.control.scrollIntoView({ block: 'center', inline: 'nearest' });
+                selected.control.click();
+            }
+            return {
+                status: mode === 'undo' ? 'clicked' : 'captured',
+                text,
+                matchIndex: selected.scopeKey ? selectedIndex : null,
+                scopeKey: selected.scopeKey || null
+            };
+        })()
+    `;
+}
+
+async function evaluateUndoLocator(port, targetId, text, mode, anchor = {}) {
+    const targets = await resolveTargets(port, false);
+    const target = targets.find(candidate => candidate.id === targetId);
+    if (!target) throw createUndoAnchorError('undo_anchor_not_found');
+
+    let client = null;
+    let closeLateClient = false;
+    const pendingClient = CDP({ target: target.webSocketDebuggerUrl });
+    pendingClient.then(lateClient => {
+        if (closeLateClient && lateClient !== client) {
+            return lateClient.close().catch(() => {});
+        }
+        return null;
+    }).catch(() => {});
+    try {
+        client = await withTimeout(pendingClient, 3000, 'CDP undo locator timeout');
+        const { Runtime } = client;
+        await Runtime.enable();
+        const result = await withTimeout(Runtime.evaluate({
+            expression: buildUndoLocatorExpression(text, mode, anchor),
+            returnByValue: true
+        }), 3000, 'CDP undo locator evaluate timeout');
+        return result?.result?.value || { status: 'not_found' };
+    } finally {
+        closeLateClient = true;
+        if (client) await client.close().catch(() => {});
+    }
+}
+
+async function captureUndoAnchor(port, targetId, prompt) {
+    const text = String(prompt || '').trim();
+    if (!text) throw createUndoAnchorError('undo_anchor_not_found');
+
+    const result = await evaluateUndoLocator(port, targetId, text, 'capture');
+    if (result?.status === 'ambiguous') throw createUndoAnchorError('undo_anchor_ambiguous');
+    if (result?.status !== 'captured') throw createUndoAnchorError('undo_anchor_not_found');
+    return { text: result.text, matchIndex: result.matchIndex, scopeKey: result.scopeKey || null };
+}
+
+async function undoToAnchor(port, targetId, anchor) {
+    const normalized = normalizeUndoAnchor(anchor);
+    const text = normalized.text.trim();
+    if (!text) throw createUndoAnchorError('undo_anchor_not_found');
+
+    const result = await evaluateUndoLocator(port, targetId, text, 'undo', normalized);
+    if (result?.status === 'ambiguous') throw createUndoAnchorError('undo_anchor_ambiguous');
+    if (result?.status !== 'clicked') throw createUndoAnchorError('undo_anchor_not_found');
+    await confirmUndoDialog({
+        port,
+        targetId,
+        resolveTargets,
+        connect: CDP,
+        timeout: withTimeout,
+        wait: ms => new Promise(resolve => setTimeout(resolve, ms))
+    });
+    return { text: result.text, matchIndex: result.matchIndex, scopeKey: result.scopeKey || null };
+}
 
 /**
  * List all available IDE windows for the /window command.
@@ -2001,8 +2117,10 @@ async function switchAgentThread(port, threadName, targetWorkspaceName = null) {
 
 async function getActiveThreadInfo(port, specificTargetId = null) {
     let threadId = null;
+    let threadIdSource = null;
     let threadName = null;
     let workspaceName = null;
+    let workspaceSource = null;
 
     let candidates = await resolveTargets(port, false);
     if (specificTargetId) {
@@ -2049,10 +2167,12 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
                             }
                         }
                         let workspace = null;
+                        let workspaceSource = null;
                         const panel = document.querySelector(".antigravity-agent-side-panel");
                         const wsEl2 = panel ? panel.querySelector("div.text-lg.font-medium") : null;
                         if (wsEl2) {
                             workspace = wsEl2.textContent.trim();
+                            workspaceSource = 'dom';
                         } else {
                             let resolvedWs = null;
                             let activeEl = null;
@@ -2082,7 +2202,7 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
                                         if (current.className && typeof current.className === 'string' && current.className.includes('group/section')) {
                                             const card = current.querySelector('[data-project-card="true"]');
                                             if (card) {
-                                                resolvedWs = card.textContent.trim().replace(/\s+\d+$/, '');
+                                                resolvedWs = card.textContent.trim().replace(/\\s+\\d+$/, '');
                                                 break;
                                             }
                                         }
@@ -2094,6 +2214,7 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
                             
                             if (resolvedWs) {
                                 workspace = resolvedWs;
+                                workspaceSource = 'dom';
                             } else if (activeEl) {
                                 workspace = null;
                             } else {
@@ -2101,29 +2222,39 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
                                 const wsEl = document.querySelector('div.text-sm.font-medium.truncate');
                                 if (wsEl) {
                                     workspace = wsEl.textContent.trim();
+                                    workspaceSource = 'dom';
                                 } else {
                                     workspace = document.title;
+                                    workspaceSource = 'document_title';
                                 }
                             }
                         }
 
-
-
-                        // Try to find active conversation ID via DOM
+                        // Prefer the Standalone conversation UUID from the route when present.
                         let threadIdVal = null;
+                        let threadIdSource = null;
                         const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+                        const routeSegments = new URL(window.location.href).pathname.split('/').filter(Boolean);
+                        const conversationIndex = routeSegments.indexOf('c');
+                        const routeId = conversationIndex >= 0 ? routeSegments[conversationIndex + 1] : null;
+                        if (routeId && uuidRegex.test(routeId)) {
+                            threadIdVal = routeId;
+                            threadIdSource = 'url';
+                        }
                         const labels = Array.from(document.querySelectorAll('[aria-label*="brain/"], .monaco-icon-label'));
                         for (let el of labels) {
+                            if (threadIdVal) break;
                             const aria = el.getAttribute('aria-label') || '';
                             if (aria.includes('brain/')) {
                                 const match = aria.match(uuidRegex);
                                 if (match) {
                                     threadIdVal = match[0];
+                                    threadIdSource = 'dom';
                                     break;
                                 }
                             }
                         }
-                        return { name, workspace, threadId: threadIdVal, nameSource };
+                        return { name, workspace, workspaceSource, threadId: threadIdVal, threadIdSource, nameSource };
                     })()
                 `,
                 returnByValue: true
@@ -2131,12 +2262,18 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
             await client.close();
             if (res.result?.value) {
                 if (res.result.value.name && !threadName) threadName = res.result.value.name;
-                if (res.result.value.threadId && !threadId) threadId = res.result.value.threadId;
+                if (res.result.value.threadId && !threadId) {
+                    threadId = res.result.value.threadId;
+                    threadIdSource = res.result.value.threadIdSource || 'dom';
+                }
                 
                 let wsName = res.result.value.workspace;
                 if (wsName && wsName.includes(' - ')) wsName = wsName.split(' - ')[0].trim();
                 if (wsName && wsName !== 'undefined' && wsName !== 'Launchpad') {
-                    if (!workspaceName) workspaceName = wsName;
+                    if (!workspaceName) {
+                        workspaceName = wsName;
+                        workspaceSource = res.result.value.workspaceSource || null;
+                    }
                 }
                 
                 // Only break if we got a REAL thread name (not just workspace/title fallback)
@@ -2149,6 +2286,7 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
 
     if (!threadId && threadName) {
         threadId = findConversationIdByTitle(threadName);
+        if (threadId) threadIdSource = 'title_lookup';
     }
 
     // 2. Fallback: Get Thread ID via file-system logs of the app
@@ -2210,6 +2348,7 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
                         if (match) {
                             latestTime = bestMtime;
                             threadId = dir.name;
+                            threadIdSource = 'filesystem';
                         }
                     }
                 }
@@ -2219,10 +2358,17 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
 
     if (!workspaceName && activeWorkspaceName) {
         workspaceName = activeWorkspaceName;
+        workspaceSource = 'active_workspace_cache';
     }
 
-    if (threadId || workspaceName) {
-        return { id: threadId, name: threadName, workspace: workspaceName };
+    if (threadId || workspaceName || threadName) {
+        return {
+            id: threadId,
+            idSource: threadIdSource,
+            name: threadName,
+            workspace: workspaceName,
+            workspaceSource
+        };
     }
     return null;
 }
@@ -2231,17 +2377,34 @@ async function getActiveThreadId(port, specificTargetId = null) {
     const info = await getActiveThreadInfo(port, specificTargetId);
     return info ? info.id : null;
 }
-async function isAgentWorking(port, specificTargetId = null) {
-    let candidates = await resolveTargets(port, false);
+function createUnknownWorkingStateError(cause = null) {
+    const error = new Error('agent_working_state_unknown');
+    if (cause) error.cause = cause;
+    return error;
+}
+
+async function isAgentWorking(port, specificTargetId = null, options = {}) {
+    const strict = options.strict === true;
+    const targetResolver = options.resolveTargets || resolveTargets;
+    const connect = options.connect || CDP;
+    const timeout = options.withTimeout || withTimeout;
+    let candidates;
+    try {
+        candidates = await targetResolver(port, false);
+    } catch (err) {
+        if (strict) throw createUnknownWorkingStateError(err);
+        throw err;
+    }
     if (specificTargetId) {
         candidates = candidates.filter(t => t.id === specificTargetId);
     }
     for (const target of candidates) {
+        let client = null;
         try {
-            const client = await withTimeout(CDP({ target: target.webSocketDebuggerUrl }), 2000, "CDP timeout");
+            client = await timeout(connect({ target: target.webSocketDebuggerUrl }), 2000, "CDP timeout");
             const { Runtime } = client;
             await Runtime.enable();
-            const check = await withTimeout(Runtime.evaluate({
+            const check = await timeout(Runtime.evaluate({
                 expression: `
                     ${UI_LOCATORS_SCRIPT}
                     (function() {
@@ -2250,7 +2413,7 @@ async function isAgentWorking(port, specificTargetId = null) {
 
                         const isGenerating = !!AG_UI.getStopButton();
                         const editor = AG_UI.getChatInput();
-                        const isInputDisabled = editor ? (editor.getAttribute('contenteditable') === 'false' || editor.disabled) : false;
+                        const isInputDisabled = editor ? (editor.getAttribute('contenteditable') === 'false' || !!editor.disabled) : false;
                         const isSpinning = AG_UI.isLoading();
                         
                         const aaActive = !!window.__AA_BOT_OBSERVER_ACTIVE && !window.__AA_BOT_PAUSED;
@@ -2264,17 +2427,26 @@ async function isAgentWorking(port, specificTargetId = null) {
                             });
                         }
                         
-                        return isGenerating || (!isModal && isInputDisabled) || isSpinning || hasPendingButton;
+                        return { isGenerating, isInputDisabled, isSpinning, hasPendingButton, isModal };
                     })()
                 `,
                 returnByValue: true
             }), 3000, "Evaluate timeout");
-            await client.close();
-            if (check && check.result && check.result.value !== undefined) {
-                return check.result.value;
+            const state = check?.result?.value;
+            const requiredFields = ['isGenerating', 'isInputDisabled', 'hasPendingButton', 'isModal'];
+            if (state && requiredFields.every(field => typeof state[field] === 'boolean')) {
+                // Foreground generation only — background spinners must not block Undo.
+                return isForegroundAgentWorking(state);
             }
-        } catch(e) { console.debug(`[isAgentWorking] target error: ${e.message}`); }
+            if (strict) throw createUnknownWorkingStateError();
+        } catch(e) {
+            console.debug(`[isAgentWorking] target error: ${e.message}`);
+            if (strict) throw createUnknownWorkingStateError(e);
+        } finally {
+            if (client) await client.close().catch(() => {});
+        }
     }
+    if (strict) throw createUnknownWorkingStateError();
     return false;
 }
 
@@ -2401,7 +2573,9 @@ module.exports = {
     setActiveWorkspace,
     switchStandaloneWorkspace,
     getLastResolvedThreadId,
-    setOnThreadResolved
+    setOnThreadResolved,
+    captureUndoAnchor,
+    undoToAnchor
 };
 
 async function captureFullIDEScreenshot(port) {

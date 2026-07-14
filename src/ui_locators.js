@@ -236,6 +236,112 @@ const UI_LOCATORS_SCRIPT = `
             });
         },
 
+        normalizeUndoText: (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase(),
+
+        normalizePromptText: (value) => String(value || '').replace(/\\s+/g, ' ').trim(),
+
+        isVisibleControl: (el) => {
+            if (!el || el.disabled || el.getAttribute('aria-disabled') === 'true') return false;
+            const style = window.getComputedStyle(el);
+            return style.display !== 'none' && style.visibility !== 'hidden' && el.getClientRects().length > 0;
+        },
+
+        isNativeUndoControl: (el) => {
+            if (el.getAttribute('data-testid') === 'revert-button') return true;
+            const normalize = AG_UI.normalizeUndoText;
+            const semanticLabels = [
+                el.getAttribute('aria-label'),
+                el.getAttribute('title'),
+                el.getAttribute('data-tooltip-content'),
+                el.getAttribute('data-tooltip'),
+                el.getAttribute('data-tooltip-id')
+            ].map(normalize);
+            const hasSemanticUndo = semanticLabels.some(label => (
+                label === 'undo'
+                || label === '撤销'
+                || label === 'undo changes up to this point'
+                || /^undo (?:last |message |prompt |request )*(?:message|prompt|request|action)$/.test(label)
+                || /^撤销(?:消息|提示|请求|操作)$/.test(label)
+            ));
+            const iconOnlyText = normalize(el.textContent || el.value) === 'undo';
+            return hasSemanticUndo || iconOnlyText;
+        },
+
+        getNativeUndoControls: () => Array.from(document.querySelectorAll(
+            'button, [role="button"], input[type="button"], input[type="submit"]'
+        )).filter(el => AG_UI.isVisibleControl(el) && AG_UI.isNativeUndoControl(el)),
+
+        textWithoutActionControls: (el) => {
+            const clone = el.cloneNode(true);
+            clone.querySelectorAll('button, [role="button"], input, svg').forEach(node => node.remove());
+            return AG_UI.normalizePromptText(clone.textContent || '');
+        },
+
+        scopeMatchesPrompt: (scope, prompt) => {
+            const expected = AG_UI.normalizePromptText(prompt);
+            if (!expected) return false;
+            if (AG_UI.textWithoutActionControls(scope) === expected) return true;
+
+            return Array.from(scope.querySelectorAll('p, pre, code, span, div, [data-message-content], [data-testid*="message" i]'))
+                .some(node => !node.querySelector('button, [role="button"], input')
+                    && AG_UI.normalizePromptText(node.textContent || '') === expected);
+        },
+
+        findPromptScopeForUndoControl: (control, prompt) => {
+            const step = control.closest('[data-testid="user-input-step"]');
+            if (step) {
+                const hasSingleUndo = AG_UI.getNativeUndoControls().filter(candidate => step.contains(candidate)).length === 1;
+                return hasSingleUndo && AG_UI.scopeMatchesPrompt(step, prompt) ? step : null;
+            }
+
+            const chat = AG_UI.getVisibleChatContainer();
+            let current = control.parentElement;
+            while (current && current !== chat) {
+                const hasSingleUndo = AG_UI.getNativeUndoControls().filter(candidate => current.contains(candidate)).length === 1;
+                if (hasSingleUndo && AG_UI.scopeMatchesPrompt(current, prompt)) return current;
+                current = current.parentElement;
+            }
+            return null;
+        },
+
+        getUndoScopeKey: (scope) => {
+            const stableAttributes = ['data-message-id', 'data-messageid'];
+            for (const attribute of stableAttributes) {
+                const value = scope.getAttribute(attribute);
+                if (value && value.trim()) return attribute + ':' + value.trim();
+            }
+            return null;
+        },
+
+        getPromptMatchedUndoControls: (prompt) => {
+            const grouped = new Map();
+            AG_UI.getNativeUndoControls().forEach(control => {
+                const scope = AG_UI.findPromptScopeForUndoControl(control, prompt);
+                if (!scope) return;
+                const controls = grouped.get(scope) || [];
+                controls.push(control);
+                grouped.set(scope, controls);
+            });
+
+            const groups = Array.from(grouped, ([scope, controls]) => ({ scope, controls }));
+            if (groups.some(group => group.controls.length !== 1)) {
+                return { ambiguous: true, matches: [] };
+            }
+
+            groups.sort((a, b) => {
+                if (a.scope === b.scope) return 0;
+                return a.scope.compareDocumentPosition(b.scope) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+            });
+            return {
+                ambiguous: false,
+                matches: groups.map(group => ({
+                    scope: group.scope,
+                    control: group.controls[0],
+                    scopeKey: AG_UI.getUndoScopeKey(group.scope)
+                }))
+            };
+        },
+
         /**
          * Retrieves all workspace cards from the sidebar.
          * @returns {HTMLElement[]}
