@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Opt-in Project Memory Convention**: New `AUTO_MEMORY_CONVENTION=true` env flag. When enabled, switching workspace via `/workspace` ensures the target project's `CLAUDE.md`/`AGENT.md`/`GEMINI.md` contains a lightweight "Project Memory" section, nudging agents to record durable decisions/conventions/gotchas/fixes by editing the file directly — no MCP server, vector DB, or mandatory tool-call round trips. Idempotent (skips if already present). Off by default.
+- **`/memory` Command**: Added a Telegram command (`/memory`, `/memory on`, `/memory off`) to dynamically check the status of the Project Memory feature for the active workspace, view which memory files exist, and toggle the auto-injection feature on or off for the current session.
+
 ### Fixed
 - **Graceful Shutdown & Preserved Chat History**: Replaced aggressive termination in `killIDE()` on Linux and Windows. Instead of sending SIGKILL (`pkill -9` / `/F`) after a rigid, short 3-second sleep, the process now receives SIGTERM (`pkill -15` / without `/F`) to allow Electron to gracefully save all databases (preserving chat history and workspace state), followed by a 10-second JavaScript polling loop that only force-kills lingering processes as a last resort.
 - **Multi-Account Sync Between IDE & Standalone App**: Fixed a critical issue where the Antigravity IDE and Standalone App showed different active accounts after switching. Root cause: the Standalone App uses the OS keyring (GNOME Secret Service) and `~/.gemini/` global config files instead of `state.vscdb`, but `writeToCredentialStore()` required `secret-tool` CLI which was often not installed on Linux.

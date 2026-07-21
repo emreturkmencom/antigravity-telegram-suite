@@ -17,6 +17,7 @@ const { extractLocalImageMarkdown } = require('./local_media');
 const { ensureCdpReady, isConnectionRefusedError } = require('./cdp_health');
 const accountManager = require('./account_manager');
 const telegraphPublisher = require('./telegraph_publisher');
+const { ensureMemoryConvention } = require('./memory_convention');
 let scheduleClient = null;
 try {
     scheduleClient = require('./schedule_client');
@@ -2167,6 +2168,12 @@ bot.action('aa_status', async (ctx) => {
 // ===== WORKSPACE =====
 
 async function doLaunchWorkspace(ctx, workspace) {
+    try {
+        ensureMemoryConvention(workspace);
+    } catch (e) {
+        console.debug('[memory_convention] skipped:', e.message);
+    }
+
     let switchingMsg;
     if (ctx.callbackQuery && ctx.callbackQuery.message) {
         try {
@@ -2348,6 +2355,61 @@ bot.action(/ws_(.+)/, (ctx) => {
     currentWorkspaceDir = wsPath;
     ctx.answerCbQuery(t('workspace.selected', { project }));
     doLaunchWorkspace(ctx, wsPath);
+});
+
+// ===== PROJECT MEMORY =====
+bot.command('memory', async (ctx) => {
+    const { CANDIDATE_FILES } = require('./memory_convention');
+    const fs = require('fs');
+    const path = require('path');
+    
+    if (!currentWorkspaceDir || currentWorkspaceDir === config.projectsDir) {
+        return ctx.reply('Lütfen önce bir proje (workspace) seçin. Örnek: /workspace antigravity-bot');
+    }
+
+    const args = ctx.message.text.split(' ').slice(1);
+    const cmd = args[0] ? args[0].toLowerCase() : null;
+
+    if (cmd === 'off') {
+        process.env.AUTO_MEMORY_CONVENTION = 'false';
+        return ctx.reply('Project Memory özelliği bu oturum için geçici olarak kapatıldı.');
+    } else if (cmd === 'on') {
+        process.env.AUTO_MEMORY_CONVENTION = 'true';
+        return ctx.reply('Project Memory özelliği bu oturum için aktif edildi.');
+    }
+
+    const isActive = process.env.AUTO_MEMORY_CONVENTION === 'true';
+    let msg = `Project Memory Durumu:\n\n`;
+    msg += `Durum: ${isActive ? 'Aktif' : 'Kapalı'}\n`;
+    msg += `Aktif Proje: ${path.basename(currentWorkspaceDir)}\n\n`;
+
+    const existingFiles = [];
+    for (const name of CANDIDATE_FILES) {
+        const p = path.join(currentWorkspaceDir, name);
+        if (fs.existsSync(p)) {
+            existingFiles.push(name);
+        }
+    }
+
+    const buttons = [];
+    if (existingFiles.length > 0) {
+        msg += `Hafıza Dosyaları (Aşağıdan tıklayıp okuyabilirsin):`;
+        for (const f of existingFiles) {
+            const p = path.join(currentWorkspaceDir, f);
+            const pathId = getPathId(p);
+            buttons.push([{ text: `📄 ${f}`, callback_data: `ff_${pathId}` }]);
+        }
+    } else {
+        msg += `Projede AGENT.md veya GEMINI.md bulunamadı.`;
+    }
+
+    msg += `\n\nKapatmak için: /memory off\nAçmak için: /memory on`;
+    
+    if (buttons.length > 0) {
+        ctx.reply(msg, { reply_markup: { inline_keyboard: buttons } });
+    } else {
+        ctx.reply(msg);
+    }
 });
 
 // ===== LANGUAGE SWITCH =====
@@ -2923,6 +2985,7 @@ function getMenuCommands() {
         { command: 'artifacts', description: t('menu.artifacts_desc') },
         { command: 'model', description: t('menu.model_desc') },
         { command: 'workspace', description: t('menu.workspace_desc') },
+        { command: 'memory', description: 'Check or toggle Project Memory' },
         { command: 'window', description: t('menu.window_desc') || 'Select IDE window' },
         { command: 'close_window', description: t('menu.close_window_desc') || 'Close current window' },
         { command: 'closeall', description: t('menu.closeall_desc') || 'Close all open file tabs' },

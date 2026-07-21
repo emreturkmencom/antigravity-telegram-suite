@@ -326,7 +326,10 @@ async function startOAuthServer(onCode, onError) {
     return {
         server,
         port: boundPort,
-        stop: () => new Promise((resolve) => server.close(resolve)),
+        stop: () => new Promise((resolve) => {
+            server.closeAllConnections();
+            server.close(resolve);
+        }),
     };
 }
 
