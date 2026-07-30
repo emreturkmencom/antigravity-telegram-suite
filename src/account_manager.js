@@ -15,6 +15,7 @@ const path = require('path');
 const os = require('os');
 const { exec } = require('child_process');
 const { URLSearchParams } = require('url');
+const crypto = require('crypto');
 const ProtobufUtils = require('./protobuf_utils');
 
 // ─── OAuth Constants ──────────────────────────────────────────────────────────
@@ -245,6 +246,7 @@ function findAccount(accounts, id) {
  * @returns {Promise<{server: http.Server, port: number, stop: function}>}
  */
 async function startOAuthServer(onCode, onError) {
+    const expectedState = crypto.randomBytes(16).toString('hex');
     let boundPort = null;
 
     for (const port of OAUTH_FALLBACK_PORTS) {
@@ -284,6 +286,14 @@ async function startOAuthServer(onCode, onError) {
 
         const code = url.searchParams.get('code');
         const error = url.searchParams.get('error');
+        const returnedState = url.searchParams.get('state');
+
+        if (returnedState !== expectedState) {
+            res.writeHead(403);
+            res.end('Invalid state parameter');
+            onError('OAuth CSRF check failed: state mismatch');
+            return;
+        }
 
         if (code) {
             logInfo(`[account_manager] Captured OAuth callback code via localhost query`);
@@ -313,6 +323,8 @@ async function startOAuthServer(onCode, onError) {
     server.on('error', (err) => {
         logInfo(`[account_manager] OAuth server error: ${err.message}`);
     });
+
+
 
     await new Promise((resolve, reject) => {
         const onError = (err) => reject(err);
