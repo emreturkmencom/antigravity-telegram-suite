@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 import sys
+import os
 import argparse
 import dbus
 
 def main():
+    # Restrict execution to the script file's owner only
+    if os.getuid() != os.stat(__file__).st_uid:
+        print("ERROR: Permission denied - must be run as the script owner", file=sys.stderr)
+        sys.exit(1)
+
     parser = argparse.ArgumentParser(description="GNOME Keyring DBus Helper")
     parser.add_argument("--action", choices=["store", "lookup", "clear"], required=True)
     parser.add_argument("--label", default="gemini")
