@@ -4111,7 +4111,7 @@ bot.action(/^login_confirm_(\d+)$/, async (ctx) => {
         }
 
         const redirectUri = `http://localhost:${oauthServer.port}/oauth-callback`;
-        const authUrl = accountManager.buildAuthUrl(redirectUri);
+        const authUrl = accountManager.buildAuthUrl(redirectUri, oauthServer.state);
         accountManager.logInfo(`[bot] Auth URL built: redirect_uri=${redirectUri}`);
 
         // Register the pending session (with a 10-minute timeout)

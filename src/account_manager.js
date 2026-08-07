@@ -338,6 +338,7 @@ async function startOAuthServer(onCode, onError) {
     return {
         server,
         port: boundPort,
+        state: expectedState,
         stop: () => new Promise((resolve) => {
             server.closeAllConnections();
             server.close(resolve);
@@ -351,9 +352,10 @@ async function startOAuthServer(onCode, onError) {
  * Build the Google OAuth authorization URL.
  *
  * @param {string} redirectUri - e.g. "http://localhost:8888/oauth-callback"
+ * @param {string} state - CSRF state token (must match the value from startOAuthServer)
  * @returns {string}
  */
-function buildAuthUrl(redirectUri) {
+function buildAuthUrl(redirectUri, state) {
     const client = getActiveClient();
     const params = new URLSearchParams({
         access_type: 'offline',
@@ -363,7 +365,7 @@ function buildAuthUrl(redirectUri) {
         client_id: client.client_id,
         redirect_uri: redirectUri,
         include_granted_scopes: 'true',
-        state: Math.random().toString(36).slice(2),
+        state,
     });
     return `${URLS.AUTH}?${params.toString()}`;
 }
