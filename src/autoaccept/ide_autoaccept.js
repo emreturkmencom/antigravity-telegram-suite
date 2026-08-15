@@ -223,6 +223,47 @@ function buildIDEObserverScript(buttonTexts, blockedCommands, allowedCommands) {
         var now = Date.now(); var keys = Object.keys(clickCooldowns);
         for (var i = 0; i < keys.length; i++) { if (now - clickCooldowns[keys[i]] > COOLDOWN_MS * 2) delete clickCooldowns[keys[i]]; }
 
+        // Check for permission radio groups (e.g. Allow reading URL / Allow domain / Allow running tool)
+        for (var pr = 0; pr < roots.length; pr++) {
+            var groups = Array.from(roots[pr].querySelectorAll('[role="radiogroup"], fieldset, div.flex-col'));
+            for (var g = 0; g < groups.length; g++) {
+                var grp = groups[g];
+                var labels = Array.from(grp.querySelectorAll('label, [role="radio"]'));
+                var priorityTexts = [
+                    'yes, and always allow in this conversation',
+                    'yes, and always allow',
+                    'yes, always allow',
+                    'her zaman izin ver',
+                    'yes, allow this time',
+                    'yes, allow',
+                    'izin ver',
+                    'bu seferlik izin ver'
+                ];
+                for (var pt = 0; pt < priorityTexts.length; pt++) {
+                    var targetText = priorityTexts[pt];
+                    var matchRadio = labels.find(function(l) { return (l.textContent || '').trim().toLowerCase().includes(targetText); });
+                    if (matchRadio) {
+                        var submitBtn = grp.closest('div.border, div.p-4, div.flex-col, form')?.querySelector('[data-testid="interaction-continue-button"], button.bg-primary') ||
+                                        document.querySelector('[data-testid="interaction-continue-button"]');
+                        if (submitBtn && !submitBtn.disabled) {
+                            var formKey = _domPath(grp) + ':perm-radio:' + targetText;
+                            if (!clickCooldowns[formKey] || (now - clickCooldowns[formKey] > COOLDOWN_MS)) {
+                                clickCooldowns[formKey] = now;
+                                matchRadio.click();
+                                setTimeout(function() {
+                                    if (submitBtn) submitBtn.click();
+                                }, 80);
+                                window.__AA_BOT_CLICK_COUNT = (window.__AA_BOT_CLICK_COUNT || 0) + 1;
+                                window.__AA_BOT_CLICK_LOG.push({ text: 'PERMISSION:' + targetText, tag: (matchRadio.tagName || '').toLowerCase(), time: now });
+                                if (window.__AA_BOT_CLICK_LOG.length > 20) window.__AA_BOT_CLICK_LOG.shift();
+                                return 'clicked:permission_radio';
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         for (var scan = 0; scan < 5; scan++) {
             var match = null;
             for (var r = 0; r < roots.length; r++) {
