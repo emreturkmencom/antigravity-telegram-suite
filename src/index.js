@@ -3925,6 +3925,32 @@ bot.action(/^ans_(.+)$/, async (ctx) => {
 });
 
 let isAgentBusy = false;
+const requestQueue = [];
+let isProcessingQueue = false;
+
+function enqueueUserRequest(taskFn) {
+    return new Promise((resolve, reject) => {
+        requestQueue.push({ taskFn, resolve, reject });
+        processNextInQueue();
+    });
+}
+
+async function processNextInQueue() {
+    if (isProcessingQueue || requestQueue.length === 0) return;
+    isProcessingQueue = true;
+    
+    while (requestQueue.length > 0) {
+        const item = requestQueue.shift();
+        try {
+            const res = await item.taskFn();
+            item.resolve(res);
+        } catch (err) {
+            item.reject(err);
+        }
+    }
+    
+    isProcessingQueue = false;
+}
 
 // Feedback proceed/cancel handlers
     bot.action(/^fb_proceed_(.+)$/, async (ctx) => {
@@ -3975,20 +4001,10 @@ let isAgentBusy = false;
         explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
     }
 
-    // If agent is already processing, just send the follow-up message without starting a new wait loop
-    if (isAgentBusy && !isTurboMode) {
-        try {
-            if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
-            await sendViaCDPWithRecovery(query, explicitTargetId);
-            setReaction(ctx, REACTION.THINKING);
-        } catch (err) {
-            ctx.reply(t('ask.headless_error', { error: err.message })).catch(() => {});
-        }
-        return;
-    }
+    setReaction(ctx, REACTION.THINKING).catch(() => {});
 
-    // Fire-and-forget: don't block Telegraf's update loop so other commands remain responsive
-    (async () => {
+    // Enqueue request so concurrent or back-to-back messages are processed sequentially without dropping turns
+    enqueueUserRequest(async () => {
         try {
             if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
             let targetId = explicitTargetId;
@@ -4025,7 +4041,7 @@ let isAgentBusy = false;
                     if (targetId === "INVALID_MODAL_OPTION") {
                         return await ctx.reply(t('error.modal_active') || 'A modal is currently active in the IDE. Please select a valid option or dismiss it before sending a message.');
                     }
-                    setReaction(ctx, REACTION.THINKING);
+                    setReaction(ctx, REACTION.THINKING).catch(() => {});
 
                     // Wait briefly for message to render in DOM before anchoring state
                     await new Promise(r => setTimeout(r, 500));
@@ -4084,7 +4100,7 @@ let isAgentBusy = false;
             const errorMsg = err.message === 'no_chat_input' ? t('ask.no_chat_input') : err.message;
             ctx.reply(t('ask.headless_error', { error: errorMsg })).catch(() => {});
         }
-    })();
+    });
 });
 
 // ===== PHOTO & DOCUMENT HANDLER =====
@@ -4092,55 +4108,57 @@ let isAgentBusy = false;
 const mediaGroupCache = new Map();
 
 async function processAgentRequest(ctx, query, explicitTargetId, explicitThreadName, originalCaption) {
-    isAgentBusy = true;
-    if (global.__taskWatcher) global.__taskWatcher.setBusy(true);
-    try {
-        setReaction(ctx, REACTION.THINKING);
-        if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
-        const targetId = await sendViaCDP(query, CDP_PORT, explicitTargetId);
-        
-        if (targetId === "INVALID_MODAL_OPTION") {
-            ctx.reply(t('error.modal_active'));
-            return;
-        }
+    return enqueueUserRequest(async () => {
+        isAgentBusy = true;
+        if (global.__taskWatcher) global.__taskWatcher.setBusy(true);
+        try {
+            setReaction(ctx, REACTION.THINKING).catch(() => {});
+            if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
+            const targetId = await sendViaCDP(query, CDP_PORT, explicitTargetId);
+            
+            if (targetId === "INVALID_MODAL_OPTION") {
+                ctx.reply(t('error.modal_active'));
+                return;
+            }
 
-        // Wait briefly for message to render in DOM before anchoring state
-        await new Promise(r => setTimeout(r, 500));
-        await snapshotChatState(CDP_PORT, targetId).catch(() => {});
-        
-        const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx), targetId);
-        if (isDone) {
+            // Wait briefly for message to render in DOM before anchoring state
             await new Promise(r => setTimeout(r, 500));
-            let _latestRes = await getFullLatestResponse(CDP_PORT, targetId, null, false);
-            let text = typeof _latestRes === 'string' ? _latestRes : _latestRes.text;
-            let interactiveButtons = typeof _latestRes === 'string' ? null : _latestRes.buttons;
+            await snapshotChatState(CDP_PORT, targetId).catch(() => {});
             
-            text = stripQueryFromResponse(text, query);
-            if (originalCaption) {
-                text = stripQueryFromResponse(text, originalCaption);
+            const isDone = await waitForAgentResponse(CDP_PORT, 450000, createProgressHandler(ctx), targetId);
+            if (isDone) {
+                await new Promise(r => setTimeout(r, 500));
+                let _latestRes = await getFullLatestResponse(CDP_PORT, targetId, null, false);
+                let text = typeof _latestRes === 'string' ? _latestRes : _latestRes.text;
+                let interactiveButtons = typeof _latestRes === 'string' ? null : _latestRes.buttons;
+                
+                text = stripQueryFromResponse(text, query);
+                if (originalCaption) {
+                    text = stripQueryFromResponse(text, originalCaption);
+                }
+                if (!text) text = t('ask.done_empty');
+                const header = await getChatHeader(targetId, t('ask.done'));
+                
+                const buttons = interactiveButtons ? interactiveButtons : await buildMainMenu(null, null, targetId);
+                
+                const sentIds = await sendBotMessage(ctx, text, header, buttons, ctx.message.message_id);
+                if (sentIds && sentIds.length > 0 && targetId) {
+                    const activeInfo = await getActiveThreadInfo(CDP_PORT, targetId).catch(() => null);
+                    const currentThreadName = activeInfo ? activeInfo.name : null;
+                    sentIds.forEach(id => messageTargetMap.set(id, { targetId, threadName: currentThreadName }));
+                    saveMessageTargetMap(messageTargetMap);
+                }
+            } else {
+                await ctx.reply(t('ask.timeout'));
             }
-            if (!text) text = t('ask.done_empty');
-            const header = await getChatHeader(targetId, t('ask.done'));
-            
-            const buttons = interactiveButtons ? interactiveButtons : await buildMainMenu(null, null, targetId);
-            
-            const sentIds = await sendBotMessage(ctx, text, header, buttons, ctx.message.message_id);
-            if (sentIds && sentIds.length > 0 && targetId) {
-                const activeInfo = await getActiveThreadInfo(CDP_PORT, targetId).catch(() => null);
-                const currentThreadName = activeInfo ? activeInfo.name : null;
-                sentIds.forEach(id => messageTargetMap.set(id, { targetId, threadName: currentThreadName }));
-                saveMessageTargetMap(messageTargetMap);
+        } finally {
+            isAgentBusy = false;
+            if (global.__taskWatcher) {
+                global.__taskWatcher.setBusy(false);
+                global.__taskWatcher.syncBaseline();
             }
-        } else {
-            await ctx.reply(t('ask.timeout'));
         }
-    } finally {
-        isAgentBusy = false;
-        if (global.__taskWatcher) {
-            global.__taskWatcher.setBusy(false);
-            global.__taskWatcher.syncBaseline();
-        }
-    }
+    });
 }
 
 async function processMediaGroup(group) {
