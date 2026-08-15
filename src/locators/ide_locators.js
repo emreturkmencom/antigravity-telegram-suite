@@ -32,10 +32,10 @@ const IDE_LOCATORS_SCRIPT = `
                 const s = window.getComputedStyle(el);
                 return s.display !== 'none' && s.visibility !== 'hidden';
             };
-            const isMonaco = (el) => !!el.closest('.monaco-editor, .editor-widget, .find-widget');
+            const isExcluded = (el) => !!el.closest('.titlebar, .monaco-workbench .menubar, .monaco-workbench .statusbar, .monaco-workbench .activitybar, .monaco-editor, .editor-widget, .find-widget, .quick-input-widget, .monaco-menu-container, .context-view, .tabs-container, .monaco-action-bar, .actions-container');
 
-            const allRadios = Array.from(document.querySelectorAll('[role="radio"], input[type="radio"]')).filter(el => isVisible(el) && !isMonaco(el));
-            const allCheckboxes = Array.from(document.querySelectorAll('[role="checkbox"], input[type="checkbox"]')).filter(el => isVisible(el) && !isMonaco(el));
+            const allRadios = Array.from(document.querySelectorAll('[role="radio"], input[type="radio"]')).filter(el => isVisible(el) && !isExcluded(el));
+            const allCheckboxes = Array.from(document.querySelectorAll('[role="checkbox"], input[type="checkbox"]')).filter(el => isVisible(el) && !isExcluded(el));
             const interactiveElements = [...allRadios, ...allCheckboxes];
 
             let container = null;
@@ -46,12 +46,12 @@ const IDE_LOCATORS_SCRIPT = `
             }
 
             if (!container) {
-                const allContainers = Array.from(document.querySelectorAll('.modal, [role="dialog"], .interactive-session, [data-testid*="interactive-modal"], [data-testid*="question"]')).filter(c => isVisible(c) && !isMonaco(c));
+                const allContainers = Array.from(document.querySelectorAll('.modal, [role="dialog"], .interactive-session, [data-testid*="interactive-modal"], [data-testid*="question"]')).filter(c => isVisible(c) && !isExcluded(c));
                 container = allContainers[0] || null;
             }
 
             if (!container) {
-                const allBtns = Array.from(document.querySelectorAll('button')).filter(b => isVisible(b) && !isMonaco(b));
+                const allBtns = Array.from(document.querySelectorAll('button')).filter(b => isVisible(b) && !isExcluded(b));
                 const submitBtn = allBtns.find(b => {
                     const t = (b.textContent || '').trim().toLowerCase();
                     return t.includes('submit') || t.includes('gönder') || t.includes('skip') || t.includes('atla') || t.includes('proceed') || t.includes('onayla');
@@ -71,7 +71,7 @@ const IDE_LOCATORS_SCRIPT = `
             
             const optionCandidateEls = Array.from(container.querySelectorAll(
                 'label, [role="radio"], [role="checkbox"], input[type="radio"], input[type="checkbox"], [data-testid*="option"], div[class*="cursor-pointer"], li'
-            )).filter(el => isVisible(el) && !isMonaco(el));
+            )).filter(el => isVisible(el) && !isExcluded(el));
 
             let options = [];
             for (const el of (interactiveElements.length > 0 ? interactiveElements : optionCandidateEls)) {
@@ -83,8 +83,8 @@ const IDE_LOCATORS_SCRIPT = `
                 if (!txt) {
                     txt = el.getAttribute('aria-label') || el.getAttribute('value') || '';
                 }
-                txt = txt.replace(/^[0-9]+[\s.)\-]+/, '').replace(/\b\(Recommended\)\b/gi, '').trim();
-                if (txt && !txt.match(/^(Other|Other \(write your answer\)|Other \(write in\)|Diğer|Submit|Skip|Gönder|Atla|\d+)$/i)) {
+                txt = txt.replace(/^[0-9]+[\\s.)\\-]+/, '').replace(/\\b\\(Recommended\\)\\b/gi, '').trim();
+                if (txt && !txt.match(/^(Other|Other \\(write your answer\\)|Other \\(write in\\)|Diğer|Submit|Skip|Gönder|Atla|\\d+)$/i)) {
                     if (!options.includes(txt)) options.push(txt);
                 }
             }
@@ -97,7 +97,7 @@ const IDE_LOCATORS_SCRIPT = `
                 if (!header) {
                     const pTags = Array.from(container.querySelectorAll('p, .text-sm, .text-base')).filter(isVisible);
                     if (pTags.length > 0) {
-                        header = pTags.map(p => p.textContent.trim()).filter(Boolean).join('\n');
+                        header = pTags.map(p => p.textContent.trim()).filter(Boolean).join('\\n');
                     }
                 }
                 if (!header) return null;
