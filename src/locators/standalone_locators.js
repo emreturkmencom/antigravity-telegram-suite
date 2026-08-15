@@ -5,39 +5,79 @@ const STANDALONE_LOCATORS_SCRIPT = `
         clickShowMoreInPopup: () => {},
         closeHistoryPopup: () => {},
         checkForQuestion: () => {
-            const container = document.querySelector('.modal, [role="dialog"], .interactive-session, [data-testid="interactive-modal"]');
-            if (!container) return null;
-            
-            const isModal = !!container.querySelector('textarea, input[type="radio"], input[type="checkbox"], [role="radio"], [role="checkbox"], select, button');
-            if (!isModal) return null;
-            
-            let headerEl = container.querySelector('.modal-header, [data-testid="interactive-modal"] h2, h3.font-medium, fieldset legend, h2, h3, p.text-base, p.mb-4, p.text-sm');
-            let header = (headerEl && headerEl.textContent.trim());
-            
-            const labels = Array.from(container.querySelectorAll('label'));
-            let options = labels.map(l => (l.innerText || l.textContent).trim().replace(/^\\d+\\s*\\n?/, '')).filter(t => t && !t.match(/^(Other|Other \\(write your answer\\)|\\d+)$/i));
-            if (options.length === 0) {
-                const items = Array.from(container.querySelectorAll('[role="radio"], [role="checkbox"]'));
-                options = items.map(i => i.textContent.trim()).filter(t => t && !t.match(/^(Other|Other \\(write your answer\\)|\\d+)$/i));
+            const isVisible = (el) => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                if (r.width === 0 || r.height === 0) return false;
+                const s = window.getComputedStyle(el);
+                return s.display !== 'none' && s.visibility !== 'hidden';
+            };
+            const isMonaco = (el) => !!el.closest('.monaco-editor, .editor-widget, .find-widget');
+
+            const allRadios = Array.from(document.querySelectorAll('[role="radio"], input[type="radio"]')).filter(el => isVisible(el) && !isMonaco(el));
+            const allCheckboxes = Array.from(document.querySelectorAll('[role="checkbox"], input[type="checkbox"]')).filter(el => isVisible(el) && !isMonaco(el));
+            const interactiveElements = [...allRadios, ...allCheckboxes];
+
+            let container = null;
+            if (interactiveElements.length > 0) {
+                container = interactiveElements[0].closest('form, fieldset, [role="dialog"], .modal, [class*="rounded"], div.p-4, div.p-3, div.p-2, div.border') ||
+                            interactiveElements[0].parentElement?.parentElement?.parentElement ||
+                            interactiveElements[0].parentElement;
             }
-            if (options.length === 0) {
-                const firstLabel = container.querySelector('label, [role="radio"], [role="checkbox"]');
-                if (firstLabel) {
-                    const p = firstLabel.parentElement;
-                    if (p) {
-                        options = Array.from(p.children).map(c => c.textContent.trim()).filter(t => t && t.length > 0 && !t.match(/^(Other|Other \\(write your answer\\)|\\d+)$/i));
-                    }
+
+            if (!container) {
+                const allContainers = Array.from(document.querySelectorAll('.modal, [role="dialog"], .interactive-session, [data-testid*="interactive-modal"], [data-testid*="question"]')).filter(c => isVisible(c) && !isMonaco(c));
+                container = allContainers[0] || null;
+            }
+
+            if (!container) {
+                const allBtns = Array.from(document.querySelectorAll('button')).filter(b => isVisible(b) && !isMonaco(b));
+                const submitBtn = allBtns.find(b => {
+                    const t = (b.textContent || '').trim().toLowerCase();
+                    return t.includes('submit') || t.includes('gönder') || t.includes('skip') || t.includes('atla') || t.includes('proceed') || t.includes('onayla');
+                });
+                if (submitBtn) {
+                    container = submitBtn.closest('form, fieldset, [class*="rounded"], div.p-4, div.p-3, div.border') || submitBtn.parentElement?.parentElement;
                 }
             }
+
+            if (!container) return null;
+
+            const isModal = interactiveElements.length > 0 || !!container.querySelector('textarea, input[type="radio"], input[type="checkbox"], [role="radio"], [role="checkbox"], select, button');
+            if (!isModal) return null;
+            
+            let headerEl = container.querySelector('.modal-header, [data-testid*="interactive-modal"] h2, [data-testid*="modal"] h2, h2, h3.font-medium, h3, h4, fieldset legend, .font-semibold, .font-medium');
+            let header = (headerEl && headerEl.textContent.trim());
+            
+            const optionCandidateEls = Array.from(container.querySelectorAll(
+                'label, [role="radio"], [role="checkbox"], input[type="radio"], input[type="checkbox"], [data-testid*="option"], div[class*="cursor-pointer"], li'
+            )).filter(el => isVisible(el) && !isMonaco(el));
+
+            let options = [];
+            for (const el of (interactiveElements.length > 0 ? interactiveElements : optionCandidateEls)) {
+                let txt = (el.innerText || el.textContent || '').trim();
+                if (!txt || txt.length <= 2) {
+                    const row = el.closest('label, div.flex, li, [role="button"]') || el.parentElement;
+                    txt = (row?.innerText || row?.textContent || '').trim();
+                }
+                if (!txt) {
+                    txt = el.getAttribute('aria-label') || el.getAttribute('value') || '';
+                }
+                txt = txt.replace(/^[0-9]+[\s.)\-]+/, '').replace(/\b\(Recommended\)\b/gi, '').trim();
+                if (txt && !txt.match(/^(Other|Other \(write your answer\)|Other \(write in\)|Diğer|Submit|Skip|Gönder|Atla|\d+)$/i)) {
+                    if (!options.includes(txt)) options.push(txt);
+                }
+            }
+            options = [...new Set(options)];
             
             const writeInEl = container.querySelector('textarea:not([disabled]), input[type="text"]:not([disabled])');
             const hasWriteIn = !!writeInEl;
             
             if (options.length === 0 && !hasWriteIn) {
                 if (!header) {
-                    const pTags = Array.from(container.querySelectorAll('p, .text-sm, .text-base'));
+                    const pTags = Array.from(container.querySelectorAll('p, .text-sm, .text-base')).filter(isVisible);
                     if (pTags.length > 0) {
-                        header = pTags.map(p => p.textContent.trim()).filter(Boolean).join('\\n');
+                        header = pTags.map(p => p.textContent.trim()).filter(Boolean).join('\n');
                     }
                 }
                 if (!header) return null;

@@ -776,9 +776,10 @@ async function _domLatestExtraction(port, specificTargetId = null) {
                     const lastTurn = parts[parts.length - 1];
                     const agentParts = lastTurn.split('🤖 Agent:');
                     if (agentParts.length > 1) {
-                        return agentParts.slice(1).join('\\n\\n').trim();
+                        return agentParts.slice(1).join('\n\n').trim();
                     }
-                    return lastTurn.trim();
+                    // There is no agent response in this turn yet (e.g. paused on ask_question)
+                    return "";
                 }
                 
                 // If no User tag found, the fallback might have just returned all text.
@@ -814,28 +815,50 @@ async function getInteractiveModalState(port, specificTargetId = null) {
                         const s = window.getComputedStyle(el);
                         return s.display !== 'none' && s.visibility !== 'hidden' && parseFloat(s.opacity) > 0;
                     };
-                    
-                    // 1. Check for standard modal dialog containers
-                    const allContainers = Array.from(document.querySelectorAll(
-                        '.modal, [role="dialog"], .interactive-session, [data-testid="interactive-modal"], [data-testid*="question"]'
-                    )).filter(c => !c.classList.contains('editor-widget') && !c.closest('.monaco-editor'));
-                    let container = allContainers.find(isVisible);
-                    
-                    // 2. Check for inline question cards (Standalone 2.0 / Ask Question tool modal)
+
+                    const isMonaco = (el) => !!el.closest('.monaco-editor, .editor-widget, .find-widget');
+
+                    // 1. Direct interactive question elements (radio buttons, checkboxes)
+                    const allRadios = Array.from(document.querySelectorAll('[role="radio"], input[type="radio"]')).filter(el => isVisible(el) && !isMonaco(el));
+                    const allCheckboxes = Array.from(document.querySelectorAll('[role="checkbox"], input[type="checkbox"]')).filter(el => isVisible(el) && !isMonaco(el));
+                    const interactiveElements = [...allRadios, ...allCheckboxes];
+
+                    let container = null;
+                    if (interactiveElements.length > 0) {
+                        container = interactiveElements[0].closest('form, fieldset, [role="dialog"], .modal, [class*="rounded"], div.p-4, div.p-3, div.p-2, div.border') ||
+                                    interactiveElements[0].parentElement?.parentElement?.parentElement ||
+                                    interactiveElements[0].parentElement;
+                    }
+
+                    // 2. Check for standard modal dialog containers
                     if (!container) {
-                        const submitBtn = Array.from(document.querySelectorAll('button')).find(b => {
+                        const allContainers = Array.from(document.querySelectorAll(
+                            '.modal, [role="dialog"], .interactive-session, [data-testid*="interactive-modal"], [data-testid*="question"]'
+                        )).filter(c => isVisible(c) && !isMonaco(c));
+                        container = allContainers[0] || null;
+                    }
+                    
+                    // 3. Check for submit / skip / proceed action buttons
+                    if (!container) {
+                        const allBtns = Array.from(document.querySelectorAll('button')).filter(b => isVisible(b) && !isMonaco(b));
+                        const submitBtn = allBtns.find(b => {
                             const t = (b.textContent || '').trim().toLowerCase();
-                            return t === 'submit' || t === 'gönder';
+                            return t.includes('submit') || t.includes('gönder') || t.includes('skip') || t.includes('atla') || t.includes('proceed') || t.includes('onayla');
                         });
-                        if (submitBtn && isVisible(submitBtn)) {
-                            container = submitBtn.closest('form') || submitBtn.closest('div[class*="rounded"]') || submitBtn.parentElement?.parentElement;
+                        if (submitBtn) {
+                            container = submitBtn.closest('form, fieldset, [class*="rounded"], div.p-4, div.p-3, div.border') || submitBtn.parentElement?.parentElement;
                         }
                     }
 
+                    // 4. Check for write-in textarea
                     if (!container) {
-                        const otherInput = document.querySelector('textarea[placeholder*="Other" i], textarea[placeholder*="answer" i]');
-                        if (otherInput && isVisible(otherInput)) {
-                            container = otherInput.closest('form') || otherInput.closest('div[class*="rounded"]') || otherInput.parentElement?.parentElement;
+                        const otherInput = Array.from(document.querySelectorAll('textarea, input[type="text"]')).find(t => {
+                            if (!isVisible(t) || isMonaco(t) || t.classList.contains('xterm')) return false;
+                            const ph = (t.placeholder || '').toLowerCase();
+                            return ph.includes('other') || ph.includes('answer') || ph.includes('diğer');
+                        });
+                        if (otherInput) {
+                            container = otherInput.closest('form, fieldset, [class*="rounded"], div.p-4, div') || otherInput.parentElement?.parentElement;
                         }
                     }
 
@@ -845,35 +868,44 @@ async function getInteractiveModalState(port, specificTargetId = null) {
                     const hasInputs = !!container.querySelector(
                         'textarea, input[type="radio"], input[type="checkbox"], [role="radio"], [role="checkbox"], button, [data-testid*="option"]'
                     );
-                    if (!hasInputs) return null;
+                    if (!hasInputs && interactiveElements.length === 0) return null;
                     
-                    let headerEl = container.querySelector('.modal-header, [data-testid="interactive-modal"] h2, h3.font-medium, fieldset legend, h2, h3, h4');
-                    if (!headerEl) {
-                        const firstDiv = container.querySelector('div, p');
-                        if (firstDiv && (firstDiv.textContent.includes('?') || firstDiv.textContent.length > 10)) {
-                            headerEl = firstDiv;
-                        }
-                    }
+                    let headerEl = container.querySelector('.modal-header, [data-testid*="interactive-modal"] h2, [data-testid*="modal"] h2, h2, h3.font-medium, h3, h4, fieldset legend, .font-semibold, .font-medium');
                     let header = (headerEl && headerEl.textContent.trim()) || '';
                     
-                    const labels = Array.from(container.querySelectorAll('label, [role="radio"], [role="checkbox"], [data-testid*="option"], div[class*="cursor-pointer"], li'));
-                    let options = labels.map(l => (l.innerText || l.textContent || '').trim().replace(/^\\d+[\\s.)\\-]+/, '').trim())
-                        .filter(t => t && !t.match(/^(Other|Other \\(write your answer\\)|Diğer|Submit|Skip|Gönder|Atla|\\d+)$/i));
+                    const optionCandidateEls = Array.from(container.querySelectorAll(
+                        'label, [role="radio"], [role="checkbox"], input[type="radio"], input[type="checkbox"], [data-testid*="option"], div[class*="cursor-pointer"], li'
+                    )).filter(el => isVisible(el) && !isMonaco(el));
+
+                    let options = [];
+                    for (const el of (interactiveElements.length > 0 ? interactiveElements : optionCandidateEls)) {
+                        let txt = (el.innerText || el.textContent || '').trim();
+                        if (!txt || txt.length <= 2) {
+                            const row = el.closest('label, div.flex, li, [role="button"]') || el.parentElement;
+                            txt = (row?.innerText || row?.textContent || '').trim();
+                        }
+                        if (!txt) {
+                            txt = el.getAttribute('aria-label') || el.getAttribute('value') || '';
+                        }
+                        txt = txt.replace(/^[0-9]+[\s.)\-]+/, '').replace(/\b\(Recommended\)\b/gi, '').trim();
+                        if (txt && !txt.match(/^(Other|Other \(write your answer\)|Other \(write in\)|Diğer|Submit|Skip|Gönder|Atla|\d+)$/i)) {
+                            if (!options.includes(txt)) options.push(txt);
+                        }
+                    }
                     
-                    // Deduplicate options while preserving order
                     options = [...new Set(options)];
                     
                     if (!header && options.length > 0) {
-                        const textNodes = Array.from(container.querySelectorAll('p, .text-sm, .text-base, div'));
+                        const textNodes = Array.from(container.querySelectorAll('p, .text-sm, .text-base, div, legend')).filter(isVisible);
                         for (let el of textNodes) {
                             const txt = el.textContent.trim();
-                            if (txt && (txt.includes('?') || txt.length > 15) && !options.includes(txt)) {
+                            if (txt && (txt.includes('?') || txt.length > 10) && !options.includes(txt) && !options.some(o => o.includes(txt))) {
                                 header = txt;
                                 break;
                             }
                         }
                     }
-                    header = header || 'Agent Question';
+                    header = header || 'Agent Soru Sordu / Question';
                     
                     return { header, options };
                 })()`,
@@ -897,7 +929,7 @@ async function getFullLatestResponse(port, specificTargetId = null, threadName =
     try {
         const modalState = await getInteractiveModalState(port, targetIdToUse);
         if (modalState) {
-            modalText = `\n\n⚠️ **${modalState.header}**\n`;
+            modalText = `\n\n❓ <b>${escHtml(modalState.header || 'Agent Soru Sordu')}</b>\n`;
             if (modalState.options && modalState.options.length > 0) {
                 modalText += `\n${t('interactive_modal.options_prompt')}`;
                 modalButtons = {
@@ -924,13 +956,14 @@ async function getFullLatestResponse(port, specificTargetId = null, threadName =
     // when lastResolvedThreadId pointed to a stale thread.
     try {
         const domResult = await _domLatestExtraction(port, targetIdToUse);
-        if (domResult && domResult.trim().length > 0) {
-            console.log(`[getFullLatestResponse] ✓ DOM extraction successful (${domResult.length} chars) | Target: ${targetIdToUse || 'auto'}`);
+        if ((domResult && domResult.trim().length > 0) || modalText) {
+            const finalDomText = (domResult && domResult.trim().length > 0) ? (domResult + modalText) : modalText.trim();
+            console.log(`[getFullLatestResponse] ✓ DOM extraction successful (${finalDomText.length} chars) | Target: ${targetIdToUse || 'auto'}`);
             
             // Side-effect: resolve conversation UUID from the DOM content so that
             // /artifacts and other filesystem-dependent commands know which thread is active
             try {
-                const snippet = domResult.length > 80 ? domResult.substring(20, 70).trim() : domResult.substring(0, 40).trim();
+                const snippet = domResult && domResult.length > 80 ? domResult.substring(20, 70).trim() : (domResult ? domResult.substring(0, 40).trim() : '');
                 if (snippet.length > 15) {
                     const appDataName = DriverFactory.getDriver().appDataName;
                     const brainPath = path.join(os.homedir(), '.gemini', appDataName, 'brain');
@@ -959,7 +992,7 @@ async function getFullLatestResponse(port, specificTargetId = null, threadName =
                 }
             } catch (_) {}
             
-            return { text: domResult + modalText, buttons: modalButtons };
+            return { text: finalDomText, buttons: modalButtons };
         }
     } catch (e) {
         console.log(`[getFullLatestResponse] DOM extraction failed: ${e.message}`);
@@ -1138,7 +1171,23 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null,
                     expression: `
                         ${DriverFactory.getDriver().getLocatorsScript()}
                         (function() {
-                            const isModal = !!document.querySelector('textarea[placeholder*="Other" i], textarea[placeholder*="answer" i], [data-testid*="interactive-modal"], [data-testid*="question"], form [role="radio"], form [role="checkbox"]');
+                            const isVisible = (el) => {
+                                if (!el) return false;
+                                const r = el.getBoundingClientRect();
+                                if (r.width === 0 || r.height === 0) return false;
+                                const s = window.getComputedStyle(el);
+                                return s.display !== 'none' && s.visibility !== 'hidden';
+                            };
+                            const isMonaco = (el) => !!el.closest('.monaco-editor, .editor-widget, .find-widget');
+                            const radios = Array.from(document.querySelectorAll('[role="radio"], input[type="radio"]')).filter(el => isVisible(el) && !isMonaco(el));
+                            const checkboxes = Array.from(document.querySelectorAll('[role="checkbox"], input[type="checkbox"]')).filter(el => isVisible(el) && !isMonaco(el));
+                            const dialogs = Array.from(document.querySelectorAll('.modal, [role="dialog"], [data-testid*="interactive-modal"], [data-testid*="question"]')).filter(el => isVisible(el) && !isMonaco(el));
+                            const textareas = Array.from(document.querySelectorAll('textarea')).filter(t => isVisible(t) && !isMonaco(t) && !t.classList.contains('xterm'));
+                            const otherTa = textareas.some(t => {
+                                const ph = (t.placeholder || '').toLowerCase();
+                                return ph.includes('other') || ph.includes('answer') || ph.includes('diğer');
+                            });
+                            const isModal = radios.length > 0 || checkboxes.length > 0 || dialogs.length > 0 || otherTa;
                             
                             const isGenerating = !!AG_UI.getStopButton();
                             const editor = AG_UI.getChatInput();
@@ -1325,7 +1374,7 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                                 };
                             };
                             
-                            // Check if an interactive modal is active
+                            // Check if an interactive modal / question card is active
                             const isVisible = (el) => {
                                 if (!el) return false;
                                 const r = el.getBoundingClientRect();
@@ -1334,51 +1383,74 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                                 const s = window.getComputedStyle(el);
                                 return s.display !== 'none' && s.visibility !== 'hidden' && parseFloat(s.opacity) > 0;
                             };
+                            const isMonaco = (el) => !!el.closest('.monaco-editor, .editor-widget, .find-widget');
 
-                            // 1. Check for standard modal dialog containers
-                            const allDialogs = Array.from(document.querySelectorAll(
-                                '.modal, [role="dialog"], .interactive-session, [data-testid="interactive-modal"], [data-testid*="question"]'
-                            )).filter(c => !c.classList.contains('editor-widget') && !c.closest('.monaco-editor'));
-                            let modalContainer = allDialogs.find(isVisible);
+                            // 1. Direct interactive question elements (radio buttons, checkboxes)
+                            const allRadios = Array.from(document.querySelectorAll('[role="radio"], input[type="radio"]')).filter(el => isVisible(el) && !isMonaco(el));
+                            const allCheckboxes = Array.from(document.querySelectorAll('[role="checkbox"], input[type="checkbox"]')).filter(el => isVisible(el) && !isMonaco(el));
+                            const interactiveElements = [...allRadios, ...allCheckboxes];
 
-                            // 2. Check for inline question cards (Standalone 2.0 / Ask Question tool modal)
+                            let modalContainer = null;
+                            if (interactiveElements.length > 0) {
+                                modalContainer = interactiveElements[0].closest('form, fieldset, [role="dialog"], .modal, [class*="rounded"], div.p-4, div.p-3, div.p-2, div.border') ||
+                                                interactiveElements[0].parentElement?.parentElement?.parentElement ||
+                                                interactiveElements[0].parentElement;
+                            }
+
+                            // 2. Check for standard modal dialog containers
                             if (!modalContainer) {
-                                const submitBtn = Array.from(document.querySelectorAll('button')).find(b => {
+                                const allDialogs = Array.from(document.querySelectorAll(
+                                    '.modal, [role="dialog"], .interactive-session, [data-testid*="interactive-modal"], [data-testid*="question"]'
+                                )).filter(c => isVisible(c) && !isMonaco(c));
+                                modalContainer = allDialogs[0] || null;
+                            }
+
+                            // 3. Check for inline question cards with action buttons
+                            if (!modalContainer) {
+                                const allBtns = Array.from(document.querySelectorAll('button')).filter(b => isVisible(b) && !isMonaco(b));
+                                const submitBtn = allBtns.find(b => {
                                     const t = (b.textContent || '').trim().toLowerCase();
-                                    return t === 'submit' || t === 'gönder';
+                                    return t.includes('submit') || t.includes('gönder') || t.includes('skip') || t.includes('atla') || t.includes('proceed') || t.includes('onayla');
                                 });
-                                if (submitBtn && isVisible(submitBtn)) {
-                                    modalContainer = submitBtn.closest('form') || submitBtn.closest('div[class*="rounded"]') || submitBtn.parentElement?.parentElement;
+                                if (submitBtn) {
+                                    modalContainer = submitBtn.closest('form, fieldset, [class*="rounded"], div.p-4, div.p-3, div.border') || submitBtn.parentElement?.parentElement;
                                 }
                             }
 
+                            // 4. Check for write-in textarea
                             if (!modalContainer) {
-                                const otherInput = document.querySelector('textarea[placeholder*="Other" i], textarea[placeholder*="answer" i]');
-                                if (otherInput && isVisible(otherInput)) {
-                                    modalContainer = otherInput.closest('form') || otherInput.closest('div[class*="rounded"]') || otherInput.parentElement?.parentElement;
+                                const otherInput = Array.from(document.querySelectorAll('textarea, input[type="text"]')).find(t => {
+                                    if (!isVisible(t) || isMonaco(t) || t.classList.contains('xterm')) return false;
+                                    const ph = (t.placeholder || '').toLowerCase();
+                                    return ph.includes('other') || ph.includes('answer') || ph.includes('diğer');
+                                });
+                                if (otherInput) {
+                                    modalContainer = otherInput.closest('form, fieldset, [class*="rounded"], div.p-4, div') || otherInput.parentElement?.parentElement;
                                 }
                             }
 
                             const isModalActive = !!modalContainer;
                             const container = modalContainer || document;
 
-                            const isConfirmAction = escapedText.toLowerCase() === 'onayla' || escapedText.toLowerCase() === 'confirm';
-                            const isRejectAction = escapedText.toLowerCase() === 'reddet' || escapedText.toLowerCase() === 'reject';
+                            const isConfirmAction = escapedText.toLowerCase() === 'onayla' || escapedText.toLowerCase() === 'confirm' || escapedText.toLowerCase() === 'evet' || escapedText.toLowerCase() === 'yes';
+                            const isRejectAction = escapedText.toLowerCase() === 'reddet' || escapedText.toLowerCase() === 'reject' || escapedText.toLowerCase() === 'hayır' || escapedText.toLowerCase() === 'no' || escapedText.toLowerCase() === 'skip' || escapedText.toLowerCase() === 'atla' || escapedText.toLowerCase() === 'iptal' || escapedText.toLowerCase() === 'cancel' || escapedText.toLowerCase() === '/stop';
 
                             if (isModalActive && (isConfirmAction || isRejectAction)) {
-                                const allBtns = Array.from(container.querySelectorAll('button'));
+                                const allBtns = Array.from(container.querySelectorAll('button')).filter(b => isVisible(b) && !isMonaco(b));
                                 const btnTarget = isConfirmAction 
                                     ? allBtns.find(b => {
                                         const t = (b.textContent || '').trim().toLowerCase();
-                                        return t === 'submit' || t.startsWith('submit') || t === 'gönder' || t === 'approve' || t === 'allow' || t === 'confirm';
+                                        return t.includes('submit') || t.includes('gönder') || t.includes('approve') || t.includes('allow') || t.includes('confirm') || t.includes('proceed') || t.includes('onayla');
                                     })
                                     : allBtns.find(b => {
                                         const t = (b.textContent || '').trim().toLowerCase();
-                                        return t === 'skip' || t === 'cancel' || t === 'iptal' || t === 'reject' || t === 'deny' || t === 'dismiss';
+                                        return t.includes('skip') || t.includes('cancel') || t.includes('iptal') || t.includes('reject') || t.includes('deny') || t.includes('dismiss') || t.includes('atla');
                                     });
 
                                 if (btnTarget) {
-                                    setTimeout(() => btnTarget.click(), 50);
+                                    btnTarget.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+                                    btnTarget.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+                                    btnTarget.click();
                                     return { found: true, method: 'modal_button', target: '${target.title?.substring(0, 30) || 'unknown'}' };
                                 }
                             }
@@ -1386,34 +1458,66 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                             if (isModalActive) {
                                 const optionItems = Array.from(container.querySelectorAll(
                                     'label, [role="radio"], [role="checkbox"], input[type="radio"], input[type="checkbox"], [data-testid*="option"], div[class*="cursor-pointer"], li'
-                                )).filter(el => {
-                                    const t = (el.innerText || el.textContent || '').trim();
-                                    return t && !t.match(/^(Other|Other \\(write your answer\\)|Diğer|Submit|Skip|Gönder|Atla|\\d+)$/i);
-                                });
-                                const rawRadios = Array.from(container.querySelectorAll('input[type="radio"], input[type="checkbox"], [role="radio"], [role="checkbox"]'));
-                                const totalOptions = Math.max(optionItems.length, rawRadios.length);
+                                )).filter(el => isVisible(el) && !isMonaco(el));
 
+                                const totalOptions = Math.max(optionItems.length, interactiveElements.length);
                                 const optIndex = parseInt(escapedText) - 1;
+
+                                // A: Selection by option number (1, 2, 3...)
                                 if (!Number.isNaN(optIndex) && optIndex >= 0 && escapedText.match(/^\\d+$/) && optIndex < totalOptions) {
-                                    const targetEl = optionItems[optIndex] || rawRadios[optIndex];
+                                    const targetEl = interactiveElements[optIndex] || optionItems[optIndex];
                                     if (targetEl) {
+                                        targetEl.scrollIntoView({ block: 'nearest' });
+                                        targetEl.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+                                        targetEl.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
                                         targetEl.click();
                                         const innerInput = targetEl.querySelector ? targetEl.querySelector('input') : null;
-                                        if (innerInput && innerInput !== targetEl) innerInput.click();
+                                        if (innerInput && innerInput !== targetEl) {
+                                            innerInput.click();
+                                            innerInput.dispatchEvent(new Event('change', { bubbles: true }));
+                                        }
 
-                                        const allBtns = Array.from(container.querySelectorAll('button'));
+                                        const allBtns = Array.from(document.querySelectorAll('button')).filter(b => isVisible(b) && !isMonaco(b));
                                         const sb = allBtns.find(b => {
                                             const t = (b.textContent || '').trim().toLowerCase();
-                                            return t === 'submit' || t.startsWith('submit') || t === 'gönder' || t === 'approve' || t === 'allow';
+                                            return t.includes('submit') || t.includes('gönder') || t.includes('proceed') || t.includes('allow') || t.includes('onayla');
                                         });
-                                        if (sb) setTimeout(() => sb.click(), 80);
+                                        if (sb) setTimeout(() => {
+                                            sb.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+                                            sb.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+                                            sb.click();
+                                        }, 100);
                                         return { found: true, method: 'radio', target: '${target.title?.substring(0, 30) || 'unknown'}' };
                                     }
                                 }
 
-                                // Check for write-in textarea or input
+                                // B: Selection by option text match
+                                const matchingEl = optionItems.find(el => {
+                                    const t = (el.innerText || el.textContent || '').trim().toLowerCase();
+                                    const cleanPrompt = escapedText.trim().toLowerCase();
+                                    return t && cleanPrompt && (t.includes(cleanPrompt) || cleanPrompt.includes(t));
+                                });
+                                if (matchingEl) {
+                                    matchingEl.scrollIntoView({ block: 'nearest' });
+                                    matchingEl.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+                                    matchingEl.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+                                    matchingEl.click();
+                                    const allBtns = Array.from(document.querySelectorAll('button')).filter(b => isVisible(b) && !isMonaco(b));
+                                    const sb = allBtns.find(b => {
+                                        const t = (b.textContent || '').trim().toLowerCase();
+                                        return t.includes('submit') || t.includes('gönder') || t.includes('proceed') || t.includes('allow') || t.includes('onayla');
+                                    });
+                                    if (sb) setTimeout(() => sb.click(), 100);
+                                    return { found: true, method: 'option_text_match', target: '${target.title?.substring(0, 30) || 'unknown'}' };
+                                }
+
+                                // C: Check for write-in textarea or input
                                 const writeIn = container.querySelector('textarea:not([disabled]), input[type="text"]:not([disabled])') ||
-                                                document.querySelector('textarea[placeholder*="Other" i], textarea[placeholder*="answer" i]');
+                                                Array.from(document.querySelectorAll('textarea, input[type="text"]')).find(t => {
+                                                    if (!isVisible(t) || isMonaco(t) || t.classList.contains('xterm')) return false;
+                                                    const ph = (t.placeholder || '').toLowerCase();
+                                                    return ph.includes('other') || ph.includes('answer') || ph.includes('diğer');
+                                                });
                                 if (writeIn && isVisible(writeIn)) {
                                     writeIn.focus();
                                     const setter = Object.getOwnPropertyDescriptor(writeIn.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value')?.set;
@@ -1423,17 +1527,26 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                                     writeIn.dispatchEvent(new Event('input', { bubbles: true }));
                                     writeIn.dispatchEvent(new Event('change', { bubbles: true }));
 
-                                    const allBtns = Array.from(container.querySelectorAll('button'));
+                                    const allBtns = Array.from(document.querySelectorAll('button')).filter(b => isVisible(b) && !isMonaco(b));
                                     const sb = allBtns.find(b => {
                                         const t = (b.textContent || '').trim().toLowerCase();
-                                        return t === 'submit' || t.startsWith('submit') || t === 'gönder' || t === 'approve' || t === 'allow';
+                                        return t.includes('submit') || t.includes('gönder') || t.includes('proceed') || t.includes('allow') || t.includes('onayla');
                                     });
-                                    if (sb) setTimeout(() => sb.click(), 80);
+                                    if (sb) setTimeout(() => sb.click(), 100);
                                     return { found: true, method: 'write-in', target: '${target.title?.substring(0, 30) || 'unknown'}' };
                                 }
 
-                                // Modal is active, but not a valid option or write-in
-                                return { found: false, reason: "invalid_modal_option", method: "modal_rejected" };
+                                // D: If modal is active but user wants to send a regular prompt/command and Skip button exists:
+                                const allBtns = Array.from(container.querySelectorAll('button')).filter(b => isVisible(b) && !isMonaco(b));
+                                const skipBtn = allBtns.find(b => {
+                                    const t = (b.textContent || '').trim().toLowerCase();
+                                    return t.includes('skip') || t.includes('cancel') || t.includes('atla') || t.includes('iptal') || t.includes('dismiss');
+                                });
+                                if (skipBtn) {
+                                    skipBtn.click();
+                                    await new Promise(r => setTimeout(r, 200));
+                                    // Fall through to regular chat input below!
+                                }
                             }
                             
                             // Use the robust centralized locator to find the actual chat input
