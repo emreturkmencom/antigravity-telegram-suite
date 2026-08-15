@@ -775,10 +775,18 @@ async function _domLatestExtraction(port, specificTargetId = null) {
                 if (parts.length > 1) {
                     const lastTurn = parts[parts.length - 1];
                     const agentParts = lastTurn.split('🤖 Agent:');
-                    if (agentParts.length > 1) {
+                    if (agentParts.length > 1 && agentParts.slice(1).join('').trim().length > 0) {
                         return agentParts.slice(1).join('\n\n').trim();
                     }
-                    // There is no agent response in this turn yet (e.g. paused on ask_question)
+                    // There is no agent response in this turn yet (e.g. agent is generating or paused on question)
+                    // Check if there is a previous completed turn to display
+                    for (let p = parts.length - 2; p >= 1; p--) {
+                        const prevTurn = parts[p];
+                        const prevAgentParts = prevTurn.split('🤖 Agent:');
+                        if (prevAgentParts.length > 1 && prevAgentParts.slice(1).join('').trim().length > 0) {
+                            return prevAgentParts.slice(1).join('\n\n').trim();
+                        }
+                    }
                     return "";
                 }
                 
@@ -1056,6 +1064,12 @@ async function getFullLatestResponse(port, specificTargetId = null, threadName =
     }
     
     if (modalText) return { text: modalText.trim(), buttons: modalButtons };
+
+    const isWorking = await isAgentWorking(port, targetIdToUse).catch(() => false);
+    if (isWorking) {
+        return { text: t('ask.working') || '⏳ Ajan şu anda bu talimat üzerinde çalışıyor...', buttons: null };
+    }
+    
     return { text: t('latest.not_found_active'), buttons: null };
 }
 
