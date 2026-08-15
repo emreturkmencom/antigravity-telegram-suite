@@ -3869,8 +3869,8 @@ bot.action(/^ans_(.+)$/, async (ctx) => {
         else if (val) { targetId = val.targetId; explicitThreadName = val.threadName; }
     }
     
-    // Fire-and-forget: don't block Telegraf's update loop
-    (async () => {
+    // Enqueue request so answer execution runs cleanly in sequence
+    enqueueUserRequest(async () => {
         isAgentBusy = true;
         if (global.__taskWatcher) global.__taskWatcher.setBusy(true);
         try {
@@ -3881,10 +3881,14 @@ bot.action(/^ans_(.+)$/, async (ctx) => {
             }
 
             if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
-            setReaction(ctx, REACTION.THINKING, ctx.callbackQuery.message?.message_id);
+            setReaction(ctx, REACTION.THINKING, ctx.callbackQuery.message?.message_id).catch(() => {});
             const res = await sendViaCDP(answer, CDP_PORT, targetId);
             if (typeof res === 'string' && res !== "INVALID_MODAL_OPTION") targetId = res;
             
+            if (res === "INVALID_MODAL_OPTION") {
+                return await ctx.reply(t('error.modal_active') || 'A modal is currently active in the IDE. Please select a valid option or dismiss it before sending a message.');
+            }
+
             await new Promise(r => setTimeout(r, 500));
             await snapshotChatState(CDP_PORT, targetId).catch(() => {});
 
@@ -3921,7 +3925,7 @@ bot.action(/^ans_(.+)$/, async (ctx) => {
                 global.__taskWatcher.syncBaseline();
             }
         }
-    })();
+    });
 });
 
 let isAgentBusy = false;
@@ -4114,7 +4118,8 @@ async function processAgentRequest(ctx, query, explicitTargetId, explicitThreadN
         try {
             setReaction(ctx, REACTION.THINKING).catch(() => {});
             if (explicitThreadName) await switchAgentThread(CDP_PORT, explicitThreadName).catch(()=>{});
-            const targetId = await sendViaCDP(query, CDP_PORT, explicitTargetId);
+            const result = await sendViaCDPWithRecovery(query, explicitTargetId);
+            let targetId = typeof result === 'string' ? result : (result?.targetId || explicitTargetId);
             
             if (targetId === "INVALID_MODAL_OPTION") {
                 ctx.reply(t('error.modal_active'));

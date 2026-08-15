@@ -66,9 +66,12 @@ const DriverFactory = require('../drivers');
 function buildObserverScript() {
     const buttonTexts = [
         'yes, allow this time', 'yes, and always allow', 'yes, always allow', 'allow running this command',
+        'allow url access', 'allow reading url', 'allow external link', 'allow external site', 'allow domain', 'allow access',
         'run', 'accept all', 'accept changes', 'accept all changes', 'accept', 'always allow', 'allow this conversation',
-        'allow', 'retry', 'continue',
-        'çalıştır', 'tümünü kabul et', 'değişiklikleri kabul et', 'tüm değişiklikleri kabul et', 'kabul et', 'her zaman izin ver', 'izin ver', 'yeniden dene', 'devam et'
+        'allow', 'retry', 'continue', 'grant', 'open link', 'open', 'confirm',
+        'url erişimine izin ver', 'siteye erişime izin ver', 'erişime izin ver', 'alana izin ver', 'çalıştır',
+        'tümünü kabul et', 'değişiklikleri kabul et', 'tüm değişiklikleri kabul et', 'kabul et', 'her zaman izin ver',
+        'bu seferlik izin ver', 'izin ver', 'yeniden dene', 'devam et', 'onayla', 'bağlantıyı aç'
     ];
 
     if (DriverFactory.getDriver().appType === 'agent') {

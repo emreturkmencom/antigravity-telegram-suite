@@ -810,8 +810,6 @@ async function getInteractiveModalState(port, specificTargetId = null) {
                         if (!el) return false;
                         const r = el.getBoundingClientRect();
                         if (r.width === 0 || r.height === 0) return false;
-                        if (r.bottom < 0 || r.top > window.innerHeight) return false;
-                        if (r.right < 0 || r.left > window.innerWidth) return false;
                         const s = window.getComputedStyle(el);
                         return s.display !== 'none' && s.visibility !== 'hidden' && parseFloat(s.opacity) > 0;
                     };
