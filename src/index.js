@@ -1894,19 +1894,6 @@ function getArtifactButtons(conversationId) {
     return rows;
 }
 
-function watchArtifacts(conversationId, retry = 0) {
-    if (!conversationId) return;
-
-    const driver = DriverFactory.getDriver();
-    const conversationDir = driver.getConversationDir(conversationId);
-
-    if (artifactWatchers.has(conversationDir)) return; // Already watching this folder!
-
-    if (!fs.existsSync(conversationDir)) {
-        if (retry < 5) {
-            setTimeout(() => watchArtifacts(conversationId, retry + 1), 2000);
-        }
-        return;
 function formatMarkdownForTelegram(markdownText) {
     let text = markdownText || '';
     
