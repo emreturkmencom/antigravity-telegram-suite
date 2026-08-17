@@ -385,7 +385,7 @@ function mdToNodes(mdText) {
 }
 
 function isTelegraphEnabled() {
-    return process.env.ENABLE_TELEGRAPH === 'true';
+    return process.env.ENABLE_TELEGRAPH !== 'false';
 }
 
 // 3. Page creation and editing logic with path mapping

@@ -98,8 +98,8 @@ ANTIGRAVITY_PREFERRED_APP=ide
 # 기본적으로 auto-accept 활성화
 AUTOACCEPT_DEFAULT=true
 
-# Telegraph 아티팩트 게시 활성화 (기본값: false - 개인정보 보호)
-ENABLE_TELEGRAPH=false
+# Telegraph 아티팩트 게시 활성화 (기본값: true)
+ENABLE_TELEGRAPH=true
 ```
 
 > 💡 Chat ID를 확인하려면 봇에 `/start`를 보내세요.

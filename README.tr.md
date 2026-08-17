@@ -96,8 +96,8 @@ ANTIGRAVITY_PREFERRED_APP=ide
 # Oto-onay özelliğini varsayılan olarak açık tut
 AUTOACCEPT_DEFAULT=true
 
-# Telegraph artefakt yayınını etkinleştir (varsayılan: false - gizlilik için)
-ENABLE_TELEGRAPH=false
+# Telegraph artefakt yayınını etkinleştir (varsayılan: true)
+ENABLE_TELEGRAPH=true
 ```
 
 > 💡 Chat ID'nizi öğrenmek için botunuza `/start` mesajı gönderebilirsiniz.

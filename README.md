@@ -98,8 +98,8 @@ ANTIGRAVITY_PREFERRED_APP=ide
 # Enable auto-accept by default
 AUTOACCEPT_DEFAULT=true
 
-# Enable Telegraph artifact publishing (default: false for privacy)
-ENABLE_TELEGRAPH=false
+# Enable Telegraph artifact publishing (default: true)
+ENABLE_TELEGRAPH=true
 
 # Filter which models appear in /getinfo quota output (comma-separated, matches display names)
 QUOTA_DISPLAY_MODELS=Claude Opus 4.6,Claude Sonnet 4.6,Gemini 3.5 Flash (High),Gemini 3.5 Flash (Low),Gemini 3.5 Flash (Medium),Gemini 3.1 Pro (High),Gemini 3.1 Pro (Low)
@@ -386,8 +386,7 @@ Use `/app` to switch the bot's focus between apps. The `ANTIGRAVITY_PREFERRED_AP
 |-------|---------|
 | **Standalone App Support** | All commands work fully natively with Antigravity 2.0 Standalone App. All features including `/agents`, model selection, auto-accept, and conversation tracking are supported. |
 | **Auto-Update on IDE 2.0** | If Antigravity IDE auto-updates, DOM selectors may break until the bot is also updated. |
-| **Turbo Mode Model Access** | Turbo Mode requires both Claude and Gemini models to be available. If one model is unavailable, the pipeline will fail. |
-| **Telegraph Privacy & Networks** | Telegraph publishing is disabled by default (`ENABLE_TELEGRAPH=false`). If enabled and `api.telegra.ph` is blocked, set `TELEGRAPH_API_HOST=api.graph.org` in your `.env` (default). |
+| **Telegraph Privacy & Networks** | Telegraph publishing is enabled by default (`ENABLE_TELEGRAPH=true`) with 128-bit unguessable crypto slug URLs. To disable, set `ENABLE_TELEGRAPH=false` or use `/telegraph off`. If `api.telegra.ph` is blocked on your network, set `TELEGRAPH_API_HOST=api.graph.org` in your `.env` (default). |
 
 ---
 

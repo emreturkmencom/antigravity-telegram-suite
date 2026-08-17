@@ -98,8 +98,8 @@ ANTIGRAVITY_PREFERRED_APP=ide
 # 默认启用自动接受
 AUTOACCEPT_DEFAULT=true
 
-# 启用 Telegraph 产物发布（默认：false 以保护隐私）
-ENABLE_TELEGRAPH=false
+# 启用 Telegraph 产物发布（默认：true）
+ENABLE_TELEGRAPH=true
 ```
 
 > 💡 向 Bot 发送 `/start` 以获取你的 Chat ID。

@@ -98,8 +98,8 @@ ANTIGRAVITY_PREFERRED_APP=ide
 # Auto-Accept standardmäßig aktivieren
 AUTOACCEPT_DEFAULT=true
 
-# Telegraph-Artefaktveröffentlichung aktivieren (Standard: false für Datenschutz)
-ENABLE_TELEGRAPH=false
+# Telegraph-Artefaktveröffentlichung aktivieren (Standard: true)
+ENABLE_TELEGRAPH=true
 ```
 
 > 💡 Sende `/start` an deinen Bot, um deine Chat-ID zu erhalten.

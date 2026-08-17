@@ -98,8 +98,8 @@ ANTIGRAVITY_PREFERRED_APP=ide
 # Habilitar la auto-aceptación por defecto
 AUTOACCEPT_DEFAULT=true
 
-# Habilitar publicación de artefactos en Telegraph (predeterminado: false por privacidad)
-ENABLE_TELEGRAPH=false
+# Habilitar publicación de artefactos en Telegraph (predeterminado: true)
+ENABLE_TELEGRAPH=true
 ```
 
 > 💡 Envía `/start` a tu bot para obtener tu Chat ID.

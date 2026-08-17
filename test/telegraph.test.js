@@ -61,31 +61,49 @@ Here is a link: [Google](https://google.com) and some **bold text** and \`code\`
     printResult('testMarkdownParsing', true);
 }
 
-async function testTelegraphDisabledByDefault() {
-    const tempFile = path.join(os.tmpdir(), `test-telegraph-disabled-${Date.now()}.md`);
+async function testTelegraphEnabledByDefault() {
     const prevEnv = process.env.ENABLE_TELEGRAPH;
     try {
         delete process.env.ENABLE_TELEGRAPH;
+        // When ENABLE_TELEGRAPH is not set, it should default to true for backwards compatibility
+        if (telegraph.isTelegraphEnabled() !== true) {
+            throw new Error(`Expected isTelegraphEnabled() to default to true when unset, got: ${telegraph.isTelegraphEnabled()}`);
+        }
+        printResult('testTelegraphEnabledByDefault', true);
+    } finally {
+        if (prevEnv !== undefined) {
+            process.env.ENABLE_TELEGRAPH = prevEnv;
+        } else {
+            delete process.env.ENABLE_TELEGRAPH;
+        }
+    }
+}
+
+async function testTelegraphExplicitlyDisabled() {
+    const tempFile = path.join(os.tmpdir(), `test-telegraph-disabled-${Date.now()}.md`);
+    const prevEnv = process.env.ENABLE_TELEGRAPH;
+    try {
+        process.env.ENABLE_TELEGRAPH = 'false';
         fs.writeFileSync(tempFile, '# Test Content', 'utf-8');
 
         // 1. isTelegraphEnabled() should return false
         if (telegraph.isTelegraphEnabled() !== false) {
-            throw new Error(`Expected isTelegraphEnabled() to be false, got: ${telegraph.isTelegraphEnabled()}`);
+            throw new Error(`Expected isTelegraphEnabled() to be false when set to 'false', got: ${telegraph.isTelegraphEnabled()}`);
         }
 
         // 2. publishOrUpdateArtifact() should return null without making any requests
         const url = await telegraph.publishOrUpdateArtifact(tempFile, 'Disabled Test');
         if (url !== null) {
-            throw new Error(`Expected null when ENABLE_TELEGRAPH is not set, got: ${url}`);
+            throw new Error(`Expected null when ENABLE_TELEGRAPH='false', got: ${url}`);
         }
 
         // 3. getPageMapping() should return null
         const mapping = telegraph.getPageMapping(tempFile);
         if (mapping !== null) {
-            throw new Error(`Expected null mapping when ENABLE_TELEGRAPH is not set, got: ${mapping}`);
+            throw new Error(`Expected null mapping when ENABLE_TELEGRAPH='false', got: ${mapping}`);
         }
 
-        printResult('testTelegraphDisabledByDefault', true);
+        printResult('testTelegraphExplicitlyDisabled', true);
     } finally {
         if (prevEnv !== undefined) {
             process.env.ENABLE_TELEGRAPH = prevEnv;
@@ -142,7 +160,8 @@ async function runAll() {
 
     const tests = [
         { name: 'testMarkdownParsing', fn: testMarkdownParsing },
-        { name: 'testTelegraphDisabledByDefault', fn: testTelegraphDisabledByDefault },
+        { name: 'testTelegraphEnabledByDefault', fn: testTelegraphEnabledByDefault },
+        { name: 'testTelegraphExplicitlyDisabled', fn: testTelegraphExplicitlyDisabled },
         { name: 'testTelegraphPublishAndEdit', fn: testTelegraphPublishAndEdit }
     ];
 
