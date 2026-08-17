@@ -47,7 +47,7 @@ Send messages, switch AI models, manage workspaces, take screenshots, and run mu
 | 🖥️ **Cross-Platform** | Works on Linux, macOS (Intel & Apple Silicon), and Windows |
 | 🔀 **Dual App Support** | Seamlessly switch between Antigravity IDE and Standalone Agent App |
 | 🔐 **Multi-Account Switching** | Authenticate and switch between Google accounts, injecting credentials directly into the IDE database or OS keychain |
-| 📡 **Telegraph Publishing** | Task checklists, implementation plans, and walkthroughs are automatically published to telegra.ph and shared as tap-to-open links in Telegram for better visibility and readability |
+| 📡 **Telegraph Publishing** | Task checklists, implementation plans, and walkthroughs can be published with 128-bit unguessable crypto slug URLs (or kept private in chat), with full toggle and wipe controls |
 
 
 ---
@@ -97,6 +97,9 @@ ANTIGRAVITY_PREFERRED_APP=ide
 
 # Enable auto-accept by default
 AUTOACCEPT_DEFAULT=true
+
+# Enable Telegraph artifact publishing (default: false for privacy)
+ENABLE_TELEGRAPH=false
 
 # Filter which models appear in /getinfo quota output (comma-separated, matches display names)
 QUOTA_DISPLAY_MODELS=Claude Opus 4.6,Claude Sonnet 4.6,Gemini 3.5 Flash (High),Gemini 3.5 Flash (Low),Gemini 3.5 Flash (Medium),Gemini 3.1 Pro (High),Gemini 3.1 Pro (Low)
@@ -226,6 +229,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/file` | Browse & download project files |
 | `/artifacts` | List and download artifacts from the current thread |
 | `/autoaccept` | Toggle auto-accept (on / off / status) |
+| `/telegraph` | Toggle Telegraph artifact publishing (on / off / status & wipe buttons) |
+| `/cleartelegraph` | Wipe published Telegraph pages and replace with redaction notices |
 | `/lang` | Switch display language |
 | `/update` | Check for updates, view changelog, and auto-update the bot |
 | `/version` | Show current version info |
@@ -308,7 +313,7 @@ antigravity-telegram-suite/
 │   ├── model_utils.js         # Model name normalization & fuzzy-matching utilities
 │   ├── account_manager.js     # Google OAuth login, multi-account store, credential injection
 │   ├── protobuf_utils.js      # Zero-dependency protobuf serialization for credential injection
-│   ├── telegraph_publisher.js # Publishes task/plan/walkthrough to telegra.ph; maps file links to URLs
+│   ├── telegraph_publisher.js # Publishes task/plan/walkthrough with crypto slug URLs, toggle & wiper
 │   ├── cdp_health.js          # CDP connection health-check helpers
 │   ├── local_media.js         # Local image extraction from markdown
 │   └── watchdog.js            # Bot process watchdog / auto-restart
@@ -382,7 +387,7 @@ Use `/app` to switch the bot's focus between apps. The `ANTIGRAVITY_PREFERRED_AP
 | **Standalone App Support** | All commands work fully natively with Antigravity 2.0 Standalone App. All features including `/agents`, model selection, auto-accept, and conversation tracking are supported. |
 | **Auto-Update on IDE 2.0** | If Antigravity IDE auto-updates, DOM selectors may break until the bot is also updated. |
 | **Turbo Mode Model Access** | Turbo Mode requires both Claude and Gemini models to be available. If one model is unavailable, the pipeline will fail. |
-| **Telegraph on restricted networks** | If `api.telegra.ph` is blocked, set `TELEGRAPH_API_HOST=api.graph.org` in your `.env` (this is already the default). |
+| **Telegraph Privacy & Networks** | Telegraph publishing is disabled by default (`ENABLE_TELEGRAPH=false`). If enabled and `api.telegra.ph` is blocked, set `TELEGRAPH_API_HOST=api.graph.org` in your `.env` (default). |
 
 ---
 

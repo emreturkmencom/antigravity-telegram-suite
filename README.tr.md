@@ -46,6 +46,7 @@ Telefonunuzdan mesaj gönderin, yapay zeka modellerini değiştirin, çalışma 
 | ⌨️ **Yazıyor Göstergesi** | Ajan çalışırken Telegram’da "yazıyor..." durumunu gösterir |
 | 🖥️ **Çapraz Platform** | Linux, macOS (Intel & Apple Silicon) ve Windows’ta çalışır |
 | 🔀 **Çift Uygulama Desteği** | Antigravity IDE ve Standalone App arasında sorunsuzca geçiş yapın |
+| 📡 **Telegraph Yayını** | Görev listeleri, planlar ve walkthrough belgeleri 128-bit tahmin edilemez kripto slug URL'leri ile yayınlanabilir (veya sohbette gizli tutulabilir), tam açma/kapama ve silme kontrolü |
 
 ---
 
@@ -94,6 +95,9 @@ ANTIGRAVITY_PREFERRED_APP=ide
 
 # Oto-onay özelliğini varsayılan olarak açık tut
 AUTOACCEPT_DEFAULT=true
+
+# Telegraph artefakt yayınını etkinleştir (varsayılan: false - gizlilik için)
+ENABLE_TELEGRAPH=false
 ```
 
 > 💡 Chat ID'nizi öğrenmek için botunuza `/start` mesajı gönderebilirsiniz.
@@ -203,6 +207,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/file` | Proje dosyalarına göz atın ve indirin |
 | `/artifacts` | Mevcut sohbetteki artifact (dosya) çıktılarını listeler ve indirir |
 | `/autoaccept` | Oto-onay özelliğini yönetir (aç / kapat / durum) |
+| `/telegraph` | Telegraph yayınını aç/kapat (aç / kapat / durum ve silme butonları) |
+| `/cleartelegraph` | Yayınlanan Telegraph sayfalarını temizle ve kaldırma bildirimleriyle değiştir |
 | `/lang` | Görüntüleme dilini değiştirir |
 | `/update` | Güncellemeleri kontrol eder, changelog'u gösterir ve botu otomatik günceller |
 | `/version` | Mevcut sürüm bilgisini gösterir |

@@ -48,6 +48,7 @@ Envía mensajes, cambia modelos de IA, administra espacios de trabajo, toma capt
 | ⌨️ **Indicador de Escritura** | Muestra "escribiendo..." en Telegram mientras el agente está trabajando |
 | 🖥️ **Multi-Plataforma** | Funciona en Linux, macOS (Intel y Apple Silicon) y Windows |
 | 🔀 **Soporte de Aplicación Dual** | Cambia sin problemas entre Antigravity IDE y Standalone Agent App |
+| 📡 **Publicación en Telegraph** | Las listas de tareas, planes y recorridos se pueden publicar con URLs con slug criptográfico indescifrable de 128 bits (o mantenerse privados en el chat), con control total de activación y borrado |
 
 ---
 
@@ -96,6 +97,9 @@ ANTIGRAVITY_PREFERRED_APP=ide
 
 # Habilitar la auto-aceptación por defecto
 AUTOACCEPT_DEFAULT=true
+
+# Habilitar publicación de artefactos en Telegraph (predeterminado: false por privacidad)
+ENABLE_TELEGRAPH=false
 ```
 
 > 💡 Envía `/start` a tu bot para obtener tu Chat ID.
@@ -205,6 +209,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/file` | Explorar y descargar archivos del proyecto |
 | `/artifacts` | Enumerar y descargar artefactos del hilo actual |
 | `/autoaccept` | Alternar la aceptación automática (on / off / estado) |
+| `/telegraph` | Alternar publicación en Telegraph (on / off / estado y botones de borrado) |
+| `/cleartelegraph` | Borrar páginas publicadas en Telegraph y reemplazarlas con avisos de eliminación |
 | `/lang` | Cambiar el idioma de visualización |
 | `/update` | Buscar actualizaciones y auto-actualizar el bot |
 | `/version` | Mostrar la información de la versión actual |
