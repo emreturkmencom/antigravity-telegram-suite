@@ -189,7 +189,21 @@
     "getplan_desc": "Get the latest Implementation Plan",
     "getwalk_desc": "Get the latest Walkthrough",
     "closeall_desc": "Close all open file tabs",
-    "watcher_desc": "Toggle background Task Watcher"
+    "watcher_desc": "Toggle background Task Watcher",
+    "telegraph_desc": "Toggle Telegraph artifact uploads",
+    "cleartelegraph_desc": "Wipe published Telegraph pages"
+  },
+  "telegraph": {
+    "enabled": "🌐 <b>Telegraph Publishing:</b> ENABLED\n\nArtifacts will be published to Telegraph/graph.org with unguessable URLs.",
+    "disabled": "🔒 <b>Telegraph Publishing:</b> DISABLED\n\nArtifacts will remain private and be delivered directly inside Telegram chat.",
+    "status": "🌐 <b>Telegraph Publishing Status:</b>\n\n• State: <b>{state}</b>\n• Security: 128-bit unguessable crypto slug URLs\n\n<i>Use /telegraph on to enable or /telegraph off to disable.</i>",
+    "state_on": "🟢 ENABLED (Public graph.org)",
+    "state_off": "🔒 DISABLED (Private direct chat)",
+    "btn_turn_on": "🟢 Turn ON",
+    "btn_turn_off": "🔴 Turn OFF",
+    "btn_wipe": "Wipe Pages",
+    "wiping": "🗑️ Wiping published Telegraph pages for privacy & security...",
+    "wiped": "✅ Successfully wiped {count} Telegraph page(s). Artifact contents have been replaced with removal notices on graph.org."
   },
   "watcher": {
     "enabled": "👁️ <b>Task Watcher:</b> ENABLED\n\nBackground agent notifications are active.",

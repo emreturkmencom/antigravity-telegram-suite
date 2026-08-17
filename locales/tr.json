@@ -189,7 +189,21 @@
     "getplan_desc": "En son Uygulama Planını getir",
     "getwalk_desc": "Son Walkthrough belgesini getirir",
     "closeall_desc": "Tüm açık dosya sekmelerini kapatır",
-    "watcher_desc": "Arka plan Task Watcher'ı aç/kapat"
+    "watcher_desc": "Arka plan Task Watcher'ı aç/kapat",
+    "telegraph_desc": "Telegraph yüklemelerini aç/kapat",
+    "cleartelegraph_desc": "Yayınlanan Telegraph sayfalarını temizle"
+  },
+  "telegraph": {
+    "enabled": "🌐 <b>Telegraph Yayını:</b> AKTİF\n\nArtefaktlar tahmin edilemez URL'ler ile Telegraph/graph.org üzerinde yayınlanacak.",
+    "disabled": "🔒 <b>Telegraph Yayını:</b> KAPALI\n\nArtefaktlar gizli tutulacak ve doğrudan Telegram sohbetine iletilecektir.",
+    "status": "🌐 <b>Telegraph Yayın Durumu:</b>\n\n• Durum: <b>{state}</b>\n• Güvenlik: 128-bit tahmin edilemez kripto slug URL'leri\n\n<i>Açmak için /telegraph on, kapatmak için /telegraph off kullanın.</i>",
+    "state_on": "🟢 AKTİF (Herkese Açık graph.org)",
+    "state_off": "🔒 KAPALI (Gizli Doğrudan Sohbet)",
+    "btn_turn_on": "🟢 Aç",
+    "btn_turn_off": "🔴 Kapat",
+    "btn_wipe": "Sayfaları Sil",
+    "wiping": "🗑️ Gizlilik ve güvenlik için yayınlanan Telegraph sayfaları siliniyor...",
+    "wiped": "✅ {count} adet Telegraph sayfası başarıyla temizlendi. İçerikler graph.org üzerinde kaldırma bildirimi ile değiştirildi."
   },
   "watcher": {
     "enabled": "👁️ <b>Task Watcher:</b> AKTİF\n\nArka plan ajan bildirimleri açık.",
