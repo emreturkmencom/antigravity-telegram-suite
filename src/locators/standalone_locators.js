@@ -71,6 +71,9 @@ const STANDALONE_LOCATORS_SCRIPT = `
         },
 
         getStopButton: () => {
+            const editor = AG_UI.getChatInput();
+            const card = editor?.closest('.bg-card, form, [class*="composer"], [class*="input-container"]') || editor?.parentElement?.parentElement?.parentElement?.parentElement || document;
+
             const selectors = [
                 'button[aria-label*="Cancel" i]',
                 'button[aria-label*="Stop" i]',
@@ -81,10 +84,10 @@ const STANDALONE_LOCATORS_SCRIPT = `
                 'button[data-tooltip-id*="cancel" i]',
                 'button[data-tooltip-id*="stop" i]'
             ];
-            const btn = document.querySelector(selectors.join(', '));
+            const btn = card.querySelector(selectors.join(', '));
             if (btn && AG_UI.isVisible(btn)) return btn;
             
-            const stopIcon = document.querySelector(
+            const stopIcon = card.querySelector(
                 "svg.lucide-square, svg.lucide-circle-stop, [data-tooltip-id*='cancel'], [aria-label*='Stop']"
             );
             if (stopIcon) return stopIcon.closest('button') || stopIcon;
@@ -102,7 +105,7 @@ const STANDALONE_LOCATORS_SCRIPT = `
             ];
             
             return Array.from(chatArea.querySelectorAll(selectors.join(', '))).some(el => {
-                if (el.closest('nav, aside, [role="navigation"], button[class*="headerbtn"], [data-project-card]')) return false;
+                if (el.closest('nav, aside, [role="navigation"], button[class*="headerbtn"], [data-project-card], [class*="task"]')) return false;
                 if (!AG_UI.isVisible(el)) return false;
                 return true;
             });

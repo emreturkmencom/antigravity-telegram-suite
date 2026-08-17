@@ -54,11 +54,30 @@ function isLikelyClassicIDETarget(target = {}) {
 }
 
 function parseSelectableSlashCommand(prompt) {
-    const match = String(prompt || '').trim().match(/^\/([a-zA-Z][\w-]*)(?:\s+([\s\S]*))?$/);
-    if (!match) return null;
-    const command = match[1].toLowerCase();
-    if (command !== 'goal') return null;
-    return { command, args: (match[2] || '').trim() };
+    const trimmed = String(prompt || '').trim();
+    if (!trimmed.startsWith('/')) return null;
+
+    let rest = trimmed;
+    const commands = [];
+
+    while (rest.startsWith('/')) {
+        const tokenMatch = rest.match(/^\/([a-zA-Z0-9_-]+)/);
+        if (!tokenMatch) break;
+        const raw = tokenMatch[1];
+        const normalized = raw.toLowerCase().replace(/_/g, '-');
+        commands.push({ command: normalized, rawCommand: normalized });
+        rest = rest.substring(tokenMatch[0].length).trimStart();
+    }
+
+    if (commands.length === 0) return null;
+    const args = rest.trim();
+
+    return {
+        commands,
+        command: commands[0].command,
+        rawCommand: commands[0].rawCommand,
+        args
+    };
 }
 
 function getSelectableSlashCommandForTarget(prompt, target = {}) {
@@ -770,15 +789,17 @@ async function _domLatestExtraction(port, specificTargetId = null) {
                     continue; // Try next candidate
                 }
                 
-                // Try to find the last user message
+                // Try to find the last user message and agent response
                 const parts = fullText.split('👤 User:');
                 if (parts.length > 1) {
-                    const lastTurn = parts[parts.length - 1];
-                    const agentParts = lastTurn.split('🤖 Agent:');
-                    if (agentParts.length > 1) {
-                        return agentParts.slice(1).join('\\n\\n').trim();
+                    for (let p = parts.length - 1; p >= 1; p--) {
+                        const turn = parts[p];
+                        const agentParts = turn.split('🤖 Agent:');
+                        if (agentParts.length > 1) {
+                            return agentParts.slice(1).join('\n\n').trim();
+                        }
                     }
-                    return lastTurn.trim();
+                    return parts[parts.length - 1].trim();
                 }
                 
                 // If no User tag found, the fallback might have just returned all text.
@@ -1265,7 +1286,7 @@ async function sendViaCDP(text, port, specificTargetId = null) {
             await Runtime.enable();
 
             const slashCommand = getSelectableSlashCommandForTarget(text, target);
-            const focusComposer = async () => {
+            const focusAndClearComposer = async () => {
                 const res = await Runtime.evaluate({
                     expression: `
                         ${DriverFactory.getDriver().getLocatorsScript()}
@@ -1273,6 +1294,18 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                             const editor = AG_UI.getChatInput();
                             if (!editor) return false;
                             editor.focus();
+                            try {
+                                const sel = window.getSelection();
+                                const range = document.createRange();
+                                range.selectNodeContents(editor);
+                                sel.removeAllRanges();
+                                sel.addRange(range);
+                                document.execCommand('delete', false, null);
+                            } catch(e) {}
+                            if (editor.textContent && editor.textContent.length > 0) {
+                                editor.innerHTML = '';
+                            }
+                            editor.dispatchEvent(new Event('input', { bubbles: true }));
                             return true;
                         })()
                     `,
@@ -1280,29 +1313,52 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                 });
                 return !!res?.result?.value;
             };
-            const nativeClearComposer = async () => {
-                const isMac = process.platform === 'darwin';
-                const modifier = isMac ? 4 : 2;
-                const modifierKey = isMac ? 'Meta' : 'Control';
-                const modifierCode = isMac ? 'MetaLeft' : 'ControlLeft';
-                const modifierVk = isMac ? 91 : 17;
-                await Input.dispatchKeyEvent({ type: 'keyDown', key: modifierKey, code: modifierCode, windowsVirtualKeyCode: modifierVk, nativeVirtualKeyCode: modifierVk, modifiers: modifier });
-                await Input.dispatchKeyEvent({ type: 'keyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, nativeVirtualKeyCode: 65, modifiers: modifier });
-                await Input.dispatchKeyEvent({ type: 'keyUp', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, nativeVirtualKeyCode: 65, modifiers: modifier });
-                await Input.dispatchKeyEvent({ type: 'keyUp', key: modifierKey, code: modifierCode, windowsVirtualKeyCode: modifierVk, nativeVirtualKeyCode: modifierVk, modifiers: 0 });
-                await Input.dispatchKeyEvent({ type: 'keyDown', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8 });
-                await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 });
-            };
-            const nativeTypeComposer = async (value) => {
-                await Input.insertText({ text: value || '' });
-            };
-            const preparedSlashCommand = slashCommand && await focusComposer().then(async focused => {
-                if (!focused) return { slashPrefixTyped: false };
-                await nativeClearComposer();
+            const preparedSlashCommand = slashCommand && await focusAndClearComposer().then(async focused => {
+                if (!focused) return { slashPrefixTyped: false, chipInserted: false };
                 await new Promise(r => setTimeout(r, 100));
-                await nativeTypeComposer('/');
-                return { slashPrefixTyped: true };
-            }).catch(() => ({ slashPrefixTyped: false }));
+
+                for (let i = 0; i < (slashCommand.commands || []).length; i++) {
+                    const cmd = slashCommand.commands[i];
+                    // 1. Send '/' keydown/keyup to open the typeahead menu
+                    await Input.dispatchKeyEvent({ type: 'keyDown', text: '/', key: '/', code: 'Slash', windowsVirtualKeyCode: 191 });
+                    await Input.dispatchKeyEvent({ type: 'keyUp', key: '/', code: 'Slash', windowsVirtualKeyCode: 191 });
+                    await new Promise(r => setTimeout(r, 150));
+                    // 2. Type the command name to filter the dropdown
+                    await Input.insertText({ text: cmd.rawCommand });
+                    await new Promise(r => setTimeout(r, 250));
+                    // 3. Press Enter to select the item and generate the rich chip!
+                    await Input.dispatchKeyEvent({ type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+                    await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+                    await new Promise(r => setTimeout(r, 200));
+                    // 4. Space after chip to allow subsequent chips or text
+                    await Input.insertText({ text: ' ' });
+                    await new Promise(r => setTimeout(r, 100));
+                }
+
+                // 5. Check if decorator chip was actually created in editor
+                const checkRes = await Runtime.evaluate({
+                    expression: `
+                        ${DriverFactory.getDriver().getLocatorsScript()}
+                        (() => {
+                            const editor = AG_UI.getChatInput();
+                            return !!editor?.querySelector('[data-lexical-decorator="true"], [data-uri]');
+                        })()
+                    `,
+                    returnByValue: true
+                });
+                const anyChipInserted = !!checkRes?.result?.value;
+
+                if (anyChipInserted) {
+                    if (slashCommand.args) {
+                        await Input.insertText({ text: slashCommand.args });
+                    }
+                    return { slashPrefixTyped: true, chipInserted: true };
+                } else {
+                    // Non-existent slash command or normal text -> clean reset and fallback to normal text typing!
+                    await focusAndClearComposer();
+                    return { slashPrefixTyped: false, chipInserted: false };
+                }
+            }).catch(() => ({ slashPrefixTyped: false, chipInserted: false }));
 
             const focusResult = await withTimeout(Runtime.evaluate({
                 expression: `
@@ -1441,49 +1497,30 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                             
                             if (!editor) return { found: false, reason: "no_editor", editorCount: 0 };
 
-                            if (slashCommand) {
-                                if (!preparedSlashCommand || !preparedSlashCommand.slashPrefixTyped) {
-                                    return { found: false, reason: "slash_command_prefix_not_typed", command: slashCommand.command };
-                                }
-                                await new Promise(r => setTimeout(r, 400));
-                                const optionCandidates = Array.from(document.querySelectorAll('button, [role="option"], [role="menuitem"], [cmdk-item], div[role="button"]'))
-                                    .filter(el => el.offsetParent !== null);
-                                const slashOption = optionCandidates.find(el => {
-                                    const optionText = (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim().toLowerCase();
-                                    return optionText === slashCommand.command || optionText.startsWith(slashCommand.command + ' ');
-                                });
-                                if (!slashOption) {
-                                    return { found: false, reason: "slash_command_option_not_found", command: slashCommand.command };
-                                }
-                                return {
-                                    found: true,
-                                    method: 'slash_' + slashCommand.command,
-                                    slashOptionRect: rectOf(slashOption),
-                                    nativeTextAfterSelect: slashCommand.args,
-                                    target: '${target.title?.substring(0, 30) || 'unknown'}'
-                                };
-                            }
+                            if (slashCommand && preparedSlashCommand && preparedSlashCommand.chipInserted) {
+                                // The chip was already created and any args typed into the composer by preparedSlashCommand!
+                            } else {
+                                editor.focus();
+                                try {
+                                    document.execCommand("selectAll", false, null);
+                                    document.execCommand("delete", false, null);
+                                } catch(e) {}
 
-                            editor.focus();
-                            try {
-                                document.execCommand("selectAll", false, null);
-                                document.execCommand("delete", false, null);
-                            } catch(e) {}
-
-                            let inserted = false;
-                            try { inserted = !!document.execCommand("insertText", false, escapedText); } catch(e) {}
-                            
-                            if (!inserted) {
-                                if (editor.tagName === 'TEXTAREA') {
-                                    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-                                    if (setter) setter.call(editor, escapedText);
-                                    else editor.value = escapedText;
-                                } else {
-                                    editor.textContent = escapedText;
+                                let inserted = false;
+                                try { inserted = !!document.execCommand("insertText", false, escapedText); } catch(e) {}
+                                
+                                if (!inserted) {
+                                    if (editor.tagName === 'TEXTAREA') {
+                                        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+                                        if (setter) setter.call(editor, escapedText);
+                                        else editor.value = escapedText;
+                                    } else {
+                                        editor.textContent = escapedText;
+                                    }
+                                    editor.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, inputType: "insertText", data: escapedText }));
+                                    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: escapedText }));
+                                    editor.dispatchEvent(new Event("change", { bubbles: true }));
                                 }
-                                editor.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, inputType: "insertText", data: escapedText }));
-                                editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: escapedText }));
-                                editor.dispatchEvent(new Event("change", { bubbles: true }));
                             }
 
                             // Use setTimeout instead of requestAnimationFrame so it doesn't hang when minimized!
