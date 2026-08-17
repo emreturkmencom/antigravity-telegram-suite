@@ -241,6 +241,27 @@ function buildStandaloneObserverScript(buttonTexts, blockedCommands, allowedComm
                     }
                 }
             }
+        // Check for stuck queued messages when agent is idle
+        var cancelBtn = document.querySelector('button[aria-label*="Cancel"], button[title*="Cancel"], button[data-testid="cancel-button"]');
+        if (!cancelBtn) {
+            var queuedElements = Array.from(document.querySelectorAll('*')).filter(function(e) {
+                return (e.innerText || e.textContent || '').includes('Sends after agent') && e.children.length > 0 && e.children.length < 8;
+            });
+            for (var qi = 0; qi < queuedElements.length; qi++) {
+                var qContainer = queuedElements[qi];
+                var sendBtn = qContainer.querySelector('svg.lucide-arrow-right, svg[class*="arrow"], [aria-label*="Send"], [title*="Send"], button, div.cursor-pointer');
+                if (sendBtn) {
+                    var qKey = _domPath(qContainer) + ':queued-send';
+                    if (!clickCooldowns[qKey] || (now - clickCooldowns[qKey] > 3000)) {
+                        clickCooldowns[qKey] = now;
+                        sendBtn.click();
+                        window.__AA_BOT_CLICK_COUNT = (window.__AA_BOT_CLICK_COUNT || 0) + 1;
+                        window.__AA_BOT_CLICK_LOG.push({ text: 'DISPATCH_QUEUED_MSG', tag: (sendBtn.tagName || '').toLowerCase(), time: now });
+                        if (window.__AA_BOT_CLICK_LOG.length > 20) window.__AA_BOT_CLICK_LOG.shift();
+                        return 'clicked:queued_message_send';
+                    }
+                }
+            }
         }
 
         for (var scan = 0; scan < 5; scan++) {
