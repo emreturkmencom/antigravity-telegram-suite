@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const https = require('https');
+const crypto = require('crypto');
 const DriverFactory = require('./drivers');
 
 const instances = {};
@@ -383,8 +384,16 @@ function mdToNodes(mdText) {
     return nodes;
 }
 
+function isTelegraphEnabled() {
+    return process.env.ENABLE_TELEGRAPH === 'true';
+}
+
 // 3. Page creation and editing logic with path mapping
 async function publishOrUpdateArtifact(filePath, title) {
+    if (!isTelegraphEnabled()) {
+        return null;
+    }
+
     let instance = getInstance();
     if (!instance.accessToken) {
         await init();
@@ -417,14 +426,32 @@ async function publishOrUpdateArtifact(filePath, title) {
         }
     }
 
-    console.log(`[Telegraph][${getAppDataName()}] Creating new page for file: ${filePath}`);
+    // Create page with a crypto-random title to produce an unguessable URL slug.
+    // The Telegraph URL path is derived from the title at creation time and is immutable,
+    // so we immediately edit the page afterwards to set the real human-readable title.
+    const slugToken = crypto.randomBytes(16).toString('hex');
+    console.log(`[Telegraph][${getAppDataName()}] Creating new page with unguessable slug for file: ${filePath}`);
     // content must be a JSON array (not a string) per the Telegraph API spec
     const result = await makeRequestWithRetry('createPage', {
         access_token: instance.accessToken,
-        title: title,
+        title: slugToken,
         author_name: 'Antigravity Agent',
         content: nodes
     });
+
+    // Now edit the page to set the real human-readable title (URL path stays as the random slug)
+    try {
+        await makeRequestWithRetry('editPage', {
+            access_token: instance.accessToken,
+            path: result.path,
+            title: title,
+            author_name: 'Antigravity Agent',
+            content: nodes
+        });
+        console.log(`[Telegraph][${getAppDataName()}] Set display title to: ${title}`);
+    } catch (editErr) {
+        console.warn(`[Telegraph][${getAppDataName()}] Created page but failed to set display title: ${editErr.message}`);
+    }
 
     instance.pageMappings[key] = {
         url: result.url,
@@ -441,9 +468,45 @@ async function publishOrUpdateArtifact(filePath, title) {
 }
 
 function getPageMapping(filePath) {
+    if (!isTelegraphEnabled()) {
+        return null;
+    }
     const key = path.normalize(filePath).toLowerCase();
     const instance = getInstance();
     return instance.pageMappings[key] || null;
+}
+
+async function wipePublishedPages() {
+    let instance = getInstance();
+    if (!instance.accessToken) {
+        await init();
+        instance = getInstance();
+    }
+    if (!instance.accessToken) {
+        throw new Error('Telegraph access token is not initialized');
+    }
+
+    let wipedCount = 0;
+    const removalNodes = mdToNodes('> [!IMPORTANT]\n> **Content Removed**\n>\n> The contents of this artifact have been permanently removed for privacy & security.');
+
+    for (const key of Object.keys(instance.pageMappings)) {
+        const mapping = instance.pageMappings[key];
+        if (mapping && mapping.path) {
+            try {
+                await makeRequestWithRetry('editPage', {
+                    access_token: instance.accessToken,
+                    path: mapping.path,
+                    title: 'Artifact Removed',
+                    author_name: 'Antigravity Agent',
+                    content: removalNodes
+                });
+                wipedCount++;
+            } catch (err) {
+                console.error(`[Telegraph] Failed to wipe page ${mapping.path}:`, err.message);
+            }
+        }
+    }
+    return wipedCount;
 }
 
 module.exports = {
@@ -451,5 +514,7 @@ module.exports = {
     publishOrUpdateArtifact,
     mdToNodes,
     parseInline,
-    getPageMapping
+    getPageMapping,
+    isTelegraphEnabled,
+    wipePublishedPages
 };
