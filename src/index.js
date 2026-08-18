@@ -1077,6 +1077,7 @@ async function buildMainMenu(overrideThread = null, overrideWorkspace = null, ta
 
 async function sendMainMenu(ctx, text = '🕹️ Kontrol Paneli:', overrideThread = null, overrideWorkspace = null, targetId = null, editMessageId = null) {
     const kb = await buildMainMenu(overrideThread, overrideWorkspace, targetId);
+    const extra = { parse_mode: 'HTML', ...kb };
     
     if (editMessageId) {
         // We do NOT pass kb here because kb contains a ReplyKeyboardMarkup, which Telegram API 
@@ -1084,19 +1085,12 @@ async function sendMainMenu(ctx, text = '🕹️ Kontrol Paneli:', overrideThrea
         return ctx.telegram.editMessageText(ctx.chat.id, editMessageId, undefined, text, { parse_mode: 'HTML' }).catch(e => {
             console.error('[sendMainMenu] editMessageText failed:', e.message);
             if (!e.message.includes('message is not modified')) {
-                return ctx.reply(text, kb);
+                return ctx.reply(text, extra);
             }
         });
     }
 
-    if (ctx.callbackQuery && ctx.callbackQuery.message) {
-        return ctx.editMessageText(text, kb).catch(e => {
-            if (!e.message.includes('message is not modified')) {
-                return ctx.reply(text, kb);
-            }
-        });
-    }
-    return ctx.reply(text, kb);
+    return ctx.reply(text, extra);
 }
 
 async function pushMainMenuToUser(text, silent = false) {
@@ -1622,14 +1616,12 @@ async function executeAgentThreadSwitch(ctx, thread, isCallback = false) {
     const successMsg = t('agents.switched', { name: escapeHtml(thread.name) });
     if (isCallback) {
         try { await ctx.answerCbQuery(t('agents.switched_plain', { name: thread.name })); } catch(_) {}
-        try {
-            await ctx.editMessageText(successMsg, { parse_mode: 'HTML' });
-        } catch (_) {}
-    } else {
-        await ctx.reply(successMsg, { parse_mode: 'HTML' });
+        try { await ctx.deleteMessage(); } catch (_) {
+            try { await ctx.editMessageReplyMarkup({ inline_keyboard: [] }); } catch (__) {}
+        }
     }
 
-    await sendMainMenu(ctx, t('agents.switched_plain', { name: thread.name }), thread.name, thread.workspace);
+    await sendMainMenu(ctx, successMsg, thread.name, thread.workspace);
     return true;
 }
 
