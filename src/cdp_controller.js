@@ -1218,9 +1218,22 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null,
                                 });
                             }
                             
-                            const isIdle = !isGenerating && (!isInputDisabled || isModal) && !isSpinning && !hasPendingButton;
+                            // Check if there are messages stuck in IDE's internal queued messages box
+                            const hasQueuedMessages = Array.from(document.querySelectorAll('*')).some(e => {
+                                const t = e.innerText || e.textContent || '';
+                                return t.includes('Sends after agent') || t.includes('Queued Messages');
+                            });
+                            
+                            // If queued messages exist and agent is not generating, trigger send
+                            if (hasQueuedMessages && !isGenerating) {
+                                const qEl = Array.from(document.querySelectorAll('*')).find(e => (e.innerText || e.textContent || '').includes('Sends after agent'));
+                                const sendBtn = qEl?.closest('div')?.querySelector('svg.lucide-arrow-right, svg[class*="arrow"], [aria-label*="Send"], [title*="Send"], button, div.cursor-pointer');
+                                if (sendBtn) sendBtn.click();
+                            }
+                            
+                            const isIdle = !isGenerating && (!isInputDisabled || isModal) && !isSpinning && !hasPendingButton && !hasQueuedMessages;
                             const hasChat = !!AG_UI.getVisibleChatContainer();
-                            return { hasChat, isGenerating, isIdle, isSpinning, hasPendingButton, isModal };
+                            return { hasChat, isGenerating, isIdle, isSpinning, hasPendingButton, isModal, hasQueuedMessages };
                         })()
                     `,
                     returnByValue: true
@@ -1324,6 +1337,26 @@ async function sendViaCDP(text, port, specificTargetId = null) {
             client = await withTimeout(CDP({ target: target.webSocketDebuggerUrl }), 3000, "CDP connect timeout");
             const { Runtime, Input } = client;
             await Runtime.enable();
+
+            // If the IDE is currently generating or has queued messages, wait for it to settle before typing
+            for (let waitCount = 0; waitCount < 120; waitCount++) {
+                const checkBusy = await Runtime.evaluate({
+                    expression: `
+                        ${DriverFactory.getDriver().getLocatorsScript()}
+                        (() => {
+                            const isGenerating = !!AG_UI.getStopButton();
+                            const hasQueued = Array.from(document.querySelectorAll('*')).some(e => {
+                                const t = e.innerText || e.textContent || '';
+                                return t.includes('Sends after agent') || t.includes('Queued Messages');
+                            });
+                            return isGenerating || hasQueued;
+                        })()
+                    `,
+                    returnByValue: true
+                });
+                if (!checkBusy?.result?.value) break;
+                await new Promise(r => setTimeout(r, 1000));
+            }
 
             const slashCommand = getSelectableSlashCommandForTarget(text, target);
             const focusComposer = async () => {
