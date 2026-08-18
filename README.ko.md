@@ -48,6 +48,7 @@ Telegram으로 Antigravity AI 에이전트를 원격 제어하세요.
 | ⌨️ **타이핑 표시기** | 에이전트가 작업 중일 때 Telegram에 "typing..."을 표시합니다 |
 | 🖥️ **크로스 플랫폼** | Linux, macOS(Intel 및 Apple Silicon), Windows에서 동작합니다 |
 | 🔀 **듀얼 앱 지원** | Antigravity IDE와 Standalone Agent App 사이를 매끄럽게 전환합니다 |
+| 📡 **Telegraph 게시** | 작업 체크리스트, 계획 및 워크스루를 128비트 암호화 난수 슬러그 URL로 게시(또는 비공개 유지)할 수 있으며, 전체 전환 및 삭제 제어가 가능합니다 |
 
 ---
 
@@ -89,13 +90,16 @@ IDE_CDP_PORT=9334      # Antigravity IDE용 포트
 DEFAULT_MODEL=Gemini 3.1 Pro (High)
 
 # Language: en | zh | ko | tr | de | es | fr
-LANGUAGE=en
+LANGUAGE=ko
 
 # 선호 앱 대상: 'agent' (Standalone) 또는 'ide' (IDE)
 ANTIGRAVITY_PREFERRED_APP=ide
 
 # 기본적으로 auto-accept 활성화
 AUTOACCEPT_DEFAULT=true
+
+# Telegraph 아티팩트 게시 활성화 (기본값: true)
+ENABLE_TELEGRAPH=true
 ```
 
 > 💡 Chat ID를 확인하려면 봇에 `/start`를 보내세요.
@@ -205,6 +209,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/file` | 프로젝트 파일을 탐색하고 다운로드합니다 |
 | `/artifacts` | 현재 스레드의 artifact 목록을 보고 다운로드합니다 |
 | `/autoaccept` | auto-accept를 토글합니다 (on / off / status) |
+| `/telegraph` | Telegraph 아티팩트 게시를 토글합니다 (on / off / 상태 및 삭제 버튼) |
+| `/cleartelegraph` | 게시된 Telegraph 페이지를 삭제하고 삭제 안내문으로 대체합니다 |
 | `/lang` | 표시 언어를 전환합니다 |
 | `/update` | 업데이트를 확인하고, changelog를 보고, 봇을 자동 업데이트합니다 |
 | `/version` | 현재 버전 정보를 표시합니다 |

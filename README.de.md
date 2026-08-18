@@ -46,8 +46,8 @@ Sende Nachrichten, wechsle KI-Modelle, verwalte Arbeitsbereiche, nimm Screenshot
 | 🔄 **Auto-Update** | Suche nach Updates und aktualisiere den Bot mit einem Befehl |
 | 🌐 **Mehrsprachigkeit** | 7 unterstützte Sprachen: Englisch, Chinesisch, Koreanisch, Türkisch, Deutsch, Spanisch, Französisch |
 | ⌨️ **Tipp-Indikator** | Zeigt in Telegram "tippt..." an, während der Agent arbeitet |
-| 🖥️ **Plattformübergreifend** | Funktioniert unter Linux, macOS (Intel & Apple Silicon) und Windows |
 | 🔀 **Dual-App-Unterstützung** | Nahtloser Wechsel zwischen Antigravity IDE und Standalone Agent App |
+| 📡 **Telegraph-Veröffentlichung** | Aufgabenlisten, Pläne und Walkthroughs können mit unerratbaren 128-Bit Krypto-Slug-URLs veröffentlicht (oder privat im Chat gehalten) werden, mit voller Umschalt- und Löschkontrolle |
 
 ---
 
@@ -58,7 +58,6 @@ Sende Nachrichten, wechsle KI-Modelle, verwalte Arbeitsbereiche, nimm Screenshot
 - **Dual-Engine-Unterstützung (IDE & Standalone):** Wechseln Sie nahtlos zwischen der Classic Monaco IDE und dem Standalone Agent über den Befehl `/app`. Isolierte Treiberarchitekturen sorgen für null Konflikte und ein perfektes Hintergrundprozessmanagement beim Umschalten.
 - [Node.js](https://nodejs.org/) >= 18
 - [Antigravity IDE](https://antigravity.google/) und/oder [Antigravity Standalone App](https://antigravity.google/) installiert
-- Ein Telegram-Bot-Token (erhältlich bei [@BotFather](https://t.me/BotFather))
 
 ### 1. Klonen & Installieren
 
@@ -70,13 +69,15 @@ npm install
 
 ### 2. Konfigurieren
 
+Kopiere die Beispiel-Umgebungsdatei und passe sie an:
+
 ```bash
 cp .env.example .env
 ```
 
-Bearbeite die `.env`-Datei mit deinen Werten:
+Bearbeite `.env` mit deinen Einstellungen:
 
-```env
+```bash
 # Telegram
 BOT_TOKEN=dein_telegram_bot_token
 ALLOWED_CHAT_ID=deine_chat_id
@@ -96,6 +97,9 @@ ANTIGRAVITY_PREFERRED_APP=ide
 
 # Auto-Accept standardmäßig aktivieren
 AUTOACCEPT_DEFAULT=true
+
+# Telegraph-Artefaktveröffentlichung aktivieren (Standard: true)
+ENABLE_TELEGRAPH=true
 ```
 
 > 💡 Sende `/start` an deinen Bot, um deine Chat-ID zu erhalten.
@@ -109,52 +113,49 @@ Der Bot kommuniziert mit Antigravity über das Chrome DevTools Protocol (CDP). D
 ```bash
 # --- Standalone Antigravity App ---
 # Linux
-antigravity --remote-debugging-port=9333
+google-antigravity --remote-debugging-port=9333
 
 # macOS
-open -a Antigravity --args --remote-debugging-port=9333
+/Applications/Antigravity.app/Contents/MacOS/Electron --remote-debugging-port=9333
 
 # Windows
-Antigravity.exe --remote-debugging-port=9333
-```
+& "$env:LOCALAPPDATA\Programs\Antigravity\Antigravity.exe" --remote-debugging-port=9333
 
-```bash
 # --- Antigravity IDE ---
 # Linux
 antigravity-ide --remote-debugging-port=9334
 
 # macOS
-open -a "Antigravity IDE" --args --remote-debugging-port=9334
+/Applications/Antigravity\ IDE.app/Contents/MacOS/Electron --remote-debugging-port=9334
 
 # Windows
-"Antigravity IDE.exe" --remote-debugging-port=9334
+& "$env:LOCALAPPDATA\Programs\Antigravity IDE\Antigravity IDE.exe" --remote-debugging-port=9334
 ```
-
-> ⚠️ Die Portnummern müssen mit `AGENT_CDP_PORT` und `IDE_CDP_PORT` in deiner `.env`-Datei übereinstimmen.
 
 ### 4. Bot starten
 
 ```bash
+# Entwicklung / Vordergrund
 npm start
-```
 
-Für einen 24/7-Betrieb mit PM2:
-
-```bash
+# Produktion (mit PM2)
 npm install -g pm2
 pm2 start src/index.js --name antigravity-bot
 pm2 save
 pm2 startup
 ```
 
-### Automatische Einrichtung (Optional)
+### Automatisiertes Setup (Optional)
+
+Verwende die Installationsskripte für eine schnelle, automatisierte Einrichtung:
 
 ```bash
 # Linux & macOS
-bash scripts/install.sh
+chmod +x scripts/install.sh
+./scripts/install.sh
 
 # Windows (PowerShell)
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+.\scripts\install.ps1
 ```
 
 ---
@@ -205,6 +206,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/file` | Projektdateien durchsuchen und herunterladen |
 | `/artifacts` | Artefakte aus dem aktuellen Thread auflisten und herunterladen |
 | `/autoaccept` | Auto-Accept umschalten (ein / aus / status) |
+| `/telegraph` | Telegraph-Veröffentlichung umschalten (ein / aus / Status & Lösch-Buttons) |
+| `/cleartelegraph` | Veröffentlichte Telegraph-Seiten löschen und durch Löschhinweise ersetzen |
 | `/lang` | Anzeigesprache wechseln |
 | `/update` | Nach Updates suchen und den Bot automatisch aktualisieren |
 | `/version` | Aktuelle Versionsinfo anzeigen |

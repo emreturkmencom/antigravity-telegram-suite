@@ -190,7 +190,21 @@
     "getplan_desc": "Obtener el último plan de implementación",
     "getwalk_desc": "Obtener el último recorrido (Walkthrough)",
     "closeall_desc": "Cerrar todas las pestañas de archivos",
-    "watcher_desc": "Alternar observador de tareas en segundo plano"
+    "watcher_desc": "Alternar observador de tareas en segundo plano",
+    "telegraph_desc": "Alternar subidas a Telegraph",
+    "cleartelegraph_desc": "Borrar páginas publicadas en Telegraph"
+  },
+  "telegraph": {
+    "enabled": "🌐 <b>Publicación en Telegraph:</b> HABILITADA\n\nLos artefactos se publicarán en Telegraph/graph.org con URLs indescifrables.",
+    "disabled": "🔒 <b>Publicación en Telegraph:</b> DESHABILITADA\n\nLos artefactos permanecerán privados y se enviarán directamente en el chat de Telegram.",
+    "status": "🌐 <b>Estado de Telegraph:</b>\n\n• Estado: <b>{state}</b>\n• Seguridad: URLs con slug criptográfico indescifrable de 128 bits\n\n<i>Usa /telegraph on para activar o /telegraph off para desactivar.</i>",
+    "state_on": "🟢 HABILITADA (Público graph.org)",
+    "state_off": "🔒 DESHABILITADA (Chat privado directo)",
+    "btn_turn_on": "🟢 Activar",
+    "btn_turn_off": "🔴 Desactivar",
+    "btn_wipe": "Borrar páginas",
+    "wiping": "🗑️ Borrando páginas publicadas en Telegraph por privacidad y seguridad...",
+    "wiped": "✅ Se borraron exitosamente {count} página(s) de Telegraph. Los contenidos se reemplazaron con avisos de eliminación en graph.org."
   },
   "watcher": {
     "enabled": "👁️ <b>Task Watcher:</b> ACTIVADO\n\nLas notificaciones del agente en segundo plano están activas.",
