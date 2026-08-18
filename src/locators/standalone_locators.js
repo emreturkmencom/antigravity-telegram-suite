@@ -241,13 +241,13 @@ const STANDALONE_LOCATORS_SCRIPT = `
             if (menuContainers.length > 0) {
                 menuContainers.forEach(container => {
                     const items = Array.from(container.querySelectorAll(
-                        '[data-testid="model-selector-item"], [data-model-base], button, [role="option"], [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], .model-option, .main-row-trigger, [data-radix-collection-item], [data-radix-select-item]'
+                        '[data-testid="model-selector-item"], [data-testid="model-selector-effort-group"], [data-model-base], button, [role="option"], [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], .model-option, .main-row-trigger, [data-radix-collection-item], [data-radix-select-item]'
                     ));
                     candidates.push(...items);
                 });
             } else {
                 candidates = Array.from(document.querySelectorAll(
-                    '[data-testid="model-selector-item"], [data-model-base], [role="option"], [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], .model-option, .main-row-trigger, [data-radix-collection-item], [data-radix-select-item]'
+                    '[data-testid="model-selector-item"], [data-testid="model-selector-effort-group"], [data-model-base], [role="option"], [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], .model-option, .main-row-trigger, [data-radix-collection-item], [data-radix-select-item]'
                 ));
             }
 
@@ -259,7 +259,6 @@ const STANDALONE_LOCATORS_SCRIPT = `
                 const labelAttr = el.getAttribute('data-model-label') || '';
                 
                 if (isFile(text) || isFile(label)) return false;
-                
                 if (text.length < 3 || text.length > 100) return false;
                 
                 const lower = (text + ' ' + label + ' ' + baseAttr + ' ' + labelAttr).toLowerCase();

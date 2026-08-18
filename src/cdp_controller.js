@@ -2727,69 +2727,34 @@ async function getAvailableModels(port) {
             const { Runtime, Input } = client;
             await Runtime.enable();
 
-            // Step 1: Open model menu reliably without toggle-closing if already open
+            // Step 1: Check if panel is already open or click trigger button
             const openRes = await Runtime.evaluate({
                 expression: `
                     ${DriverFactory.getDriver().getLocatorsScript()}
                     (() => {
+                        const panel = document.querySelector('[data-testid="model-selector-panel"]');
+                        if (panel && AG_UI.isVisible(panel)) return { alreadyOpen: true };
                         const existingOptions = AG_UI.getModelOptions().filter(AG_UI.isVisible);
                         if (existingOptions.length > 1) return { alreadyOpen: true };
                         const btn = AG_UI.getModelSelectorButton();
                         if (btn) {
-                            btn.focus();
                             const rect = btn.getBoundingClientRect();
-                            const clientX = rect.left + rect.width / 2;
-                            const clientY = rect.top + rect.height / 2;
-                            const screenX = window.screenX + clientX;
-                            const screenY = window.screenY + clientY;
-
-                            const pDown = new PointerEvent('pointerdown', {
-                                bubbles: true, cancelable: true, composed: true, view: window,
-                                detail: 1, screenX, screenY, clientX, clientY,
-                                button: 0, buttons: 1, pointerId: 1, pointerType: 'mouse', isPrimary: true
-                            });
-                            const mDown = new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true, view: window, detail: 1, screenX, screenY, clientX, clientY, button: 0 });
-                            const pUp = new PointerEvent('pointerup', {
-                                bubbles: true, cancelable: true, composed: true, view: window,
-                                detail: 1, screenX, screenY, clientX, clientY,
-                                button: 0, buttons: 0, pointerId: 1, pointerType: 'mouse', isPrimary: true
-                            });
-                            const mUp = new MouseEvent('mouseup', { bubbles: true, cancelable: true, composed: true, view: window, detail: 1, screenX, screenY, clientX, clientY, button: 0 });
-                            const click = new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window, detail: 1, screenX, screenY, clientX, clientY, button: 0 });
-
-                            btn.dispatchEvent(pDown);
-                            btn.dispatchEvent(mDown);
-                            btn.dispatchEvent(pUp);
-                            btn.dispatchEvent(mUp);
-                            btn.dispatchEvent(click);
-                            return { clicked: true };
+                            return {
+                                clicked: true,
+                                x: rect.left + rect.width / 2,
+                                y: rect.top + rect.height / 2
+                            };
                         }
                         return { clicked: false };
                     })()
                 `, returnByValue: true
             });
 
-            // Poll up to 600ms for options to render
-            let isOpen = false;
-            for (let i = 0; i < 6; i++) {
-                await new Promise(r => setTimeout(r, 60));
-                const pollRes = await Runtime.evaluate({
-                    expression: `
-                        ${DriverFactory.getDriver().getLocatorsScript()}
-                        (() => AG_UI.getModelOptions().filter(AG_UI.isVisible).length > 1)()
-                    `, returnByValue: true
-                });
-                if (pollRes.result?.value) {
-                    isOpen = true;
-                    break;
-                }
-            }
-
-            if (!isOpen && Input) {
-                // Hardware fallback via CDP Input
-                await Input.dispatchKeyEvent({ type: 'rawKeyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
-                await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
-                await new Promise(r => setTimeout(r, 150));
+            if (openRes.result?.value?.x && Input) {
+                const { x, y } = openRes.result.value;
+                await Input.dispatchMouseEvent({ type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+                await Input.dispatchMouseEvent({ type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+                await new Promise(r => setTimeout(r, 400));
             }
 
             const res = await Runtime.evaluate({
@@ -2805,98 +2770,76 @@ async function getAvailableModels(port) {
                             .replace(/\\s+/g, ' ')
                             .trim();
                         
-                        const isModelName = (t) => /^(gemini|claude|gpt|opus|sonnet|flash|llama|mistral|deepseek)/i.test(t);
-                        
                         const seen = new Set();
                         const models = [];
                         
-                        const agItems = AG_UI.getModelOptions().filter(AG_UI.isVisible);
+                        // 1. Standalone 2.0 model panel
+                        const panel = document.querySelector('[data-testid="model-selector-panel"]');
+                        if (panel) {
+                            // Effort tier groups (Gemini 3.7 Flash, Gemini 3.6 Flash, etc.)
+                            const effortGroups = Array.from(panel.querySelectorAll('[data-testid="model-selector-effort-group"]'));
+                            for (const eg of effortGroups) {
+                                const baseName = eg.textContent.trim();
+                                if (!baseName || seen.has(baseName)) continue;
+                                seen.add(baseName);
+                                models.push({
+                                    name: baseName,
+                                    baseName: baseName,
+                                    hasTiers: true,
+                                    tiers: baseName.includes('3.1 Pro') ? ['Low', 'High'] : ['Low', 'Medium', 'High'],
+                                    currentTier: 'Medium'
+                                });
+                            }
+                            
+                            // Direct items (Claude Sonnet, Claude Opus, GPT-OSS, etc.)
+                            const directItems = Array.from(panel.querySelectorAll('[data-testid="model-selector-item"]'));
+                            for (const di of directItems) {
+                                const name = di.textContent.trim();
+                                if (name && !seen.has(name)) {
+                                    seen.add(name);
+                                    models.push({
+                                        name: name,
+                                        baseName: name,
+                                        hasTiers: false,
+                                        tiers: []
+                                    });
+                                }
+                            }
+                            
+                            if (models.length > 0) return models;
+                        }
                         
+                        // 2. Generic / IDE options
+                        const agItems = AG_UI.getModelOptions().filter(AG_UI.isVisible);
                         if (agItems.length > 0) {
                             for (const item of agItems) {
-                                const baseAttr = item.querySelector('[data-model-base]')?.getAttribute('data-model-base');
+                                const baseAttr = item.querySelector('[data-model-base]')?.getAttribute('data-model-base') || item.getAttribute('data-model-base');
                                 const labelAttr = item.getAttribute('data-model-label');
-                                const hasSubmenu = item.getAttribute('aria-haspopup') === 'menu' || !!item.querySelector('[data-testid="model-selector-effort-group"]');
-
-                                if (hasSubmenu && baseAttr && !seen.has(baseAttr)) {
-                                    seen.add(baseAttr);
-                                    item.focus();
-                                    const rect = item.getBoundingClientRect();
-                                    const clientX = rect.left + rect.width / 2;
-                                    const clientY = rect.top + rect.height / 2;
-                                    item.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', clientX, clientY }));
-                                    item.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', clientX, clientY }));
-                                    item.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true, clientX, clientY }));
-                                    item.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, clientX, clientY }));
-                                    item.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39, bubbles: true }));
-                                    item.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39, bubbles: true }));
-
-                                    let subOptions = [];
-                                    const mainParent = item.closest('[role="menu"]');
-                                    const mainId = mainParent ? mainParent.id : '';
-                                    for (let i = 0; i < 8; i++) {
-                                        await new Promise(r => setTimeout(r, 40));
-                                        const subMenus = Array.from(document.querySelectorAll('[role="menu"][data-nested], [role="menu"]'))
-                                            .filter(el => el.offsetWidth > 0 && el.offsetHeight > 0 && el !== mainParent && el.id !== mainId);
-                                        if (subMenus.length > 0) {
-                                            subOptions = Array.from(subMenus[0].querySelectorAll('[role="menuitem"], div[data-base-ui-focusable], div[class*="cursor-pointer"]'))
-                                                .filter(el => el.offsetWidth > 0 && (el.textContent || '').trim().length > 0);
-                                            if (subOptions.length > 0) break;
-                                        }
-                                    }
-
-                                    const tiers = subOptions.length > 0 
-                                        ? subOptions.map(o => o.textContent.trim().split(/\\r?\\n/)[0].trim()).filter(Boolean)
-                                        : ['Low', 'Medium', 'High'];
-
-                                    const currentTierMatch = item.textContent.match(/\\b(low|medium|high)\\b/i);
-                                    const currentTier = currentTierMatch ? currentTierMatch[1] : (tiers[0] || 'Medium');
-
+                                const name = labelAttr || baseAttr || cleanModelText(item.textContent.trim().split(/\\r?\\n/)[0]);
+                                if (name && !seen.has(name)) {
+                                    seen.add(name);
+                                    const hasTiers = (name.includes('Gemini') || name.includes('Flash') || name.includes('Pro')) && !name.includes('Thinking');
                                     models.push({
-                                        name: baseAttr,
-                                        baseName: baseAttr,
-                                        hasTiers: true,
-                                        tiers: tiers,
-                                        currentTier: currentTier
+                                        name: name,
+                                        baseName: name,
+                                        hasTiers: hasTiers,
+                                        tiers: hasTiers ? ['Low', 'Medium', 'High'] : [],
+                                        currentTier: 'Medium'
                                     });
-                                } else if (!hasSubmenu) {
-                                    const name = labelAttr || cleanModelText(item.textContent.trim().split(/\\r?\\n/)[0]);
-                                    if (name && !seen.has(name)) {
-                                        seen.add(name);
-                                        models.push({
-                                            name: name,
-                                            baseName: name,
-                                            hasTiers: false,
-                                            tiers: []
-                                        });
-                                    }
                                 }
                             }
                         }
-                        
-                        if (models.length > 1) return models;
-                        
-                        // Fallback: scan all leaf elements for model-like text
-                        const allEls = Array.from(document.querySelectorAll('button, [role="option"], [role="menuitem"], li, span, div'));
-                        allEls.forEach(el => {
-                            if (el.children.length > 3) return;
-                            const raw = (el.textContent || '').trim().split('\\n')[0].trim();
-                            const t = cleanModelText(raw);
-                            if (t.length > 3 && t.length < 80 && isModelName(t) && !seen.has(t)) {
-                                seen.add(t);
-                                models.push({
-                                    name: t,
-                                    baseName: t,
-                                    hasTiers: false,
-                                    tiers: []
-                                });
-                            }
-                        });
                         
                         return models;
                     })()
                 `, returnByValue: true, awaitPromise: true
             });
+
+            // Close model popup by pressing Escape
+            if (Input) {
+                await Input.dispatchKeyEvent({ type: 'rawKeyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+                await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+            }
 
             await client.close();
             const modelsFound = res.result?.value || [];
