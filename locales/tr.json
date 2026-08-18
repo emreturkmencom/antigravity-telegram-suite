@@ -89,7 +89,8 @@
     "no_chat_input": "IDE'de sohbet kutusu bulunamadı. Lütfen Antigravity'de bir chat penceresi açık olduğundan emin olun.",
     "reply_agent": "✍️ Bu Ajanı Yanıtla",
     "focus_toast": "Yanıtlanıyor: {title}",
-    "focus_success": "✅ <b>{title}</b> ajanına kilitlenildi.\n✍️ Şimdi yazacağınız mesaj doğrudan bu ajana gidecek."
+    "focus_success": "✅ <b>{title}</b> ajanına kilitlenildi.\n✍️ Şimdi yazacağınız mesaj doğrudan bu ajana gidecek.",
+    "working": "⏳ Ajan şu anda bu talimat üzerinde çalışıyor..."
   },
   "stop": {
     "stopping": "🛑 Agent durduruluyor...",

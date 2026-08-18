@@ -89,7 +89,8 @@
     "no_chat_input": "No chat input found in the IDE. Please make sure a chat session is open in Antigravity.",
     "reply_agent": "✍️ Reply to this Agent",
     "focus_toast": "Targeting: {title}",
-    "focus_success": "✅ Locked onto agent <b>{title}</b>.\n✍️ Messages you type now will go directly to this agent."
+    "focus_success": "✅ Locked onto agent <b>{title}</b>.\n✍️ Messages you type now will go directly to this agent.",
+    "working": "⏳ The agent is currently working on this task..."
   },
   "stop": {
     "stopping": "🛑 Stopping agent...",

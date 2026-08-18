@@ -89,7 +89,8 @@
     "no_chat_input": "No se encontró el cuadro de texto en la IDE. Asegúrate de tener una sesión de chat abierta.",
     "reply_agent": "✍️ Responder a este agente",
     "focus_toast": "Apuntando a: {title}",
-    "focus_success": "✅ Enfocado en el agente <b>{title}</b>.\n✍️ Los mensajes que escribas ahora irán directamente a este agente."
+    "focus_success": "✅ Enfocado en el agente <b>{title}</b>.\n✍️ Los mensajes que escribas ahora irán directamente a este agente.",
+    "working": "⏳ El agente está trabajando en esta tarea..."
   },
   "stop": {
     "stopping": "🛑 Deteniendo al agente...",

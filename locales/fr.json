@@ -89,7 +89,8 @@
     "no_chat_input": "Aucun champ de saisie trouvé dans l'IDE. Assurez-vous d'avoir ouvert une session de chat.",
     "reply_agent": "✍️ Répondre à cet agent",
     "focus_toast": "Ciblage : {title}",
-    "focus_success": "✅ Focalisé sur l'agent <b>{title}</b>.\n✍️ Les messages que vous tapez maintenant iront directement à cet agent."
+    "focus_success": "✅ Focalisé sur l'agent <b>{title}</b>.\n✍️ Les messages que vous tapez maintenant iront directement à cet agent.",
+    "working": "⏳ L'agent travaille actuellement sur cette tâche..."
   },
   "stop": {
     "stopping": "🛑 Arrêt de l'agent en cours...",

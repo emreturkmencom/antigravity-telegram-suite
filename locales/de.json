@@ -89,7 +89,8 @@
     "no_chat_input": "Kein Chat-Eingabefeld in der IDE gefunden. Bitte stelle sicher, dass eine Chat-Sitzung geöffnet ist.",
     "reply_agent": "✍️ Diesem Agenten antworten",
     "focus_toast": "Ziel: {title}",
-    "focus_success": "✅ Fokussiert auf Agent <b>{title}</b>.\n✍️ Nachrichten, die du jetzt tippst, gehen direkt an diesen Agenten."
+    "focus_success": "✅ Fokussiert auf Agent <b>{title}</b>.\n✍️ Nachrichten, die du jetzt tippst, gehen direkt an diesen Agenten.",
+    "working": "⏳ Der Agent arbeitet gerade an dieser Aufgabe..."
   },
   "stop": {
     "stopping": "🛑 Stoppe Agent...",

@@ -89,7 +89,8 @@
     "no_chat_input": "在 IDE 中未找到聊天输入框。请确认 Antigravity 中已打开聊天会话。",
     "reply_agent": "✍️ 回复此 Agent",
     "focus_toast": "目标：{title}",
-    "focus_success": "✅ 已锁定到 Agent <b>{title}</b>。\n✍️ 现在你输入的消息会直接发送给这个 Agent。"
+    "focus_success": "✅ 已锁定到 Agent <b>{title}</b>。\n✍️ 现在你输入的消息会直接发送给这个 Agent。",
+    "working": "⏳ 代理正在处理此任务..."
   },
   "stop": {
     "stopping": "🛑 正在停止 Agent...",
