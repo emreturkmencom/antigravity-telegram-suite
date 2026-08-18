@@ -190,7 +190,21 @@
     "getplan_desc": "获取最新的实施计划",
     "getwalk_desc": "获取最新的走查/Walkthrough",
     "closeall_desc": "关闭所有打开的文件标签",
-    "watcher_desc": "切换后台任务监控"
+    "watcher_desc": "切换后台任务监控",
+    "telegraph_desc": "切换 Telegraph 文物上传",
+    "cleartelegraph_desc": "清空已发布的 Telegraph 页面"
+  },
+  "telegraph": {
+    "enabled": "🌐 <b>Telegraph 发布：</b>已启用\n\n产物将使用不可猜测的 URL 发布到 Telegraph/graph.org。",
+    "disabled": "🔒 <b>Telegraph 发布：</b>已禁用\n\n产物将保持私密并直接在 Telegram 聊天中发送。",
+    "status": "🌐 <b>Telegraph 发布状态：</b>\n\n• 状态：<b>{state}</b>\n• 安全性：128 位不可猜测的加密 Slug URL\n\n<i>使用 /telegraph on 启用或 /telegraph off 禁用。</i>",
+    "state_on": "🟢 已启用 (公开 graph.org)",
+    "state_off": "🔒 已禁用 (私密直接聊天)",
+    "btn_turn_on": "🟢 开启",
+    "btn_turn_off": "🔴 关闭",
+    "btn_wipe": "清空页面",
+    "wiping": "🗑️ 正在清空已发布的 Telegraph 页面以保护隐私与安全...",
+    "wiped": "✅ 成功清空 {count} 个 Telegraph 页面。内容已在 graph.org 上替换为移除通知。"
   },
   "watcher": {
     "enabled": "👁️ <b>Task Watcher：</b>已启用\n\n后台 Agent 通知已激活。",

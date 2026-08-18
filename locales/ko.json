@@ -219,7 +219,21 @@
     "getplan_desc": "최신 구현 계획 가져오기",
     "getwalk_desc": "최신 워크스루 가져오기",
     "closeall_desc": "열려 있는 모든 파일 탭 닫기",
-    "watcher_desc": "백그라운드 작업 모니터 전환"
+    "watcher_desc": "백그라운드 작업 모니터 전환",
+    "telegraph_desc": "Telegraph 아티팩트 업로드 전환",
+    "cleartelegraph_desc": "게시된 Telegraph 페이지 삭제"
+  },
+  "telegraph": {
+    "enabled": "🌐 <b>Telegraph 게시:</b> 활성화됨\n\n아티팩트가 추측 불가능한 URL과 함께 Telegraph/graph.org에 게시됩니다.",
+    "disabled": "🔒 <b>Telegraph 게시:</b> 비활성화됨\n\n아티팩트는 비공개로 유지되며 텔레그램 채팅으로 직접 전송됩니다.",
+    "status": "🌐 <b>Telegraph 게시 상태:</b>\n\n• 상태: <b>{state}</b>\n• 보안: 128비트 암호화 난수 슬러그 URL\n\n<i>활성화하려면 /telegraph on, 비활성화하려면 /telegraph off를 사용하세요.</i>",
+    "state_on": "🟢 활성화됨 (공개 graph.org)",
+    "state_off": "🔒 비활성화됨 (비공개 직접 채팅)",
+    "btn_turn_on": "🟢 켜기",
+    "btn_turn_off": "🔴 끄기",
+    "btn_wipe": "페이지 삭제",
+    "wiping": "🗑️ 개인정보 보호 및 보안을 위해 게시된 Telegraph 페이지를 삭제하는 중...",
+    "wiped": "✅ {count}개의 Telegraph 페이지를 성공적으로 삭제했습니다. 내용이 graph.org에서 삭제 안내문으로 대체되었습니다."
   },
   "model": {
     "changed": "✅ 모델이 변경되었습니다: {model}",

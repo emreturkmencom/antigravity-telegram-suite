@@ -1894,6 +1894,91 @@ function getArtifactButtons(conversationId) {
     return rows;
 }
 
+function formatMarkdownForTelegram(markdownText) {
+    let text = markdownText || '';
+    
+    // Convert code blocks ```lang ... ``` to <pre><code>...</code></pre>
+    const preBlocks = [];
+    text = text.replace(/```[a-zA-Z0-9_-]*\n?([\s\S]*?)```/g, (match, code) => {
+        preBlocks.push(`<pre><code>${escHtml(code.trim())}</code></pre>`);
+        return `___PRE_BLOCK_${preBlocks.length - 1}___`;
+    });
+
+    // Escape raw HTML outside of pre blocks
+    text = escHtml(text);
+
+    // Re-insert pre blocks
+    text = text.replace(/___PRE_BLOCK_(\d+)___/g, (match, idx) => preBlocks[parseInt(idx, 10)]);
+
+    // Headers (# Header)
+    text = text.replace(/^### (.*$)/gim, '<b>$1</b>');
+    text = text.replace(/^## (.*$)/gim, '<b><u>$1</u></b>');
+    text = text.replace(/^# (.*$)/gim, '<b><u>$1</u></b>');
+
+    // Bold **text**
+    text = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+    
+    // Inline code `code`
+    text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+    // Bullet points (- or *)
+    text = text.replace(/^[ \t]*[*|-][ \t]+(.*$)/gim, '• $1');
+
+    return text.trim();
+}
+
+async function sendFormattedTelegramMessage(botInstance, chatId, title, rawContent, inlineKeyboard = []) {
+    const formattedBody = formatMarkdownForTelegram(rawContent);
+    const header = `📝 <b>${escHtml(title)}</b>\n\n`;
+    const fullText = header + formattedBody;
+
+    const MAX_LEN = 3800;
+    if (fullText.length <= MAX_LEN) {
+        return await botInstance.telegram.sendMessage(chatId, fullText, {
+            parse_mode: 'HTML',
+            reply_markup: inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined
+        });
+    }
+
+    const lines = fullText.split('\n');
+    let currentChunk = '';
+    const chunks = [];
+
+    for (const line of lines) {
+        if ((currentChunk + '\n' + line).length > MAX_LEN) {
+            if (currentChunk.length > 0) {
+                chunks.push(currentChunk);
+                currentChunk = '';
+            }
+            if (line.length > MAX_LEN) {
+                let remaining = line;
+                while (remaining.length > 0) {
+                    chunks.push(remaining.slice(0, MAX_LEN));
+                    remaining = remaining.slice(MAX_LEN);
+                }
+            } else {
+                currentChunk = line;
+            }
+        } else {
+            currentChunk = currentChunk ? (currentChunk + '\n' + line) : line;
+        }
+    }
+    if (currentChunk.length > 0) {
+        chunks.push(currentChunk);
+    }
+
+    let lastSent = null;
+    for (let i = 0; i < chunks.length; i++) {
+        const isLast = (i === chunks.length - 1);
+        const keyboard = isLast && inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined;
+        lastSent = await botInstance.telegram.sendMessage(chatId, chunks[i], {
+            parse_mode: 'HTML',
+            reply_markup: keyboard
+        });
+    }
+    return lastSent;
+}
+
 function watchArtifacts(conversationId, retry = 0) {
     if (!conversationId) return;
 
@@ -1948,9 +2033,11 @@ function watchArtifacts(conversationId, retry = 0) {
                         }
                         lastUploadedMtimes.set(resolvedFilePath, stat.mtimeMs);
 
-                        console.log(`[Telegraph Watcher] Detected update for ${normalizedFilename}, uploading...`);
+                        console.log(`[Artifact Watcher] Detected update for ${normalizedFilename}...`);
                         const title = normalizedFilename.replace(/\.md$/, '').replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
                         const url = await telegraphPublisher.publishOrUpdateArtifact(resolvedFilePath, title);
+                        const pathId = getPathId(resolvedFilePath);
+
                         if (url) {
                             console.log(`[Telegraph Watcher] Published ${normalizedFilename} to ${url}`);
                             
@@ -1978,9 +2065,19 @@ function watchArtifacts(conversationId, retry = 0) {
                                     });
                                 }
                             }
+                        } else {
+                            // Telegraph disabled (Default) — send formatted artifact directly to Telegram chat
+                            const rawContent = fs.readFileSync(resolvedFilePath, 'utf-8');
+                            const inlineKeyboard = [[{ text: '📄 Download File', callback_data: `ff_${pathId}` }]];
+
+                            for (const chatId of ALLOWED_CHAT_IDS) {
+                                await sendFormattedTelegramMessage(bot, chatId, title, rawContent, inlineKeyboard).catch(err => {
+                                    console.error(`[Artifact Watcher] Failed to send artifact to ${chatId}:`, err.message);
+                                });
+                            }
                         }
                     } catch (err) {
-                        console.error(`[Telegraph Watcher] Error processing artifact ${normalizedFilename}:`, err.stack);
+                        console.error(`[Artifact Watcher] Error processing artifact ${normalizedFilename}:`, err.stack);
                     }
                 }, 3000);
 
@@ -1988,13 +2085,11 @@ function watchArtifacts(conversationId, retry = 0) {
             }
         });
         artifactWatchers.set(conversationDir, watcher);
-        console.log(`[Telegraph Watcher] Watching artifacts for directory: ${conversationDir}`);
+        console.log(`[Artifact Watcher] Watching artifacts for directory: ${conversationDir}`);
     } catch (e) {
-        console.error('[Telegraph Watcher] Failed to start watcher:', e.message);
+        console.error('[Artifact Watcher] Failed to start watcher:', e.message);
     }
 }
-
-
 
 async function handleGetArtifactCommand(ctx, fileName, title) {
     try {
@@ -2026,10 +2121,15 @@ async function handleGetArtifactCommand(ctx, fileName, title) {
         row.push({ text: `📄 Get File`, callback_data: `ff_${pathId}` });
         buttons.push(row);
 
-        ctx.reply(`📝 <b>${title}</b> for current chat:`, {
-            parse_mode: 'HTML',
-            reply_markup: { inline_keyboard: buttons }
-        });
+        const rawContent = fs.readFileSync(filePath, 'utf-8');
+        if (telegraphPublisher.isTelegraphEnabled()) {
+            ctx.reply(`📝 <b>${title}</b> for current chat:`, {
+                parse_mode: 'HTML',
+                reply_markup: { inline_keyboard: buttons }
+            });
+        } else {
+            await sendFormattedTelegramMessage(bot, ctx.chat.id, title, rawContent, buttons);
+        }
     } catch (e) {
         ctx.reply(`❌ Error getting ${title}: ` + e.message);
     }
@@ -2038,6 +2138,106 @@ async function handleGetArtifactCommand(ctx, fileName, title) {
 bot.command('gettask', ctx => handleGetArtifactCommand(ctx, 'task.md', 'Task Checklist'));
 bot.command('getplan', ctx => handleGetArtifactCommand(ctx, 'implementation_plan.md', 'Implementation Plan'));
 bot.command('getwalk', ctx => handleGetArtifactCommand(ctx, 'walkthrough.md', 'Walkthrough'));
+
+// ===== TELEGRAPH TOGGLE & WIPE COMMANDS =====
+
+const handleTelegraph = async (ctx) => {
+    try {
+        const text = (ctx.message?.text || '').trim();
+        const parts = text.split(/\s+/);
+        const subCommand = (parts[1] || '').toLowerCase();
+
+        if (subCommand === 'on' || subCommand === 'enable') {
+            process.env.ENABLE_TELEGRAPH = 'true';
+            return ctx.reply(t('telegraph.enabled'), { parse_mode: 'HTML' });
+        } else if (subCommand === 'off' || subCommand === 'disable') {
+            process.env.ENABLE_TELEGRAPH = 'false';
+            return ctx.reply(t('telegraph.disabled'), { parse_mode: 'HTML' });
+        } else {
+            const isEnabled = telegraphPublisher.isTelegraphEnabled();
+            const stateStr = isEnabled ? t('telegraph.state_on') : t('telegraph.state_off');
+            const msg = t('telegraph.status', { state: stateStr });
+            const buttons = [
+                [
+                    { text: isEnabled ? t('telegraph.btn_turn_off') : t('telegraph.btn_turn_on'), callback_data: 'telegraph_toggle' },
+                    { text: '🗑️ ' + t('telegraph.btn_wipe'), callback_data: 'telegraph_wipe' }
+                ],
+                [
+                    { text: '🔄 ' + (t('menu.btn_status') || 'Status'), callback_data: 'telegraph_status' }
+                ]
+            ];
+            return ctx.reply(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } });
+        }
+    } catch (e) {
+        ctx.reply('❌ Error: ' + e.message);
+    }
+};
+
+const handleClearTelegraph = async (ctx) => {
+    try {
+        await ctx.reply(t('telegraph.wiping'));
+        const count = await telegraphPublisher.wipePublishedPages();
+        await ctx.reply(t('telegraph.wiped', { count }));
+    } catch (err) {
+        await ctx.reply('❌ Failed to clear Telegraph pages: ' + err.message);
+    }
+};
+
+bot.command('telegraph', handleTelegraph);
+bot.command('cleartelegraph', handleClearTelegraph);
+
+bot.action('telegraph_toggle', async (ctx) => {
+    try {
+        const current = telegraphPublisher.isTelegraphEnabled();
+        process.env.ENABLE_TELEGRAPH = current ? 'false' : 'true';
+        const isEnabled = telegraphPublisher.isTelegraphEnabled();
+        await ctx.answerCbQuery(isEnabled ? 'Telegraph Enabled' : 'Telegraph Disabled');
+        
+        const stateStr = isEnabled ? t('telegraph.state_on') : t('telegraph.state_off');
+        const msg = t('telegraph.status', { state: stateStr });
+        const buttons = [
+            [
+                { text: isEnabled ? t('telegraph.btn_turn_off') : t('telegraph.btn_turn_on'), callback_data: 'telegraph_toggle' },
+                { text: '🗑️ ' + t('telegraph.btn_wipe'), callback_data: 'telegraph_wipe' }
+            ],
+            [
+                { text: '🔄 ' + (t('menu.btn_status') || 'Status'), callback_data: 'telegraph_status' }
+            ]
+        ];
+        await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } }).catch(() => {});
+    } catch (e) {
+        ctx.reply('❌ Error toggling Telegraph: ' + e.message);
+    }
+});
+
+bot.action('telegraph_wipe', async (ctx) => {
+    try {
+        await ctx.answerCbQuery('Wiping pages...');
+        const count = await telegraphPublisher.wipePublishedPages();
+        ctx.reply(t('telegraph.wiped', { count }));
+    } catch (e) {
+        ctx.reply('❌ Error wiping Telegraph pages: ' + e.message);
+    }
+});
+
+bot.action('telegraph_status', async (ctx) => {
+    try {
+        await ctx.answerCbQuery('Refreshing...');
+        const isEnabled = telegraphPublisher.isTelegraphEnabled();
+        const stateStr = isEnabled ? t('telegraph.state_on') : t('telegraph.state_off');
+        const msg = t('telegraph.status', { state: stateStr });
+        const buttons = [
+            [
+                { text: isEnabled ? t('telegraph.btn_turn_off') : t('telegraph.btn_turn_on'), callback_data: 'telegraph_toggle' },
+                { text: '🗑️ ' + t('telegraph.btn_wipe'), callback_data: 'telegraph_wipe' }
+            ],
+            [
+                { text: '🔄 ' + (t('menu.btn_status') || 'Status'), callback_data: 'telegraph_status' }
+            ]
+        ];
+        await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } }).catch(() => {});
+    } catch (e) {}
+});
 
 const handleArtifacts = async (ctx) => {
     try {
@@ -3625,7 +3825,9 @@ function getMenuCommands() {
         { command: 'gettask', description: t('menu.gettask_desc') || 'Get the latest Task Checklist' },
         { command: 'getplan', description: t('menu.getplan_desc') || 'Get the latest Implementation Plan' },
         { command: 'getwalk', description: t('menu.getwalk_desc') || 'Get the latest Walkthrough' },
-        { command: 'watcher', description: t('menu.watcher_desc') || 'Toggle background Task Watcher' }
+        { command: 'watcher', description: t('menu.watcher_desc') || 'Toggle background Task Watcher' },
+        { command: 'telegraph', description: t('menu.telegraph_desc') || 'Toggle Telegraph artifact uploads' },
+        { command: 'cleartelegraph', description: t('menu.cleartelegraph_desc') || 'Wipe published Telegraph pages' }
     ];
     return cmds.sort((a, b) => a.command.localeCompare(b.command));
 }

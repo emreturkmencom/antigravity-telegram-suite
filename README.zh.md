@@ -48,6 +48,7 @@
 | ⌨️ **输入指示器** | 代理工作时在 Telegram 中显示"typing..." |
 | 🖥️ **跨平台** | 支持 Linux、macOS（Intel 和 Apple Silicon）及 Windows |
 | 🔀 **双应用支持** | 在 Antigravity IDE 和 Standalone Agent App 之间无缝切换 |
+| 📡 **Telegraph 发布** | 任务清单、计划和走查文档可以使用 128 位不可猜测的加密 Slug URL 发布（或在聊天中保持私密），提供完整的开关与清空控制 |
 
 ---
 
@@ -96,6 +97,9 @@ ANTIGRAVITY_PREFERRED_APP=ide
 
 # 默认启用自动接受
 AUTOACCEPT_DEFAULT=true
+
+# 启用 Telegraph 产物发布（默认：true）
+ENABLE_TELEGRAPH=true
 ```
 
 > 💡 向 Bot 发送 `/start` 以获取你的 Chat ID。
@@ -205,6 +209,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/file` | 浏览并下载项目文件 |
 | `/artifacts` | 查看并下载当前线程的 artifact |
 | `/autoaccept` | 切换自动接受（开 / 关 / 状态） |
+| `/telegraph` | 切换 Telegraph 产物发布（开 / 关 / 状态与清空按钮） |
+| `/cleartelegraph` | 清空已发布的 Telegraph 页面并替换为移除通知 |
 | `/lang` | 切换显示语言 |
 | `/update` | 检查更新、查看变更日志并自动更新 Bot |
 | `/version` | 显示当前版本信息 |
