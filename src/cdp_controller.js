@@ -1190,11 +1190,13 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null,
                                 const s = window.getComputedStyle(el);
                                 return s.display !== 'none' && s.visibility !== 'hidden';
                             };
-                            const isExcluded = (el) => !!el.closest('.titlebar, .monaco-workbench .menubar, .monaco-workbench .statusbar, .monaco-workbench .activitybar, .monaco-editor, .editor-widget, .find-widget, .quick-input-widget, .monaco-menu-container, .context-view, .tabs-container, .monaco-action-bar, .actions-container');
-                            const radios = Array.from(document.querySelectorAll('[role="radio"], input[type="radio"]')).filter(el => isVisible(el) && !isExcluded(el));
-                            const checkboxes = Array.from(document.querySelectorAll('[role="checkbox"], input[type="checkbox"]')).filter(el => isVisible(el) && !isExcluded(el));
-                            const dialogs = Array.from(document.querySelectorAll('.modal, [role="dialog"], [data-testid*="interactive-modal"], [data-testid*="question"]')).filter(el => isVisible(el) && !isExcluded(el));
-                            const textareas = Array.from(document.querySelectorAll('textarea')).filter(t => isVisible(t) && !isExcluded(t) && !t.classList.contains('xterm'));
+                            // Only detect modals INSIDE the chat panel — not in editor toolbars, settings, etc.
+                            const chatPanel = AG_UI.getVisibleChatContainer();
+                            const isInChat = (el) => chatPanel && chatPanel.contains(el);
+                            const radios = Array.from(document.querySelectorAll('[role="radio"], input[type="radio"]')).filter(el => isVisible(el) && isInChat(el));
+                            const checkboxes = Array.from(document.querySelectorAll('[role="checkbox"], input[type="checkbox"]')).filter(el => isVisible(el) && isInChat(el));
+                            const dialogs = Array.from(document.querySelectorAll('[data-testid*="interactive-modal"], [data-testid*="question"]')).filter(el => isVisible(el));
+                            const textareas = Array.from(document.querySelectorAll('textarea')).filter(t => isVisible(t) && isInChat(t) && !t.classList.contains('xterm'));
                             const otherTa = textareas.some(t => {
                                 const ph = (t.placeholder || '').toLowerCase();
                                 return ph.includes('other') || ph.includes('answer') || ph.includes('diğer');
@@ -1207,33 +1209,21 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null,
                             const isSpinning = AG_UI.isLoading();
                             
                             // Check if AutoAccept is active and there is a button waiting to be clicked
+                            // IMPORTANT: Only match buttons INSIDE the chat panel to avoid false positives from editor toolbars
                             const aaActive = !!window.__AA_BOT_OBSERVER_ACTIVE && !window.__AA_BOT_PAUSED;
                             let hasPendingButton = false;
-                            if (aaActive) {
+                            if (aaActive && chatPanel) {
                                 const texts = ${JSON.stringify(PENDING_ACTION_TEXTS)};
-                                const btns = Array.from(document.querySelectorAll('button')).filter(b => b.offsetParent !== null);
+                                const btns = Array.from(chatPanel.querySelectorAll('button')).filter(b => b.offsetParent !== null);
                                 hasPendingButton = btns.some(b => {
                                     const t = (b.textContent||'').trim().toLowerCase();
                                     return texts.some(x => t === x || t.startsWith(x + ' ') || (t.startsWith(x) && t.length <= x.length + 8));
                                 });
                             }
                             
-                            // Check if there are messages stuck in IDE's internal queued messages box
-                            const hasQueuedMessages = Array.from(document.querySelectorAll('*')).some(e => {
-                                const t = e.innerText || e.textContent || '';
-                                return t.includes('Sends after agent') || t.includes('Queued Messages');
-                            });
-                            
-                            // If queued messages exist and agent is not generating, trigger send
-                            if (hasQueuedMessages && !isGenerating) {
-                                const qEl = Array.from(document.querySelectorAll('*')).find(e => (e.innerText || e.textContent || '').includes('Sends after agent'));
-                                const sendBtn = qEl?.closest('div')?.querySelector('svg.lucide-arrow-right, svg[class*="arrow"], [aria-label*="Send"], [title*="Send"], button, div.cursor-pointer');
-                                if (sendBtn) sendBtn.click();
-                            }
-                            
-                            const isIdle = !isGenerating && (!isInputDisabled || isModal) && !isSpinning && !hasPendingButton && !hasQueuedMessages;
+                            const isIdle = !isGenerating && (!isInputDisabled || isModal) && !isSpinning && !hasPendingButton;
                             const hasChat = !!AG_UI.getVisibleChatContainer();
-                            return { hasChat, isGenerating, isIdle, isSpinning, hasPendingButton, isModal, hasQueuedMessages };
+                            return { hasChat, isGenerating, isIdle, isSpinning, hasPendingButton, isModal };
                         })()
                     `,
                     returnByValue: true
@@ -1337,26 +1327,6 @@ async function sendViaCDP(text, port, specificTargetId = null) {
             client = await withTimeout(CDP({ target: target.webSocketDebuggerUrl }), 3000, "CDP connect timeout");
             const { Runtime, Input } = client;
             await Runtime.enable();
-
-            // If the IDE is currently generating or has queued messages, wait for it to settle before typing
-            for (let waitCount = 0; waitCount < 120; waitCount++) {
-                const checkBusy = await Runtime.evaluate({
-                    expression: `
-                        ${DriverFactory.getDriver().getLocatorsScript()}
-                        (() => {
-                            const isGenerating = !!AG_UI.getStopButton();
-                            const hasQueued = Array.from(document.querySelectorAll('*')).some(e => {
-                                const t = e.innerText || e.textContent || '';
-                                return t.includes('Sends after agent') || t.includes('Queued Messages');
-                            });
-                            return isGenerating || hasQueued;
-                        })()
-                    `,
-                    returnByValue: true
-                });
-                if (!checkBusy?.result?.value) break;
-                await new Promise(r => setTimeout(r, 1000));
-            }
 
             const slashCommand = getSelectableSlashCommandForTarget(text, target);
             const focusComposer = async () => {
