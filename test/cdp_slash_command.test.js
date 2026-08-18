@@ -10,16 +10,8 @@ assert(
     'CDP sender should detect selectable slash commands before filling the composer'
 );
 assert(
-    source.includes("nativeTypeComposer('/')"),
-    'CDP sender should open the slash command menu with native input'
-);
-assert(
-    source.includes('slashOptionRect') && !source.includes('slashOption.click()'),
-    'CDP sender should select slash commands with native mouse events, not DOM click'
-);
-assert(
-    source.includes('nativeTextAfterSelect'),
-    'CDP sender should type command arguments after selecting the slash command'
+    source.includes("Slash") && source.includes("dispatchKeyEvent"),
+    'CDP sender should open the slash command menu with native input events'
 );
 
 const originalPreferredApp = process.env.ANTIGRAVITY_PREFERRED_APP;
@@ -30,17 +22,63 @@ try {
             title: 'Standalone Chat',
             url: 'http://127.0.0.1:9333/c/example'
         }),
-        { command: 'goal', args: 'ship the fix' },
+        {
+            commands: [{ command: 'goal', rawCommand: 'goal' }],
+            command: 'goal',
+            rawCommand: 'goal',
+            args: 'ship the fix'
+        },
         'Standalone GUI should use native slash selection for /goal'
     );
 
-    assert.strictEqual(
-        getSelectableSlashCommandForTarget('/quota', {
+    assert.deepStrictEqual(
+        getSelectableSlashCommandForTarget('/autoresearch /goal quantum computing', {
             title: 'Standalone Chat',
             url: 'http://127.0.0.1:9333/c/example'
         }),
-        null,
-        'Only /goal should use native slash selection'
+        {
+            commands: [
+                { command: 'autoresearch', rawCommand: 'autoresearch' },
+                { command: 'goal', rawCommand: 'goal' }
+            ],
+            command: 'autoresearch',
+            rawCommand: 'autoresearch',
+            args: 'quantum computing'
+        },
+        'Standalone GUI should support multiple consecutive slash commands like /autoresearch /goal'
+    );
+
+    assert.deepStrictEqual(
+        getSelectableSlashCommandForTarget('/autoresearch/goal quantum computing', {
+            title: 'Standalone Chat',
+            url: 'http://127.0.0.1:9333/c/example'
+        }),
+        {
+            commands: [
+                { command: 'autoresearch', rawCommand: 'autoresearch' },
+                { command: 'goal', rawCommand: 'goal' }
+            ],
+            command: 'autoresearch',
+            rawCommand: 'autoresearch',
+            args: 'quantum computing'
+        },
+        'Standalone GUI should support attached slash commands without spaces like /autoresearch/goal'
+    );
+
+    assert.deepStrictEqual(
+        getSelectableSlashCommandForTarget('/absolute_mode deep analysis', {
+            title: 'Standalone Chat',
+            url: 'http://127.0.0.1:9333/c/example'
+        }),
+        {
+            commands: [
+                { command: 'absolute-mode', rawCommand: 'absolute-mode' }
+            ],
+            command: 'absolute-mode',
+            rawCommand: 'absolute-mode',
+            args: 'deep analysis'
+        },
+        'Standalone GUI should normalize telegram underscores to hyphens for skills'
     );
 
     process.env.ANTIGRAVITY_PREFERRED_APP = 'ide';

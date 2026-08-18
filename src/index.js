@@ -43,6 +43,26 @@ function loadTurboState() {
     return { active: false, pinnedMsgId: null };
 }
 
+const SKILLS_MENU_FILE = path.join(os.homedir(), '.gemini', 'antigravity', 'skills_menu_state.json');
+
+function isSkillsMenuEnabled() {
+    try {
+        if (fs.existsSync(SKILLS_MENU_FILE)) {
+            const data = JSON.parse(fs.readFileSync(SKILLS_MENU_FILE, 'utf8'));
+            if (typeof data.enabled === 'boolean') return data.enabled;
+        }
+    } catch(e) {}
+    return true; // default ON
+}
+
+function setSkillsMenuEnabled(enabled) {
+    try {
+        const dir = path.dirname(SKILLS_MENU_FILE);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(SKILLS_MENU_FILE, JSON.stringify({ enabled: !!enabled }, null, 2), 'utf8');
+    } catch(e) {}
+}
+
 function saveTurboState() {
     try {
         fs.writeFileSync(TURBO_STATE_FILE, JSON.stringify({ active: isTurboMode, pinnedMsgId: turboPinnedMsgId }));
@@ -328,6 +348,14 @@ function getCDPPort(app = process.env.ANTIGRAVITY_PREFERRED_APP || 'agent') {
     if (app === 'ide') {
         return parseInt(process.env.IDE_CDP_PORT || '9334', 10);
     }
+    try {
+        const devToolsFile = path.join(os.homedir(), 'Library', 'Application Support', 'Antigravity', 'DevToolsActivePort');
+        if (fs.existsSync(devToolsFile)) {
+            const lines = fs.readFileSync(devToolsFile, 'utf8').trim().split('\n');
+            const p = parseInt(lines[0], 10);
+            if (p && !isNaN(p)) return p;
+        }
+    } catch (_) {}
     return parseInt(process.env.AGENT_CDP_PORT || process.env.DEBUGGING_PORT || '9333', 10);
 }
 let CDP_PORT = getCDPPort();
@@ -719,13 +747,15 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
 // Alias used by account/telegraph features (PR #21)
 const sendBotMessage = sendLongMessage;
 
-// Strip agent query echo from response text
+// Strip agent query echo from response text only if it appears at the beginning
 function stripQueryFromResponse(text, query) {
+    if (!text || !query) return text || '';
     const queryTrimmed = query.trim();
-    if (text.includes(queryTrimmed)) {
-        text = text.substring(text.indexOf(queryTrimmed) + queryTrimmed.length).trim();
-    } else if (queryTrimmed.length > 20 && text.startsWith(queryTrimmed.substring(0, 20))) {
+    if (!queryTrimmed) return text;
+    if (text.startsWith(queryTrimmed)) {
         text = text.substring(queryTrimmed.length).trim();
+    } else if (text.startsWith(`"${queryTrimmed}"`)) {
+        text = text.substring(queryTrimmed.length + 2).trim();
     }
     return text;
 }
@@ -2469,6 +2499,222 @@ bot.hears(/^\/artifact_(\d+)$/, async (ctx) => {
     }
 });
 
+async function handleSkills(ctx) {
+    try {
+        const rawText = ctx.message?.text?.trim() || '';
+        const menuMatch = rawText.match(/^\/skills(?:@[\w_]+)?(?:\s+(menu|toggle))?(?:\s+(on|off|enable|disable))?$/i);
+        if (menuMatch && (menuMatch[1] || menuMatch[2])) {
+            const action = (menuMatch[2] || menuMatch[1] || '').toLowerCase();
+            let newState;
+            if (action === 'on' || action === 'enable') newState = true;
+            else if (action === 'off' || action === 'disable') newState = false;
+            else newState = !isSkillsMenuEnabled();
+
+            setSkillsMenuEnabled(newState);
+            await clearAllMenuScopes();
+            await setMenuOnAllScopes();
+
+            const statusText = newState ? '🟢 <b>Enabled (Visible)</b>' : '⚪ <b>Disabled (Hidden)</b>';
+            let msg = `⚙️ <b>Skills in Telegram '/' Menu</b>: ${statusText}\n\n`;
+            if (newState) {
+                msg += `Installed skills are now listed in your Telegram <code>/</code> popup autocomplete menu.`;
+            } else {
+                msg += `Installed skills are hidden from the <code>/</code> popup menu for a cleaner interface.\n\n💡 <i>You can still invoke any skill anytime in chat text by typing <code>/skillname</code> (e.g. <code>/autoresearch</code>)!</i>`;
+            }
+            const keyboard = Markup.inlineKeyboard([
+                [Markup.button.callback(newState ? '🔘 Hide Skills from "/" Menu' : '🔘 Show Skills in "/" Menu', 'toggle_skills_menu')]
+            ]);
+            return ctx.reply(msg, { parse_mode: 'HTML', ...keyboard });
+        }
+
+function getAllInstalledSkills() {
+    const allSkills = [];
+    const seen = new Set();
+
+    function scanDir(dir, category = 'Custom') {
+        if (!dir || !fs.existsSync(dir)) return;
+        try {
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+                if (entry.isDirectory() && !entry.name.startsWith('.') && !entry.name.startsWith('_')) {
+                    if (seen.has(entry.name)) continue;
+                    seen.add(entry.name);
+                    const skillMd = path.join(dir, entry.name, 'SKILL.md');
+                    let desc = '';
+                    if (fs.existsSync(skillMd)) {
+                        try {
+                            const content = fs.readFileSync(skillMd, 'utf8');
+                            const match = content.match(/description:\s*([^\n\r]+)/i);
+                            if (match) desc = match[1].replace(/["']/g, '').trim();
+                        } catch(e) {}
+                    }
+                    allSkills.push({ name: entry.name, category, desc });
+                }
+            }
+        } catch(e) {}
+    }
+
+    const home = os.homedir();
+    // 1. Antigravity Global Custom Skills (~/.gemini/config/skills)
+    scanDir(path.join(home, '.gemini', 'config', 'skills'), '⚡ Custom Skills');
+    
+    // 2. Antigravity Built-in Skills (~/.gemini/antigravity/builtin/skills and ~/.gemini/antigravity/skills)
+    scanDir(path.join(home, '.gemini', 'antigravity', 'builtin', 'skills'), '🤖 Built-in Skills');
+    scanDir(path.join(home, '.gemini', 'antigravity', 'skills'), '🤖 Built-in Skills');
+    
+    // 3. Antigravity Plugins (~/.gemini/config/plugins/*/skills)
+    const pluginsDir = path.join(home, '.gemini', 'config', 'plugins');
+    if (fs.existsSync(pluginsDir)) {
+        try {
+            const plugins = fs.readdirSync(pluginsDir, { withFileTypes: true });
+            for (const p of plugins) {
+                if (p.isDirectory()) {
+                    scanDir(path.join(pluginsDir, p.name, 'skills'), `🔌 ${p.name}`);
+                }
+            }
+        } catch(e) {}
+    }
+
+    // 4. Claude Code / Compatible Agent Skills (~/.claude/skills)
+    scanDir(path.join(home, '.claude', 'skills'), '⚡ Claude Skills');
+
+    // 5. Active Workspace Skills (if workspace is known)
+    try {
+        const lastWs = getLastWorkspace();
+        if (lastWs && fs.existsSync(lastWs)) {
+            scanDir(path.join(lastWs, '.gemini', 'skills'), '📁 Workspace Skills');
+            scanDir(path.join(lastWs, '.agents', 'skills'), '📁 Workspace Skills');
+            scanDir(path.join(lastWs, '.claude', 'skills'), '📁 Workspace Skills');
+            scanDir(path.join(lastWs, 'skills'), '📁 Workspace Skills');
+        }
+    } catch(e) {}
+
+    return allSkills;
+}
+
+async function handleSkills(ctx) {
+    try {
+        const rawText = ctx.message?.text?.trim() || '';
+        const menuMatch = rawText.match(/^\/skills(?:@[\w_]+)?(?:\s+(menu|toggle))?(?:\s+(on|off|enable|disable))?$/i);
+        if (menuMatch && (menuMatch[1] || menuMatch[2])) {
+            const action = (menuMatch[2] || menuMatch[1] || '').toLowerCase();
+            let newState;
+            if (action === 'on' || action === 'enable') newState = true;
+            else if (action === 'off' || action === 'disable') newState = false;
+            else newState = !isSkillsMenuEnabled();
+
+            setSkillsMenuEnabled(newState);
+            await clearAllMenuScopes();
+            await setMenuOnAllScopes();
+
+            const statusText = newState ? '🟢 <b>Enabled (Visible)</b>' : '⚪ <b>Disabled (Hidden)</b>';
+            let msg = `⚙️ <b>Skills in Telegram '/' Menu</b>: ${statusText}\n\n`;
+            if (newState) {
+                msg += `Installed skills are now listed in your Telegram <code>/</code> popup autocomplete menu.`;
+            } else {
+                msg += `Installed skills are hidden from the <code>/</code> popup menu for a cleaner interface.\n\n💡 <i>You can still invoke any skill anytime in chat text by typing <code>/skillname</code> (e.g. <code>/autoresearch</code>)!</i>`;
+            }
+            const keyboard = Markup.inlineKeyboard([
+                [Markup.button.callback(newState ? '🔘 Hide Skills from "/" Menu' : '🔘 Show Skills in "/" Menu', 'toggle_skills_menu')]
+            ]);
+            return ctx.reply(msg, { parse_mode: 'HTML', ...keyboard });
+        }
+
+        const query = rawText.replace(/^\/skills(?:@[\w_]+)?\s*/i, '').trim().toLowerCase();
+        let allSkills = getAllInstalledSkills();
+        
+        if (query) {
+            allSkills = allSkills.filter(s => s.name.toLowerCase().includes(query) || (s.desc && s.desc.toLowerCase().includes(query)));
+        }
+        
+        if (allSkills.length === 0) {
+            return ctx.reply(query ? `❌ No skills found matching "${query}".` : '❌ No skills installed.');
+        }
+        
+        const menuEnabled = isSkillsMenuEnabled();
+        let msg = `🧠 <b>Available Skills (${allSkills.length})</b>\n\n`;
+        if (query) msg += `🔍 <i>Filter: "${query}"</i>\n\n`;
+        
+        const topSkills = allSkills.slice(0, 25);
+        for (const s of topSkills) {
+            msg += `• <b>${s.name}</b>`;
+            if (s.desc) {
+                const cleanDesc = s.desc.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const shortDesc = cleanDesc.length > 70 ? cleanDesc.substring(0, 67) + '...' : cleanDesc;
+                msg += ` — <i>${shortDesc}</i>`;
+            }
+            msg += '\n';
+        }
+        
+        if (allSkills.length > 25) {
+            msg += `\n<i>...and ${allSkills.length - 25} more skills. Type <code>/skills &lt;keyword&gt;</code> to filter.</i>\n`;
+        }
+        
+        msg += `\n⚙️ <i>Telegram '/' Menu Listing: <b>${menuEnabled ? 'ON' : 'OFF'}</b></i>`;
+        msg += '\n💡 <i>To run any skill, send: <code>/skillname &lt;prompt&gt;</code> (e.g. <code>/autoresearch</code>).</i>';
+
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.callback(menuEnabled ? '🔘 Hide Skills from "/" Menu' : '🔘 Show Skills in "/" Menu', 'toggle_skills_menu')]
+        ]);
+
+        await ctx.reply(msg, { parse_mode: 'HTML', ...keyboard });
+    } catch(e) {
+        ctx.reply('❌ Error listing skills: ' + e.message);
+    }
+}
+
+bot.action('toggle_skills_menu', async (ctx) => {
+    try {
+        await ctx.answerCbQuery().catch(() => {});
+        const currentState = isSkillsMenuEnabled();
+        const newState = !currentState;
+        setSkillsMenuEnabled(newState);
+        await clearAllMenuScopes();
+        await setMenuOnAllScopes();
+
+        const statusText = newState ? '🟢 <b>Enabled (Visible)</b>' : '⚪ <b>Disabled (Hidden)</b>';
+        let msg = `⚙️ <b>Skills in Telegram '/' Menu</b>: ${statusText}\n\n`;
+        if (newState) {
+            msg += `Installed skills are now listed in your Telegram <code>/</code> popup autocomplete menu.`;
+        } else {
+            msg += `Installed skills are hidden from the <code>/</code> popup menu for a cleaner interface.\n\n💡 <i>You can still invoke any skill anytime in chat text by typing <code>/skillname</code> (e.g. <code>/autoresearch</code>)!</i>`;
+        }
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.callback(newState ? '🔘 Hide Skills from "/" Menu' : '🔘 Show Skills in "/" Menu', 'toggle_skills_menu')]
+        ]);
+        await ctx.editMessageText(msg, { parse_mode: 'HTML', ...keyboard }).catch(() => {
+            ctx.reply(msg, { parse_mode: 'HTML', ...keyboard });
+        });
+    } catch (e) {
+        console.error('Error in toggle_skills_menu:', e);
+    }
+});
+
+async function handleToggleSkills(ctx) {
+    try {
+        const currentState = isSkillsMenuEnabled();
+        const newState = !currentState;
+        setSkillsMenuEnabled(newState);
+        await clearAllMenuScopes();
+        await setMenuOnAllScopes();
+
+        const statusText = newState ? '🟢 <b>Enabled (Visible)</b>' : '⚪ <b>Disabled (Hidden)</b>';
+        let msg = `⚙️ <b>Skills in Telegram '/' Menu</b>: ${statusText}\n\n`;
+        if (newState) {
+            msg += `Installed skills are now listed in your Telegram <code>/</code> popup autocomplete menu.`;
+        } else {
+            msg += `Installed skills are hidden from the <code>/</code> popup menu for a cleaner interface.\n\n💡 <i>You can still invoke any skill anytime in chat text by typing <code>/skillname</code> (e.g. <code>/autoresearch</code>)!</i>`;
+        }
+        await ctx.reply(msg, { parse_mode: 'HTML' });
+    } catch (e) {
+        ctx.reply('❌ Error toggling skills menu: ' + e.message);
+    }
+}
+
+bot.command('toggleskill', handleToggleSkills);
+bot.command('toggleskills', handleToggleSkills);
+bot.command('skills', handleSkills);
+
 let cachedModelsList = [];
 
 async function ensureModelsCache() {
@@ -3784,6 +4030,7 @@ function getMenuCommands() {
         { command: 'new', description: t('menu.new_desc') },
         { command: 'agents', description: t('menu.agents_desc') },
         { command: 'artifacts', description: t('menu.artifacts_desc') },
+        { command: 'skills', description: 'Browse and search installed Agent Skills' },
         { command: 'model', description: t('menu.model_desc') },
         { command: 'workspace', description: t('menu.workspace_desc') },
         { command: 'memory', description: 'Check or toggle Project Memory' },
@@ -3819,8 +4066,25 @@ function getMenuCommands() {
         { command: 'getwalk', description: t('menu.getwalk_desc') || 'Get the latest Walkthrough' },
         { command: 'watcher', description: t('menu.watcher_desc') || 'Toggle background Task Watcher' },
         { command: 'telegraph', description: t('menu.telegraph_desc') || 'Toggle Telegraph artifact uploads' },
-        { command: 'cleartelegraph', description: t('menu.cleartelegraph_desc') || 'Wipe published Telegraph pages' }
+        { command: 'cleartelegraph', description: t('menu.cleartelegraph_desc') || 'Wipe published Telegraph pages' },
+        { command: 'toggleskill', description: 'Toggle Skills in / menu on/off' }
     ];
+
+    // Dynamically inject installed skills into Telegram's slash menu if enabled
+    if (isSkillsMenuEnabled()) {
+        try {
+            const allSkills = getAllInstalledSkills();
+            for (const skill of allSkills) {
+                if (cmds.length >= 95) break; // Keep under Telegram's 100 limit
+                const validCmd = skill.name.replace(/-/g, '_').toLowerCase().substring(0, 32);
+                if (!cmds.some(c => c.command === validCmd)) {
+                    let desc = skill.desc ? skill.desc.substring(0, 50) : `Run ${skill.name} skill`;
+                    cmds.push({ command: validCmd, description: desc });
+                }
+            }
+        } catch(e) {}
+    }
+
     return cmds.sort((a, b) => a.command.localeCompare(b.command));
 }
 
@@ -4156,8 +4420,20 @@ let isAgentBusy = false;
     });
 
     // Default text handler
+    const KNOWN_BOT_COMMANDS = new Set([
+        'start', 'help', 'latest', 'screenshot', 'status', 'start_ide', 'start_ag', 'close_ide', 'close_ag',
+        'close', 'close_window', 'closeall', 'new', 'agents', 'artifacts', 'skills', 'toggleskill', 'toggleskills',
+        'model', 'workspace', 'memory', 'window', 'lang', 'cmd', 'file', 'stop', 'autoaccept', 'quota', 'update',
+        'version', 'menu', 'app', 'fix_shortcuts', 'restart', 'goal', 'plan', 'schedule_task', 'schedule_setup',
+        'schedule_list', 'schedule_add', 'schedule_del', 'schedule_status', 'login', 'logincode', 'accounts',
+        'switchacc', 'getinfo', 'delacc', 'gettask', 'getplan', 'getwalk', 'watcher', 'turbo', 'panel', 'ask'
+    ]);
+
     bot.on('text', async (ctx, next) => {
-    if (ctx.message.text.startsWith('/')) return next();
+        const firstWord = ctx.message.text.split(/[\s@]+/)[0].replace(/^\//, '').toLowerCase();
+        if (ctx.message.text.startsWith('/') && KNOWN_BOT_COMMANDS.has(firstWord)) {
+            return next();
+        }
     let query = ctx.message.text;
     
     let explicitTargetId = null;
