@@ -366,6 +366,8 @@ Utilisez `/app` pour basculer le bot entre les applications. Le paramètre `ANTI
 - **[ienground](https://github.com/ienground)** — PR #17: Korean (한국어) localization
 - **[mo7amed-said-223](https://github.com/mo7amed-said-223)** — Issue #29: Prise en charge des messages vocaux Telegram et transcription audio
 - **[Forwead](https://github.com/Forwead)** — Issue #32: Optimisation de la latence de réponse et synchronisation de base de TaskWatcher
+- **[Blakey](https://github.com/Blakey)** — PR #33: Bascule de confidentialité Telegraph, slugs d'URL crypto impossibles à deviner, commandes de bot et tests autonomes
+- **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: Chips de skills natifs, chaînage de commandes multi-slash et bascule de menu de skills
 
 ## 🌟 Crédits & Inspirations
 

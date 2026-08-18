@@ -366,6 +366,8 @@ Utiliza `/app` para cambiar el enfoque del bot entre las aplicaciones. La config
 - **[ienground](https://github.com/ienground)** — PR #17: Korean (한국어) localization
 - **[mo7amed-said-223](https://github.com/mo7amed-said-223)** — Issue #29: Compatibilidad con mensajes de voz de Telegram y transcripción de audio
 - **[Forwead](https://github.com/Forwead)** — Issue #32: Optimización de latencia de respuesta y sincronización de línea base de TaskWatcher
+- **[Blakey](https://github.com/Blakey)** — PR #33: Alternancia de privacidad de Telegraph, URLs con slug criptográfico indescifrable, comandos de bot y pruebas independientes
+- **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: Chips de skills nativos, encadenamiento de comandos multi-slash y alternancia de menú de skills
 
 ## 🌟 Créditos e Inspiraciones
 

@@ -366,6 +366,8 @@ Bot 支持**两个 Antigravity 应用**同时运行：
 - **[ienground](https://github.com/ienground)** — PR #17: 韩语 (한국어) 本地化
 - **[mo7amed-said-223](https://github.com/mo7amed-said-223)** — Issue #29: Telegram 语音消息与音频转写支持
 - **[Forwead](https://github.com/Forwead)** — Issue #32: 响应延迟优化与 TaskWatcher 基线同步
+- **[Blakey](https://github.com/Blakey)** — PR #33: Telegraph 隐私切换、不可猜测的加密 slug URL、Bot 命令和独立测试
+- **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: 原生 Skill 芯片、多斜杠命令链接和 Skill 菜单切换
 
 ## 🌟 致谢与灵感
 

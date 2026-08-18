@@ -414,6 +414,8 @@ Use `/app` to switch the bot's focus between apps. The `ANTIGRAVITY_PREFERRED_AP
 - **[ienground](https://github.com/ienground)** — PR #17: Korean (한국어) localization
 - **[mo7amed-said-223](https://github.com/mo7amed-said-223)** — Issue #29: Telegram Voice Messages & Audio transcription support
 - **[Forwead](https://github.com/Forwead)** — Issue #32: Response latency optimization & TaskWatcher baseline synchronization
+- **[Blakey](https://github.com/Blakey)** — PR #33: Telegraph privacy toggle, unguessable crypto slug URLs, bot commands, and standalone tests
+- **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: Native skill chips, multi-slash command chaining, and skills menu toggle
 
 ## 🌟 Credits & Inspirations
 

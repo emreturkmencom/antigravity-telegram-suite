@@ -363,6 +363,8 @@ Verwende `/app`, um den Fokus des Bots zwischen den Apps zu wechseln. Die Einste
 - **[ienground](https://github.com/ienground)** — PR #17: Korean (한국어) localization
 - **[mo7amed-said-223](https://github.com/mo7amed-said-223)** — Issue #29: Telegram-Sprachnachrichten und Audio-Transkription
 - **[Forwead](https://github.com/Forwead)** — Issue #32: Optimierung der Antwortlatenz und TaskWatcher-Basissynchronisation
+- **[Blakey](https://github.com/Blakey)** — PR #33: Telegraph-Datenschutz-Toggle, unerratbare Krypto-Slug-URLs, Bot-Befehle und eigenständige Tests
+- **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: Native Skill-Chips, Multi-Slash-Befehlskettung und Skill-Menü-Umschalter
 
 ## 🌟 Credits & Inspirationen
 

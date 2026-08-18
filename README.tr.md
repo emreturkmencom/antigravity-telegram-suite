@@ -346,6 +346,8 @@ Bot eşzamanlı çalışan **iki Antigravity uygulamasını** destekler:
 - **[ienground](https://github.com/ienground)** — PR #17: Korean (한국어) localization
 - **[mo7amed-said-223](https://github.com/mo7amed-said-223)** — Issue #29: Telegram Sesli Mesajlar ve Ses transkripsiyon desteği
 - **[Forwead](https://github.com/Forwead)** — Issue #32: Yanıt gecikmesi optimizasyonu ve TaskWatcher baseline senkronizasyonu
+- **[Blakey](https://github.com/Blakey)** — PR #33: Telegraph gizlilik kontrolü, tahmin edilemez kripto slug URL'leri, bot komutları ve bağımsız testler
+- **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: Doğal skill çipleri, çoklu slash komut zincirleme ve skill menü toggle'ı
 
 ## 🌟 Krediler & İlham Kaynakları
 

@@ -366,6 +366,8 @@ antigravity-telegram-suite/
 - **[ienground](https://github.com/ienground)** — PR #17: Korean (한국어) localization
 - **[mo7amed-said-223](https://github.com/mo7amed-said-223)** — Issue #29: Telegram 음성 메시지 및 오디오 전사 지원
 - **[Forwead](https://github.com/Forwead)** — Issue #32: 응답 지연 시간 최적화 및 TaskWatcher 기준선 동기화
+- **[Blakey](https://github.com/Blakey)** — PR #33: Telegraph 개인정보 보호 토글, 추측 불가능한 암호화 슬러그 URL, 봇 명령어 및 독립형 테스트
+- **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: 네이티브 스킬 칩, 멀티 슬래시 명령 연결 및 스킬 메뉴 토글
 
 ## 🌟 크레딧 및 영감
 
