@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [3.8.4] - 2026-08-19
+
+### Added
+- **Interactive Skills Menu (`/skill`)**: Replaced the static category list with a fully interactive 3-level inline keyboard menu (Categories → Pagination List → Detail View with 'Run' button).
+
+### Changed
+- **Slash Command Menu Cleanup**: Removed the obsolete `/toggleskill` command. The command menu is now cleaner, and all skill operations are routed through `/skill`.
+
+### Fixed
+- **Auto-Accept `MutationObserver` Failure**: Fixed a syntax error (missing closing brace) in `ide_autoaccept.js` that caused CDP injection to fail with `result.injected === 0`. The bot now successfully clicks "Accept all" and other target buttons again.
+- **Skills Menu `sk_run:` Crash**: Fixed a silent crash when running skills via the interactive menu. Replaced the non-existent `handleCDPMessage` function with the correct `sendViaCDPWithRecovery` invocation.
 ## [3.8.3] - 2026-08-14
 
 > 💡 **Notice**: *Please update your Antigravity IDE and Standalone applications in order to use all the latest new features.*
