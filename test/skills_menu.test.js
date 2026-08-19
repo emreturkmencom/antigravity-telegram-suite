@@ -3,27 +3,6 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const SKILLS_MENU_FILE = path.join(os.homedir(), '.gemini', 'antigravity', 'skills_menu_state.json');
-
-// Test state save and read
-function isSkillsMenuEnabled() {
-    try {
-        if (fs.existsSync(SKILLS_MENU_FILE)) {
-            const data = JSON.parse(fs.readFileSync(SKILLS_MENU_FILE, 'utf8'));
-            if (typeof data.enabled === 'boolean') return data.enabled;
-        }
-    } catch(e) {}
-    return false; // Default OFF
-}
-
-function setSkillsMenuEnabled(enabled) {
-    try {
-        const dir = path.dirname(SKILLS_MENU_FILE);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(SKILLS_MENU_FILE, JSON.stringify({ enabled: !!enabled }, null, 2), 'utf8');
-    } catch(e) {}
-}
-
 function extractSkillDescription(content) {
     if (!content) return '';
     const match = content.match(/description:\s*([^\n\r]*)/i);
@@ -53,19 +32,7 @@ function extractSkillDescription(content) {
     return val.replace(/[*_`#]/g, '').trim();
 }
 
-console.log('🧪 Testing skills menu toggle state...');
-
-// Test default
-try { if (fs.existsSync(SKILLS_MENU_FILE)) fs.unlinkSync(SKILLS_MENU_FILE); } catch(_) {}
-assert.strictEqual(isSkillsMenuEnabled(), false, 'Skills menu should default to false (OFF)');
-
-// Test toggle ON
-setSkillsMenuEnabled(true);
-assert.strictEqual(isSkillsMenuEnabled(), true, 'Skills menu should be enabled when set to true');
-
-// Test toggle OFF
-setSkillsMenuEnabled(false);
-assert.strictEqual(isSkillsMenuEnabled(), false, 'Skills menu should be disabled when set to false');
+console.log('🧪 Testing skills menu...');
 
 // Test description extraction for multiline YAML
 const yamlMultilineFolded = `---
@@ -83,5 +50,35 @@ description: |
 ---`;
 assert.strictEqual(extractSkillDescription(yamlMultilineLiteral), 'STOP AND VERIFY: Before running tool.');
 
-console.log('✅ Skills menu toggle and description tests passed!');
+const yamlInline = `---
+name: test-skill-3
+description: "Simple inline description"
+---`;
+assert.strictEqual(extractSkillDescription(yamlInline), 'Simple inline description');
 
+const yamlEmpty = `---
+name: no-desc
+---`;
+assert.strictEqual(extractSkillDescription(yamlEmpty), '');
+
+// Test i18n skills keys exist in all locales
+const LOCALES = ['en', 'tr', 'de', 'es', 'fr', 'ko', 'zh'];
+const REQUIRED_SKILLS_KEYS = ['menu_title', 'category_title', 'search_results', 'not_found', 'no_skills', 'running', 'close_btn', 'back_btn', 'refresh_btn'];
+
+for (const lang of LOCALES) {
+    const filePath = path.join(__dirname, '..', 'locales', `${lang}.json`);
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    
+    assert.ok(data.skills, `Locale ${lang} is missing 'skills' section`);
+    for (const key of REQUIRED_SKILLS_KEYS) {
+        assert.ok(data.skills[key], `Locale ${lang} is missing 'skills.${key}'`);
+    }
+    
+    // Verify help.agent_text no longer references /toggleskill
+    if (data.help && data.help.agent_text) {
+        assert.ok(!data.help.agent_text.includes('/toggleskill'), `Locale ${lang} help still references /toggleskill`);
+        assert.ok(data.help.agent_text.includes('/skill'), `Locale ${lang} help should reference /skill`);
+    }
+}
+
+console.log('✅ All skills menu tests passed!');

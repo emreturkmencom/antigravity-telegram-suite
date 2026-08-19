@@ -43,25 +43,9 @@ function loadTurboState() {
     return { active: false, pinnedMsgId: null };
 }
 
-const SKILLS_MENU_FILE = path.join(os.homedir(), '.gemini', 'antigravity', 'skills_menu_state.json');
-
-function isSkillsMenuEnabled() {
-    try {
-        if (fs.existsSync(SKILLS_MENU_FILE)) {
-            const data = JSON.parse(fs.readFileSync(SKILLS_MENU_FILE, 'utf8'));
-            if (typeof data.enabled === 'boolean') return data.enabled;
-        }
-    } catch(e) {}
-    return false; // default OFF (clean menu)
-}
-
-function setSkillsMenuEnabled(enabled) {
-    try {
-        const dir = path.dirname(SKILLS_MENU_FILE);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(SKILLS_MENU_FILE, JSON.stringify({ enabled: !!enabled }, null, 2), 'utf8');
-    } catch(e) {}
-}
+// Skills cache for interactive menu
+let cachedSkillsList = [];
+let cachedSkillCategories = {};
 
 function extractSkillDescription(content) {
     if (!content) return '';
@@ -2592,128 +2576,310 @@ function getAllInstalledSkills() {
     return allSkills;
 }
 
-async function handleSkills(ctx) {
-    try {
-        const rawText = ctx.message?.text?.trim() || '';
-        const menuMatch = rawText.match(/^\/skills(?:@[\w_]+)?(?:\s+(menu|toggle))?(?:\s+(on|off|enable|disable))?$/i);
-        if (menuMatch && (menuMatch[1] || menuMatch[2])) {
-            const action = (menuMatch[2] || menuMatch[1] || '').toLowerCase();
-            let newState;
-            if (action === 'on' || action === 'enable') newState = true;
-            else if (action === 'off' || action === 'disable') newState = false;
-            else newState = !isSkillsMenuEnabled();
+// ─── Interactive Skills Menu (modeled after /agents) ───
 
-            setSkillsMenuEnabled(newState);
-            await clearAllMenuScopes();
-            await setMenuOnAllScopes();
+const SKILLS_PAGE_SIZE = 8;
 
-            const statusText = newState ? '🟢 <b>Enabled (Visible)</b>' : '⚪ <b>Disabled (Hidden)</b>';
-            let msg = `⚙️ <b>Skills in Telegram '/' Menu</b>: ${statusText}\n\n`;
-            if (newState) {
-                msg += `Installed skills are now listed in your Telegram <code>/</code> popup autocomplete menu.`;
-            } else {
-                msg += `Installed skills are hidden from the <code>/</code> popup menu for a cleaner interface.\n\n💡 <i>You can still invoke any skill anytime in chat text by typing <code>/skillname</code> (e.g. <code>/autoresearch</code>)!</i>`;
-            }
-            const keyboard = Markup.inlineKeyboard([
-                [Markup.button.callback(newState ? '🔘 Hide Skills from "/" Menu' : '🔘 Show Skills in "/" Menu', 'toggle_skills_menu')]
-            ]);
-            return ctx.reply(msg, { parse_mode: 'HTML', ...keyboard });
-        }
-
-        const query = rawText.replace(/^\/skills(?:@[\w_]+)?\s*/i, '').trim().toLowerCase();
-        let allSkills = getAllInstalledSkills();
-        
-        if (query) {
-            allSkills = allSkills.filter(s => s.name.toLowerCase().includes(query) || (s.desc && s.desc.toLowerCase().includes(query)));
-        }
-        
-        if (allSkills.length === 0) {
-            return ctx.reply(query ? `❌ No skills found matching "${query}".` : '❌ No skills installed.');
-        }
-        
-        const menuEnabled = isSkillsMenuEnabled();
-        let msg = `🧠 <b>Available Skills (${allSkills.length})</b>\n\n`;
-        if (query) msg += `🔍 <i>Filter: "${query}"</i>\n\n`;
-        
-        const topSkills = allSkills.slice(0, 25);
-        for (const s of topSkills) {
-            msg += `• <b>${s.name}</b>`;
-            if (s.desc) {
-                const cleanDesc = s.desc.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                const shortDesc = cleanDesc.length > 70 ? cleanDesc.substring(0, 67) + '...' : cleanDesc;
-                msg += ` — <i>${shortDesc}</i>`;
-            }
-            msg += '\n';
-        }
-        
-        if (allSkills.length > 25) {
-            msg += `\n<i>...and ${allSkills.length - 25} more skills. Type <code>/skills &lt;keyword&gt;</code> to filter.</i>\n`;
-        }
-        
-        msg += `\n⚙️ <i>Telegram '/' Menu Listing: <b>${menuEnabled ? 'ON' : 'OFF'}</b></i>`;
-        msg += '\n💡 <i>To run any skill, send: <code>/skillname &lt;prompt&gt;</code> (e.g. <code>/autoresearch</code>).</i>';
-
-        const keyboard = Markup.inlineKeyboard([
-            [Markup.button.callback(menuEnabled ? '🔘 Hide Skills from "/" Menu' : '🔘 Show Skills in "/" Menu', 'toggle_skills_menu')]
-        ]);
-
-        await ctx.reply(msg, { parse_mode: 'HTML', ...keyboard });
-    } catch(e) {
-        ctx.reply('❌ Error listing skills: ' + e.message);
+function refreshSkillsCache() {
+    cachedSkillsList = getAllInstalledSkills();
+    cachedSkillCategories = {};
+    for (const skill of cachedSkillsList) {
+        if (!cachedSkillCategories[skill.category]) cachedSkillCategories[skill.category] = [];
+        cachedSkillCategories[skill.category].push(skill);
     }
+    return cachedSkillsList;
 }
 
-bot.action('toggle_skills_menu', async (ctx) => {
-    try {
-        await ctx.answerCbQuery().catch(() => {});
-        const currentState = isSkillsMenuEnabled();
-        const newState = !currentState;
-        setSkillsMenuEnabled(newState);
-        await clearAllMenuScopes();
-        await setMenuOnAllScopes();
-
-        const statusText = newState ? '🟢 <b>Enabled (Visible)</b>' : '⚪ <b>Disabled (Hidden)</b>';
-        let msg = `⚙️ <b>Skills in Telegram '/' Menu</b>: ${statusText}\n\n`;
-        if (newState) {
-            msg += `Installed skills are now listed in your Telegram <code>/</code> popup autocomplete menu.`;
-        } else {
-            msg += `Installed skills are hidden from the <code>/</code> popup menu for a cleaner interface.\n\n💡 <i>You can still invoke any skill anytime in chat text by typing <code>/skillname</code> (e.g. <code>/autoresearch</code>)!</i>`;
+function renderSkillsCategoryKeyboard() {
+    const inline_keyboard = [];
+    const categories = Object.entries(cachedSkillCategories);
+    
+    let currentRow = [];
+    for (const [catName, skills] of categories) {
+        const label = `${catName} (${skills.length})`;
+        const catIdx = categories.findIndex(([n]) => n === catName);
+        currentRow.push({ text: label, callback_data: `sk_cat:${catIdx}:0` });
+        if (currentRow.length === 2) {
+            inline_keyboard.push(currentRow);
+            currentRow = [];
         }
-        const keyboard = Markup.inlineKeyboard([
-            [Markup.button.callback(newState ? '🔘 Hide Skills from "/" Menu' : '🔘 Show Skills in "/" Menu', 'toggle_skills_menu')]
-        ]);
-        await ctx.editMessageText(msg, { parse_mode: 'HTML', ...keyboard }).catch(() => {
-            ctx.reply(msg, { parse_mode: 'HTML', ...keyboard });
-        });
+    }
+    if (currentRow.length > 0) inline_keyboard.push(currentRow);
+
+    inline_keyboard.push([
+        { text: t('skills.refresh_btn') || '🔄 Refresh', callback_data: 'sk_refresh' },
+        { text: t('skills.close_btn') || '❌ Close', callback_data: 'sk_close' }
+    ]);
+
+    const text = t('skills.menu_title', { count: cachedSkillsList.length }) ||
+        `🧠 <b>Agent Skills (${cachedSkillsList.length})</b>\n\n` +
+        `📂 <i>Browse by category or search:</i>\n` +
+        `💡 <code>/skill &lt;name&gt; [prompt]</code>`;
+
+    return { text, reply_markup: { inline_keyboard } };
+}
+
+function renderSkillsListKeyboard(catIdx, page = 0) {
+    const categories = Object.entries(cachedSkillCategories);
+    if (catIdx < 0 || catIdx >= categories.length) return null;
+    
+    const [catName, skills] = categories[catIdx];
+    const totalPages = Math.ceil(skills.length / SKILLS_PAGE_SIZE);
+    const pageSkills = skills.slice(page * SKILLS_PAGE_SIZE, (page + 1) * SKILLS_PAGE_SIZE);
+    
+    const inline_keyboard = [];
+    for (const skill of pageSkills) {
+        const globalIdx = cachedSkillsList.indexOf(skill);
+        let displayName = skill.name.length > 30 ? skill.name.substring(0, 28) + '…' : skill.name;
+        inline_keyboard.push([{ text: `🧠 ${displayName}`, callback_data: `sk_view:${globalIdx}` }]);
+    }
+
+    // Pagination row
+    if (totalPages > 1) {
+        const paginationRow = [];
+        if (page > 0) paginationRow.push({ text: '◀️', callback_data: `sk_cat:${catIdx}:${page - 1}` });
+        paginationRow.push({ text: `${page + 1}/${totalPages}`, callback_data: 'sk_noop' });
+        if (page < totalPages - 1) paginationRow.push({ text: '▶️', callback_data: `sk_cat:${catIdx}:${page + 1}` });
+        inline_keyboard.push(paginationRow);
+    }
+
+    inline_keyboard.push([
+        { text: t('skills.back_btn') || '⬅️ All Categories', callback_data: 'sk_back' },
+        { text: t('skills.close_btn') || '❌ Close', callback_data: 'sk_close' }
+    ]);
+
+    const text = t('skills.category_title', { category: catName, count: skills.length }) ||
+        `${catName}\n<b>${skills.length} skills</b>\n\n<i>Tap a skill for details:</i>`;
+
+    return { text, reply_markup: { inline_keyboard } };
+}
+
+function renderSkillDetailKeyboard(skillIdx) {
+    if (skillIdx < 0 || skillIdx >= cachedSkillsList.length) return null;
+    
+    const skill = cachedSkillsList[skillIdx];
+    const catIdx = Object.entries(cachedSkillCategories).findIndex(([n]) => n === skill.category);
+    
+    let text = `🧠 <b>${escapeHtml(skill.name)}</b>\n`;
+    text += `📦 <i>${escapeHtml(skill.category)}</i>\n\n`;
+    
+    if (skill.desc) {
+        const cleanDesc = skill.desc.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const shortDesc = cleanDesc.length > 300 ? cleanDesc.substring(0, 297) + '...' : cleanDesc;
+        text += `${shortDesc}\n\n`;
+    } else {
+        text += `<i>No description available.</i>\n\n`;
+    }
+    text += `💡 <code>/skill ${skill.name} &lt;prompt&gt;</code>`;
+
+    const inline_keyboard = [
+        [{ text: '▶️ Run this skill', callback_data: `sk_run:${skillIdx}` }],
+        [
+            { text: t('skills.back_btn') || '⬅️ Back', callback_data: catIdx >= 0 ? `sk_cat:${catIdx}:0` : 'sk_back' },
+            { text: t('skills.close_btn') || '❌ Close', callback_data: 'sk_close' }
+        ]
+    ];
+
+    return { text, reply_markup: { inline_keyboard } };
+}
+
+function renderSearchResultsKeyboard(query, results) {
+    const inline_keyboard = [];
+    const topResults = results.slice(0, 10);
+    for (const skill of topResults) {
+        const globalIdx = cachedSkillsList.indexOf(skill);
+        let displayName = skill.name.length > 28 ? skill.name.substring(0, 26) + '…' : skill.name;
+        inline_keyboard.push([{ text: `🧠 ${displayName}`, callback_data: `sk_view:${globalIdx}` }]);
+    }
+    inline_keyboard.push([{ text: t('skills.close_btn') || '❌ Close', callback_data: 'sk_close' }]);
+
+    let text = t('skills.search_results', { query: escapeHtml(query), count: results.length }) ||
+        `🔍 <b>Results for "${escapeHtml(query)}" (${results.length})</b>`;
+    if (results.length > 10) text += `\n<i>Showing top 10 of ${results.length} matches.</i>`;
+
+    return { text, reply_markup: { inline_keyboard } };
+}
+
+bot.command('skills', async (ctx) => {
+    try {
+        const rawText = ctx.message?.text?.trim() || '';
+        const query = rawText.replace(/^\/skills(?:@[\w_]+)?\s*/i, '').trim().toLowerCase();
+        
+        refreshSkillsCache();
+
+        if (cachedSkillsList.length === 0) {
+            return ctx.reply(t('skills.no_skills') || 'ℹ️ No skills installed.');
+        }
+
+        // If query → search
+        if (query) {
+            const results = cachedSkillsList.filter(s =>
+                s.name.toLowerCase().includes(query) ||
+                (s.desc && s.desc.toLowerCase().includes(query))
+            );
+            if (results.length === 0) {
+                return ctx.reply(t('skills.not_found', { name: escapeHtml(query) }) || `❌ No skills found matching "${escapeHtml(query)}".`);
+            }
+            if (results.length === 1) {
+                const idx = cachedSkillsList.indexOf(results[0]);
+                const view = renderSkillDetailKeyboard(idx);
+                return ctx.reply(view.text, { parse_mode: 'HTML', reply_markup: view.reply_markup });
+            }
+            const view = renderSearchResultsKeyboard(query, results);
+            return ctx.reply(view.text, { parse_mode: 'HTML', reply_markup: view.reply_markup });
+        }
+
+        // No query → category menu
+        const view = renderSkillsCategoryKeyboard();
+        await ctx.reply(view.text, { parse_mode: 'HTML', reply_markup: view.reply_markup });
     } catch (e) {
-        console.error('Error in toggle_skills_menu:', e);
+        ctx.reply('❌ Error: ' + e.message);
     }
 });
 
-async function handleToggleSkills(ctx) {
+// Category view (with pagination)
+bot.action(/^sk_cat:(\d+):(\d+)$/, async (ctx) => {
     try {
-        const currentState = isSkillsMenuEnabled();
-        const newState = !currentState;
-        setSkillsMenuEnabled(newState);
-        await clearAllMenuScopes();
-        await setMenuOnAllScopes();
-
-        const statusText = newState ? '🟢 <b>Enabled (Visible)</b>' : '⚪ <b>Disabled (Hidden)</b>';
-        let msg = `⚙️ <b>Skills in Telegram '/' Menu</b>: ${statusText}\n\n`;
-        if (newState) {
-            msg += `Installed skills are now listed in your Telegram <code>/</code> popup autocomplete menu.`;
-        } else {
-            msg += `Installed skills are hidden from the <code>/</code> popup menu for a cleaner interface.\n\n💡 <i>You can still invoke any skill anytime in chat text by typing <code>/skillname</code> (e.g. <code>/autoresearch</code>)!</i>`;
+        await ctx.answerCbQuery();
+        const catIdx = parseInt(ctx.match[1], 10);
+        const page = parseInt(ctx.match[2], 10);
+        if (cachedSkillsList.length === 0) refreshSkillsCache();
+        const view = renderSkillsListKeyboard(catIdx, page);
+        if (view) {
+            await ctx.editMessageText(view.text, { parse_mode: 'HTML', reply_markup: view.reply_markup });
         }
-        await ctx.reply(msg, { parse_mode: 'HTML' });
     } catch (e) {
-        ctx.reply('❌ Error toggling skills menu: ' + e.message);
+        console.debug('[sk_cat] edit failed:', e.message);
     }
-}
+});
 
-bot.command('toggleskill', handleToggleSkills);
-bot.command('toggleskills', handleToggleSkills);
-bot.command('skills', handleSkills);
+// Skill detail view
+bot.action(/^sk_view:(\d+)$/, async (ctx) => {
+    try {
+        await ctx.answerCbQuery();
+        const idx = parseInt(ctx.match[1], 10);
+        if (cachedSkillsList.length === 0) refreshSkillsCache();
+        const view = renderSkillDetailKeyboard(idx);
+        if (view) {
+            await ctx.editMessageText(view.text, { parse_mode: 'HTML', reply_markup: view.reply_markup });
+        }
+    } catch (e) {
+        console.debug('[sk_view] edit failed:', e.message);
+    }
+});
+
+// Run skill from detail view
+bot.action(/^sk_run:(\d+)$/, async (ctx) => {
+    try {
+        const idx = parseInt(ctx.match[1], 10);
+        if (cachedSkillsList.length === 0) refreshSkillsCache();
+        if (idx >= 0 && idx < cachedSkillsList.length) {
+            const skill = cachedSkillsList[idx];
+            await ctx.answerCbQuery(t('skills.running', { name: skill.name }) || `▶️ Running ${skill.name}...`);
+            try { await ctx.deleteMessage(); } catch (_) {
+                try { await ctx.editMessageReplyMarkup({ inline_keyboard: [] }); } catch (__) {}
+            }
+            // Send as message to agent
+            const prompt = `Use the ${skill.name} skill.`;
+            await handleCDPMessage(ctx, prompt);
+        }
+    } catch (e) {
+        console.debug('[sk_run] failed:', e.message);
+    }
+});
+
+// Back to categories
+bot.action('sk_back', async (ctx) => {
+    try {
+        await ctx.answerCbQuery();
+        if (cachedSkillsList.length === 0) refreshSkillsCache();
+        const view = renderSkillsCategoryKeyboard();
+        await ctx.editMessageText(view.text, { parse_mode: 'HTML', reply_markup: view.reply_markup });
+    } catch (e) {
+        console.debug('[sk_back] edit failed:', e.message);
+    }
+});
+
+// Refresh
+bot.action('sk_refresh', async (ctx) => {
+    try {
+        await ctx.answerCbQuery(t('skills.refresh_btn') || '🔄 Refreshing...');
+        refreshSkillsCache();
+        const view = renderSkillsCategoryKeyboard();
+        await ctx.editMessageText(view.text, { parse_mode: 'HTML', reply_markup: view.reply_markup });
+    } catch (e) {
+        console.debug('[sk_refresh] failed:', e.message);
+    }
+});
+
+// Close
+bot.action('sk_close', async (ctx) => {
+    try {
+        await ctx.answerCbQuery();
+        await ctx.deleteMessage().catch(() => {
+            ctx.editMessageText('❌', { reply_markup: { inline_keyboard: [] } }).catch(() => {});
+        });
+    } catch (_) {}
+});
+
+// No-op for pagination label
+bot.action('sk_noop', async (ctx) => {
+    try { await ctx.answerCbQuery(); } catch (_) {}
+});
+
+// /skill <name> [prompt] — direct skill invocation
+bot.command('skill', async (ctx) => {
+    try {
+        const rawText = ctx.message?.text?.trim() || '';
+        const args = rawText.replace(/^\/skill(?:@[\w_]+)?\s*/i, '').trim();
+        
+        if (!args) {
+            // No args → show skills menu
+            refreshSkillsCache();
+            if (cachedSkillsList.length === 0) {
+                return ctx.reply(t('skills.no_skills') || 'ℹ️ No skills installed.');
+            }
+            const view = renderSkillsCategoryKeyboard();
+            return ctx.reply(view.text, { parse_mode: 'HTML', reply_markup: view.reply_markup });
+        }
+
+        const parts = args.split(/\s+/);
+        const skillName = parts[0].toLowerCase().replace(/^\//, '');
+        const prompt = parts.slice(1).join(' ');
+
+        if (cachedSkillsList.length === 0) refreshSkillsCache();
+        
+        const skill = cachedSkillsList.find(s => s.name.toLowerCase() === skillName);
+        if (!skill) {
+            // Fuzzy search
+            const matches = cachedSkillsList.filter(s => s.name.toLowerCase().includes(skillName));
+            if (matches.length === 1) {
+                const msg = prompt
+                    ? `Use the ${matches[0].name} skill: ${prompt}`
+                    : `Use the ${matches[0].name} skill.`;
+                return handleCDPMessage(ctx, msg);
+            }
+            if (matches.length > 1) {
+                const view = renderSearchResultsKeyboard(skillName, matches);
+                return ctx.reply(view.text, { parse_mode: 'HTML', reply_markup: view.reply_markup });
+            }
+            return ctx.reply(t('skills.not_found', { name: escapeHtml(skillName) }) || `❌ No skill found: "${escapeHtml(skillName)}"`);
+        }
+
+        if (!prompt) {
+            // No prompt → show detail
+            const idx = cachedSkillsList.indexOf(skill);
+            const view = renderSkillDetailKeyboard(idx);
+            return ctx.reply(view.text, { parse_mode: 'HTML', reply_markup: view.reply_markup });
+        }
+
+        // Run skill with prompt
+        const msg = `Use the ${skill.name} skill: ${prompt}`;
+        await handleCDPMessage(ctx, msg);
+    } catch (e) {
+        ctx.reply('❌ Error: ' + e.message);
+    }
+});
 
 let cachedModelsList = [];
 
@@ -4066,24 +4232,8 @@ function getMenuCommands() {
         { command: 'getwalk', description: t('menu.getwalk_desc') || 'Get the latest Walkthrough' },
         { command: 'watcher', description: t('menu.watcher_desc') || 'Toggle background Task Watcher' },
         { command: 'telegraph', description: t('menu.telegraph_desc') || 'Toggle Telegraph artifact uploads' },
-        { command: 'cleartelegraph', description: t('menu.cleartelegraph_desc') || 'Wipe published Telegraph pages' },
-        { command: 'toggleskill', description: 'Toggle Skills in / menu on/off' }
+        { command: 'cleartelegraph', description: t('menu.cleartelegraph_desc') || 'Wipe published Telegraph pages' }
     ];
-
-    // Dynamically inject installed skills into Telegram's slash menu if enabled
-    if (isSkillsMenuEnabled()) {
-        try {
-            const allSkills = getAllInstalledSkills();
-            for (const skill of allSkills) {
-                if (cmds.length >= 95) break; // Keep under Telegram's 100 limit
-                const validCmd = skill.name.replace(/-/g, '_').toLowerCase().substring(0, 32);
-                if (!cmds.some(c => c.command === validCmd)) {
-                    let desc = skill.desc ? skill.desc.substring(0, 50) : `Run ${skill.name} skill`;
-                    cmds.push({ command: validCmd, description: desc });
-                }
-            }
-        } catch(e) {}
-    }
 
     return cmds.sort((a, b) => a.command.localeCompare(b.command));
 }
@@ -4422,7 +4572,7 @@ let isAgentBusy = false;
     // Default text handler
     const KNOWN_BOT_COMMANDS = new Set([
         'start', 'help', 'latest', 'screenshot', 'status', 'start_ide', 'start_ag', 'close_ide', 'close_ag',
-        'close', 'close_window', 'closeall', 'new', 'agents', 'artifacts', 'skills', 'toggleskill', 'toggleskills',
+        'close', 'close_window', 'closeall', 'new', 'agents', 'artifacts', 'skills', 'skill',
         'model', 'workspace', 'memory', 'window', 'lang', 'cmd', 'file', 'stop', 'autoaccept', 'quota', 'update',
         'version', 'menu', 'app', 'fix_shortcuts', 'restart', 'goal', 'plan', 'schedule_task', 'schedule_setup',
         'schedule_list', 'schedule_add', 'schedule_del', 'schedule_status', 'login', 'logincode', 'accounts',
