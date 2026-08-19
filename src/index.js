@@ -2499,34 +2499,6 @@ bot.hears(/^\/artifact_(\d+)$/, async (ctx) => {
     }
 });
 
-async function handleSkills(ctx) {
-    try {
-        const rawText = ctx.message?.text?.trim() || '';
-        const menuMatch = rawText.match(/^\/skills(?:@[\w_]+)?(?:\s+(menu|toggle))?(?:\s+(on|off|enable|disable))?$/i);
-        if (menuMatch && (menuMatch[1] || menuMatch[2])) {
-            const action = (menuMatch[2] || menuMatch[1] || '').toLowerCase();
-            let newState;
-            if (action === 'on' || action === 'enable') newState = true;
-            else if (action === 'off' || action === 'disable') newState = false;
-            else newState = !isSkillsMenuEnabled();
-
-            setSkillsMenuEnabled(newState);
-            await clearAllMenuScopes();
-            await setMenuOnAllScopes();
-
-            const statusText = newState ? '🟢 <b>Enabled (Visible)</b>' : '⚪ <b>Disabled (Hidden)</b>';
-            let msg = `⚙️ <b>Skills in Telegram '/' Menu</b>: ${statusText}\n\n`;
-            if (newState) {
-                msg += `Installed skills are now listed in your Telegram <code>/</code> popup autocomplete menu.`;
-            } else {
-                msg += `Installed skills are hidden from the <code>/</code> popup menu for a cleaner interface.\n\n💡 <i>You can still invoke any skill anytime in chat text by typing <code>/skillname</code> (e.g. <code>/autoresearch</code>)!</i>`;
-            }
-            const keyboard = Markup.inlineKeyboard([
-                [Markup.button.callback(newState ? '🔘 Hide Skills from "/" Menu' : '🔘 Show Skills in "/" Menu', 'toggle_skills_menu')]
-            ]);
-            return ctx.reply(msg, { parse_mode: 'HTML', ...keyboard });
-        }
-
 function getAllInstalledSkills() {
     const allSkills = [];
     const seen = new Set();
