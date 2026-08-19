@@ -262,6 +262,7 @@ function buildIDEObserverScript(buttonTexts, blockedCommands, allowedCommands) {
                     }
                 }
             }
+        }
         // Check for stuck queued messages when agent is idle
         var cancelBtn = document.querySelector('button[aria-label*="Cancel"], button[title*="Cancel"], button[data-testid="cancel-button"]');
         if (!cancelBtn) {
