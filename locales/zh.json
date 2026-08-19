@@ -17,17 +17,17 @@
   "help": {
     "title": "🤖 <b>可用命令：</b>",
     "messaging_title": "📝 <i>消息与交互：</i>",
-    "messaging_text": "- 直接发送文字 → 和 Agent 对话\n- 📎 发送图片/文件 → 转发给 Agent\n- /stop → 停止正在运行的 Agent\n- /file → 打开文件浏览器\n- /turbo → 切换 Turbo 规划模式\n- /panel → 恢复控制面板",
-    "agent_title": "🎯 <i>Agent 模式：</i>",
-    "agent_text": "- /goal &lt;任务&gt; → 自主目标模式（持续工作直到完成）\n- /plan &lt;任务&gt; → 生成实施计划\n- /schedule_task &lt;任务&gt; → 安排定时任务",
+    "messaging_text": "- 直接发送文字 → 和 Agent 对话\n- 📎 发送图片/文件 → 转发给 Agent\n- /stop → 停止正在运行的 Agent\n- /file → 打开文件资源管理器\n- /turbo → 切换 Turbo 规划模式\n- /panel → 重新唤出交互式控制面板",
+    "agent_title": "🎯 <i>Agent 模式与技能 (Skills)：</i>",
+    "agent_text": "- /goal &lt;任务&gt; → 自主目标模式（持续工作直到完成）\n- /plan &lt;任务&gt; → 生成实施计划\n- /skills [关键词] → 浏览和搜索已安装的 Agent 技能\n- /toggleskill → 在 Telegram '/' 菜单中开启/隐藏技能\n- /schedule_task &lt;任务&gt; → 创建定时/周期任务",
+    "chat_title": "💬 <i>聊天与工件 (Artifacts)：</i>",
+    "chat_text": "- /new → 打开新聊天\n- /agents → 列出并切换最近的聊天\n- /artifacts → 查看已生成的工件列表\n- /gettask | /getplan | /getwalk → 获取最新的任务列表、计划或流程说明\n- /telegraph → 开启/关闭 Telegraph 网页工件发布\n- /cleartelegraph → 清空已发布的 Telegraph 页面\n- /model → 选择使用的 AI 模型\n- /autoaccept → 开启/关闭自动接受建议\n- /help → 显示此帮助指南",
+    "ide_title": "🛠️ <i>系统与工作区控制：</i>",
+    "ide_text": "- /start_ide | /start_ag → 启动 IDE / Standalone 应用\n- /close → 完全关闭应用程序\n- /closeall → 关闭所有打开的文件选项卡\n- /app → 在 IDE 和 Standalone 之间切换\n- /workspace → 切换项目工作区\n- /memory → 查看或切换项目记忆 (AGENT.md)\n- /watcher → 开启/关闭后台任务监视器\n- /window → 选择活动窗口\n- /fix_shortcuts → 修复桌面快捷方式\n- /lang → 切换机器人语言\n- /menu → 刷新 Telegram 命令菜单\n- /cmd &lt;命令&gt; → 在终端中执行命令\n- /restart → 重启 Telegram 机器人",
     "status_title": "👁️ <i>状态与信息：</i>",
-    "status_text": "- /latest → 获取最新回复\n- /screenshot → 截取 IDE 屏幕\n- /status → 系统状态\n- /quota → 查看 AI 配额\n- /version → 显示 Bot 版本\n- /update → 检查 Bot 更新",
-    "ide_title": "🛠️ <i>系统控制：</i>",
-    "ide_text": "- /start_ide → 启动 IDE/Agent\n- /close → 完全关闭应用\n- /app → 在 IDE 和 Agent 之间切换\n- /workspace → 切换项目\n- /window → 选择活动窗口\n- /fix_shortcuts → 修复桌面快捷方式\n- /lang → 切换语言\n- /menu → 刷新菜单\n- /cmd &lt;命令&gt; → 执行终端命令\n- /closeall → 关闭所有打开的文件标签",
-    "chat_title": "💬 <i>聊天控制：</i>",
-    "chat_text": "- /new → 打开新聊天\n- /agents → 列出最近聊天\n- /artifacts → 列出产物\n- /model → 选择使用的模型\n- /autoaccept → 切换自动接受\n- /help → 显示帮助",
-    "account_title": "📱 <b>账户管理</b>",
-    "account_text": "- /login → 使用 Google 登录\n- /accounts → 列出已保存的 Google 账户\n- /switchacc N → 切换活动账户\n- /getinfo N → 查看账户配额信息\n- /delacc N → 删除已保存的账户"
+    "status_text": "- /latest → 获取最新回复\n- /screenshot → 截取 IDE 屏幕截图\n- /status → 查看系统与进程状态\n- /quota → 查看 AI 模型配额情况\n- /version → 显示机器人版本\n- /update → 检查机器人更新",
+    "account_title": "📱 <b>账户管理：</b>",
+    "account_text": "- /login → 使用 Google 登录 (OAuth)\n- /accounts → 列出已保存的 Google 账户\n- /switchacc &lt;N&gt; → 切换活动账户\n- /getinfo &lt;N&gt; → 查看账户配额与详情\n- /delacc &lt;N&gt; → 删除已保存的账户"
   },
   "ide": {
     "already_running": "✅ Antigravity IDE 已经在运行！不需要再打开新窗口。\n💡 使用 /close 可以关闭它。",

@@ -116,19 +116,19 @@
     "too_large": "❌ 파일이 너무 큽니다 ({size}MB). Telegram 제한은 50MB입니다."
   },
   "help": {
-    "agent_text": "- /goal &lt;task&gt; → 자율 목표 실행 (완료될 때까지 동작)\n- /plan &lt;task&gt; → 구현 계획 생성\n- /schedule_task &lt;task&gt; → 반복 작업 예약",
-    "agent_title": "🎯 <i>에이전트 모드:</i>",
-    "chat_text": "- /new → 새 채팅 열기\n- /agents → 최근 채팅 목록\n- /artifacts → 아티팩트 목록\n- /model → 사용할 모델 선택\n- /autoaccept → 자동 승인 전환\n- /help → 이 도움말 표시",
-    "chat_title": "💬 <i>채팅 제어:</i>",
-    "ide_text": "- /start_ide → IDE/에이전트가 닫혀 있으면 시작\n- /close → 앱 완전 종료\n- /app → IDE와 에이전트 전환\n- /workspace → 프로젝트 전환\n- /window → 활성 창 선택\n- /fix_shortcuts → 데스크톱 바로가기 수정\n- /lang → 언어 전환\n- /menu → 메뉴 새로고침\n- /cmd &lt;command&gt; → 터미널 명령 실행\n- /closeall → 모든 파일 탭 닫기",
-    "ide_title": "🛠️ <i>시스템 제어:</i>",
-    "messaging_text": "- 텍스트 입력 → 에이전트와 대화\n- 📎 이미지/파일 전송 → 에이전트로 전달\n- /stop → 실행 중인 에이전트 중지\n- /file → 파일 탐색기 열기\n- /turbo → 터보 플래닝 모드 전환\n- /panel → 제어 패널 다시 표시",
-    "messaging_title": "📝 <i>메시지 &amp; 상호작용:</i>",
-    "status_text": "- /latest → 최신 응답 가져오기\n- /screenshot → IDE 스크린샷 촬영\n- /status → 시스템 상태\n- /quota → AI 사용량 확인\n- /version → 봇 버전 표시\n- /update → 봇 업데이트 확인",
-    "status_title": "👁️ <i>상태 &amp; 정보:</i>",
     "title": "🤖 <b>사용 가능한 명령어:</b>",
-    "account_title": "📱 <b>계정 관리</b>",
-    "account_text": "- /login → Google로 로그인\n- /accounts → 저장된 Google 계정 목록\n- /switchacc N → 활성 계정 전환\n- /getinfo N → 계정 할당량 정보 보기\n- /delacc N → 저장된 계정 삭제"
+    "messaging_title": "📝 <i>메시지 &amp; 상호작용:</i>",
+    "messaging_text": "- 텍스트 입력 → 에이전트와 대화\n- 📎 이미지/파일 전송 → 에이전트에 전달\n- /stop → 실행 중인 에이전트 중지\n- /file → 파일 탐색기 열기\n- /turbo → 터보 계획 모드 전환\n- /panel → 대화형 제어판 다시 표시",
+    "agent_title": "🎯 <i>에이전트 모드 &amp; 스킬:</i>",
+    "agent_text": "- /goal &lt;작업&gt; → 자율 목표 실행 (완료될 때까지 작업)\n- /plan &lt;작업&gt; → 구현 계획 생성\n- /skills [검색어] → 설치된 에이전트 스킬 검색 및 탐색\n- /toggleskill → Telegram '/' 메뉴에서 스킬 표시 전환\n- /schedule_task &lt;작업&gt; → 반복 작업 예약",
+    "chat_title": "💬 <i>채팅 &amp; 아티팩트:</i>",
+    "chat_text": "- /new → 새 채팅 세션 열기\n- /agents → 최근 채팅 목록 확인 및 전환\n- /artifacts → 생성된 아티팩트 목록\n- /gettask | /getplan | /getwalk → 최신 작업 목록, 계획 또는 워크스루 가져오기\n- /telegraph → Telegraph 웹 아티팩트 게시 전환\n- /cleartelegraph → 게시된 Telegraph 페이지 삭제\n- /model → 사용할 AI 모델 선택\n- /autoaccept → 자동 수락 전환\n- /help → 이 도움말 가이드 표시",
+    "ide_title": "🛠️ <i>시스템 &amp; 워크스페이스 제어:</i>",
+    "ide_text": "- /start_ide | /start_ag → IDE / Standalone 앱 시작\n- /close → 앱 완전 종료\n- /closeall → 열려 있는 모든 파일 탭 닫기\n- /app → IDE와 Standalone 모드 전환\n- /workspace → 프로젝트 워크스페이스 전환\n- /memory → 프로젝트 메모리(AGENT.md) 확인/전환\n- /watcher → 백그라운드 태스크 감시기 전환\n- /window → 활성 창 선택\n- /fix_shortcuts → 데스크톱 바로가기 복구\n- /lang → 봇 언어 전환\n- /menu → Telegram 명령어 메뉴 새로고침\n- /cmd &lt;명령어&gt; → 터미널 명령 실행\n- /restart → Telegram 봇 재시작",
+    "status_title": "👁️ <i>상태 &amp; 정보:</i>",
+    "status_text": "- /latest → 최신 응답 가져오기\n- /screenshot → IDE 스크린샷 캡처\n- /status → 시스템 및 프로세스 상태 보기\n- /quota → AI 모델 할당량 확인\n- /version → 봇 버전 확인\n- /update → 봇 업데이트 확인",
+    "account_title": "📱 <b>계정 관리:</b>",
+    "account_text": "- /login → Google 계정으로 로그인 (OAuth)\n- /accounts → 저장된 Google 계정 목록\n- /switchacc &lt;N&gt; → 활성 계정 전환\n- /getinfo &lt;N&gt; → 계정 정보 및 할당량 확인\n- /delacc &lt;N&gt; → 저장된 계정 삭제"
   },
   "ide": {
     "already_closed": "ℹ️ IDE가 이미 닫혀 있습니다. (잠금 파일 정리됨)",

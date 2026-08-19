@@ -17,17 +17,17 @@
   "help": {
     "title": "🤖 <b>Comandos disponibles:</b>",
     "messaging_title": "📝 <i>Mensajes e Interacción:</i>",
-    "messaging_text": "- Escribe texto → Habla con el agente\n- 📎 Enviar imagen/archivo → Reenviar al agente\n- /stop → Detener el agente actual\n- /file → Abrir explorador de archivos\n- /turbo → Alternar modo turbo de planificación\n- /panel → Mostrar el panel de control",
-    "agent_title": "🎯 <i>Modos del Agente:</i>",
-    "agent_text": "- /goal &lt;tarea&gt; → Objetivo autónomo (trabaja hasta terminar)\n- /plan &lt;tarea&gt; → Generar plan de implementación\n- /schedule_task &lt;tarea&gt; → Programar tarea recurrente",
-    "status_title": "👁️ <i>Estado e Info:</i>",
-    "status_text": "- /latest → Obtener la última respuesta\n- /screenshot → Captura de pantalla de la IDE\n- /status → Estado del sistema\n- /quota → Consultar cuota de IA\n- /version → Mostrar versión del bot\n- /update → Buscar actualizaciones",
-    "ide_title": "🛠️ <i>Controles del Sistema:</i>",
-    "ide_text": "- /start_ide → Iniciar IDE/Agente si está cerrado\n- /close → Cerrar la aplicación por completo\n- /app → Cambiar entre IDE y Agente\n- /workspace → Cambiar de proyecto\n- /window → Seleccionar ventana activa\n- /fix_shortcuts → Reparar accesos directos\n- /lang → Cambiar idioma\n- /menu → Actualizar menú\n- /cmd &lt;comando&gt; → Ejecutar un comando en la terminal\n- /closeall → Cerrar todas las pestañas abiertas",
-    "chat_title": "💬 <i>Controles de Chat:</i>",
-    "chat_text": "- /new → Abrir un nuevo chat\n- /agents → Lista de chats recientes\n- /artifacts → Lista de artefactos\n- /model → Seleccionar el modelo a usar\n- /autoaccept → Alternar auto-aceptar\n- /help → Mostrar este mensaje de ayuda",
-    "account_title": "📱 <b>Gestión de Cuentas</b>",
-    "account_text": "- /login → Iniciar sesión con Google\n- /accounts → Listar cuentas guardadas\n- /switchacc N → Cambiar cuenta activa\n- /getinfo N → Ver información de cuota\n- /delacc N → Eliminar una cuenta guardada"
+    "messaging_text": "- Escribe texto → Habla con el agente\n- 📎 Enviar imagen/archivo → Reenviar al agente\n- /stop → Detener el agente en ejecución\n- /file → Abrir explorador de archivos\n- /turbo → Alternar modo de planificación turbo\n- /panel → Mostrar panel de control interactivo",
+    "agent_title": "🎯 <i>Modos del Agente y Habilidades (Skills):</i>",
+    "agent_text": "- /goal &lt;tarea&gt; → Objetivo autónomo (trabaja hasta terminar)\n- /plan &lt;tarea&gt; → Generar plan de implementación\n- /skills [búsqueda] → Explorar y buscar habilidades del agente\n- /toggleskill → Mostrar/ocultar habilidades en el menú '/'\n- /schedule_task &lt;tarea&gt; → Programar una tarea recurrente",
+    "chat_title": "💬 <i>Chat y Artefactos:</i>",
+    "chat_text": "- /new → Abrir un nuevo chat\n- /agents → Listar y cambiar chats recientes\n- /artifacts → Listar artefactos generados\n- /gettask | /getplan | /getwalk → Obtener lista de tareas, plan o guía más reciente\n- /telegraph → Alternar publicación web en Telegraph\n- /cleartelegraph → Borrar páginas publicadas en Telegraph\n- /model → Seleccionar modelo de IA\n- /autoaccept → Alternar auto-aceptar\n- /help → Mostrar esta guía de ayuda",
+    "ide_title": "🛠️ <i>Controles del Sistema y Workspace:</i>",
+    "ide_text": "- /start_ide | /start_ag → Iniciar IDE / App Standalone\n- /close → Cerrar la aplicación por completo\n- /closeall → Cerrar todas las pestañas de archivos abiertas\n- /app → Alternar entre IDE y Standalone\n- /workspace → Cambiar espacio de trabajo\n- /memory → Comprobar o alternar memoria del proyecto (AGENT.md)\n- /watcher → Alternar monitor de tareas en segundo plano\n- /window → Seleccionar ventana activa\n- /fix_shortcuts → Reparar accesos directos\n- /lang → Cambiar idioma\n- /menu → Actualizar menú de comandos\n- /cmd &lt;comando&gt; → Ejecutar comando de terminal\n- /restart → Reiniciar el bot de Telegram",
+    "status_title": "👁️ <i>Estado e Información:</i>",
+    "status_text": "- /latest → Obtener la última respuesta\n- /screenshot → Tomar captura de pantalla del IDE\n- /status → Ver estado del sistema y procesos\n- /quota → Consultar cuotas de IA\n- /version → Ver versión del bot\n- /update → Buscar actualizaciones",
+    "account_title": "📱 <b>Gestión de Cuentas:</b>",
+    "account_text": "- /login → Iniciar sesión con Google (OAuth)\n- /accounts → Listar cuentas de Google guardadas\n- /switchacc &lt;N&gt; → Cambiar cuenta activa\n- /getinfo &lt;N&gt; → Ver información y cuota de la cuenta\n- /delacc &lt;N&gt; → Eliminar una cuenta guardada"
   },
   "ide": {
     "already_running": "✅ ¡Antigravity IDE ya está en ejecución! No necesitas abrir otra ventana.\n💡 Usa /close para cerrarlo.",
