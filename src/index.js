@@ -2781,7 +2781,12 @@ bot.action(/^sk_run:(\d+)$/, async (ctx) => {
             }
             // Send as message to agent
             const prompt = `Use the ${skill.name} skill.`;
-            await handleCDPMessage(ctx, prompt);
+            try {
+                setReaction(ctx, REACTION.THINKING).catch(()=>{});
+                await sendViaCDPWithRecovery(prompt);
+            } catch (err) {
+                ctx.reply(t('ask.headless_error', { error: err.message }) || err.message).catch(() => {});
+            }
         }
     } catch (e) {
         console.debug('[sk_run] failed:', e.message);
@@ -2857,7 +2862,13 @@ bot.command('skill', async (ctx) => {
                 const msg = prompt
                     ? `Use the ${matches[0].name} skill: ${prompt}`
                     : `Use the ${matches[0].name} skill.`;
-                return handleCDPMessage(ctx, msg);
+                try {
+                    setReaction(ctx, REACTION.THINKING).catch(()=>{});
+                    await sendViaCDPWithRecovery(msg);
+                } catch (err) {
+                    ctx.reply(t('ask.headless_error', { error: err.message }) || err.message).catch(() => {});
+                }
+                return;
             }
             if (matches.length > 1) {
                 const view = renderSearchResultsKeyboard(skillName, matches);
@@ -2875,7 +2886,12 @@ bot.command('skill', async (ctx) => {
 
         // Run skill with prompt
         const msg = `Use the ${skill.name} skill: ${prompt}`;
-        await handleCDPMessage(ctx, msg);
+        try {
+            setReaction(ctx, REACTION.THINKING).catch(()=>{});
+            await sendViaCDPWithRecovery(msg);
+        } catch (err) {
+            ctx.reply(t('ask.headless_error', { error: err.message }) || err.message).catch(() => {});
+        }
     } catch (e) {
         ctx.reply('❌ Error: ' + e.message);
     }
