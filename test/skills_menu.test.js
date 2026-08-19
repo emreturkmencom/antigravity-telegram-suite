@@ -13,7 +13,7 @@ function isSkillsMenuEnabled() {
             if (typeof data.enabled === 'boolean') return data.enabled;
         }
     } catch(e) {}
-    return true;
+    return false; // Default OFF
 }
 
 function setSkillsMenuEnabled(enabled) {
@@ -24,14 +24,64 @@ function setSkillsMenuEnabled(enabled) {
     } catch(e) {}
 }
 
+function extractSkillDescription(content) {
+    if (!content) return '';
+    const match = content.match(/description:\s*([^\n\r]*)/i);
+    if (!match) return '';
+    let val = match[1].replace(/["']/g, '').trim();
+    if (val === '>' || val === '>-' || val === '|' || val === '|-' || val === '|+') {
+        const lines = content.split('\n');
+        const descLineIndex = lines.findIndex(l => /description:\s*[>|]/i.test(l));
+        if (descLineIndex !== -1) {
+            const collected = [];
+            for (let i = descLineIndex + 1; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.startsWith('---')) break;
+                if (/^[a-zA-Z0-9_-]+:/.test(line)) break;
+                if (line.startsWith('  ') || line.startsWith('\t')) {
+                    const trimmed = line.trim();
+                    if (trimmed) collected.push(trimmed);
+                } else if (line.trim() === '') {
+                    continue;
+                } else {
+                    break;
+                }
+            }
+            val = collected.join(' ');
+        }
+    }
+    return val.replace(/[*_`#]/g, '').trim();
+}
+
 console.log('🧪 Testing skills menu toggle state...');
 
-// Test toggle OFF
-setSkillsMenuEnabled(false);
-assert.strictEqual(isSkillsMenuEnabled(), false, 'Skills menu should be disabled when set to false');
+// Test default
+try { if (fs.existsSync(SKILLS_MENU_FILE)) fs.unlinkSync(SKILLS_MENU_FILE); } catch(_) {}
+assert.strictEqual(isSkillsMenuEnabled(), false, 'Skills menu should default to false (OFF)');
 
 // Test toggle ON
 setSkillsMenuEnabled(true);
 assert.strictEqual(isSkillsMenuEnabled(), true, 'Skills menu should be enabled when set to true');
 
-console.log('✅ Skills menu toggle tests passed!');
+// Test toggle OFF
+setSkillsMenuEnabled(false);
+assert.strictEqual(isSkillsMenuEnabled(), false, 'Skills menu should be disabled when set to false');
+
+// Test description extraction for multiline YAML
+const yamlMultilineFolded = `---
+name: test-skill
+description: >-
+  This is a multiline
+  folded description.
+---`;
+assert.strictEqual(extractSkillDescription(yamlMultilineFolded), 'This is a multiline folded description.');
+
+const yamlMultilineLiteral = `---
+name: test-skill-2
+description: |
+  **STOP AND VERIFY**: Before running tool.
+---`;
+assert.strictEqual(extractSkillDescription(yamlMultilineLiteral), 'STOP AND VERIFY: Before running tool.');
+
+console.log('✅ Skills menu toggle and description tests passed!');
+

@@ -52,7 +52,7 @@ function isSkillsMenuEnabled() {
             if (typeof data.enabled === 'boolean') return data.enabled;
         }
     } catch(e) {}
-    return true; // default ON
+    return false; // default OFF (clean menu)
 }
 
 function setSkillsMenuEnabled(enabled) {
@@ -61,6 +61,35 @@ function setSkillsMenuEnabled(enabled) {
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
         fs.writeFileSync(SKILLS_MENU_FILE, JSON.stringify({ enabled: !!enabled }, null, 2), 'utf8');
     } catch(e) {}
+}
+
+function extractSkillDescription(content) {
+    if (!content) return '';
+    const match = content.match(/description:\s*([^\n\r]*)/i);
+    if (!match) return '';
+    let val = match[1].replace(/["']/g, '').trim();
+    if (val === '>' || val === '>-' || val === '|' || val === '|-' || val === '|+') {
+        const lines = content.split('\n');
+        const descLineIndex = lines.findIndex(l => /description:\s*[>|]/i.test(l));
+        if (descLineIndex !== -1) {
+            const collected = [];
+            for (let i = descLineIndex + 1; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.startsWith('---')) break;
+                if (/^[a-zA-Z0-9_-]+:/.test(line)) break;
+                if (line.startsWith('  ') || line.startsWith('\t')) {
+                    const trimmed = line.trim();
+                    if (trimmed) collected.push(trimmed);
+                } else if (line.trim() === '') {
+                    continue;
+                } else {
+                    break;
+                }
+            }
+            val = collected.join(' ');
+        }
+    }
+    return val.replace(/[*_`#]/g, '').trim();
 }
 
 function saveTurboState() {
@@ -2516,8 +2545,7 @@ function getAllInstalledSkills() {
                     if (fs.existsSync(skillMd)) {
                         try {
                             const content = fs.readFileSync(skillMd, 'utf8');
-                            const match = content.match(/description:\s*([^\n\r]+)/i);
-                            if (match) desc = match[1].replace(/["']/g, '').trim();
+                            desc = extractSkillDescription(content);
                         } catch(e) {}
                     }
                     allSkills.push({ name: entry.name, category, desc });
