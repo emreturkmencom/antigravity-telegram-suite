@@ -192,7 +192,7 @@ const STANDALONE_LOCATORS_SCRIPT = `
 
             const explicit = Array.from(document.querySelectorAll(
                 '[data-testid="model-selector-trigger"], [data-testid*="model-selector" i], [aria-label*="Select model" i], [title*="Select model" i], [aria-label*="选择模型" i], [title*="选择模型" i], [aria-label*="current:" i], [aria-label*="当前" i], [data-testid*="model-select" i]'
-            )).filter(AG_UI.isVisible);
+            ));
 
             const validExplicit = explicit.filter(el => {
                 const text = (el.textContent || '').trim();
@@ -201,6 +201,9 @@ const STANDALONE_LOCATORS_SCRIPT = `
                 return true;
             });
 
+            // Prefer visible ones, but fallback to hidden ones (e.g., when ask_question modal hides the chat input container)
+            const visibleExplicit = validExplicit.filter(AG_UI.isVisible);
+            if (visibleExplicit.length > 0) return visibleExplicit[0];
             if (validExplicit.length > 0) return validExplicit[0];
 
             const modelKeywords = ['gemini', 'claude', 'gpt', 'opus', 'sonnet', 'flash', 'llama', 'mistral', 'deepseek'];

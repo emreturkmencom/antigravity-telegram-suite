@@ -40,9 +40,26 @@ const IDE_LOCATORS_SCRIPT = `
 
             let container = null;
             if (interactiveElements.length > 0) {
-                container = interactiveElements[0].closest('form, fieldset, [role="dialog"], .modal, [class*="rounded"], div.p-4, div.p-3, div.p-2, div.border') ||
-                            interactiveElements[0].parentElement?.parentElement?.parentElement ||
-                            interactiveElements[0].parentElement;
+                // First try standard container selectors
+                container = interactiveElements[0].closest('form, fieldset, [role="dialog"], .modal, [class*="rounded"], div.p-4, div.p-3, div.p-2, div.border');
+                
+                // If not found, find the common ancestor of all radio/checkbox elements
+                if (!container && interactiveElements.length > 1) {
+                    let ancestor = interactiveElements[0].parentElement;
+                    while (ancestor && ancestor !== document.body) {
+                        if (interactiveElements.every(el => ancestor.contains(el))) {
+                            container = ancestor;
+                            break;
+                        }
+                        ancestor = ancestor.parentElement;
+                    }
+                }
+                
+                // Last resort: grandparent
+                if (!container) {
+                    container = interactiveElements[0].parentElement?.parentElement?.parentElement ||
+                                interactiveElements[0].parentElement;
+                }
             }
 
             if (!container) {
@@ -51,10 +68,10 @@ const IDE_LOCATORS_SCRIPT = `
             }
 
             if (!container) {
-                const allBtns = Array.from(document.querySelectorAll('button')).filter(b => isVisible(b) && !isExcluded(b));
+                const allBtns = Array.from(document.querySelectorAll('button, [role="button"], a, div[class*="cursor-pointer"]')).filter(b => isVisible(b) && !isExcluded(b));
                 const submitBtn = allBtns.find(b => {
                     const t = (b.textContent || '').trim().toLowerCase();
-                    return t.includes('submit') || t.includes('gönder') || t.includes('skip') || t.includes('atla') || t.includes('proceed') || t.includes('onayla');
+                    return t === 'submit' || t === 'skip' || t === 'gönder' || t === 'atla' || t === 'proceed' || t === 'onayla' || t === 'cancel' || t === 'iptal';
                 });
                 if (submitBtn) {
                     container = submitBtn.closest('form, fieldset, [class*="rounded"], div.p-4, div.p-3, div.border') || submitBtn.parentElement?.parentElement;
@@ -174,13 +191,18 @@ const IDE_LOCATORS_SCRIPT = `
         getStopButton: () => {
             const chatArea = AG_UI.getVisibleChatContainer() || document;
             
-            const stopIcon = chatArea.querySelector(
+            const stopIcons = Array.from(chatArea.querySelectorAll(
                 "svg.lucide-square, [data-tooltip-id*='cancel'], [aria-label*='Stop'], [title*='Stop'], [aria-label*='Cancel'], [aria-label*='Durdur'], [title*='Durdur']"
-            );
-            if (stopIcon) return stopIcon.closest('button') || stopIcon;
+            ));
+            
+            for (const icon of stopIcons) {
+                if (icon.closest('.modal, [role="dialog"], [data-testid*="interactive-modal"]')) continue;
+                return icon.closest('button') || icon;
+            }
             
             const allBtns = Array.from(chatArea.querySelectorAll('button'));
             return allBtns.find(b => {
+                if (b.closest('.modal, [role="dialog"], [data-testid*="interactive-modal"]')) return false;
                 if (b.querySelector('svg.lucide-square')) return true;
                 const t = (b.textContent || '').trim().toLowerCase();
                 return t === 'stop' || t === 'cancel' || t === 'durdur' || t === 'iptal';

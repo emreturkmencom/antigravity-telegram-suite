@@ -5,6 +5,14 @@ const path = require('path');
 const os = require('os');
 const { t } = require('./i18n');
 
+function escHtml(s) {
+    if (!s) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
 
 // ===== MULTI-WINDOW SUPPORT =====
 let preferredTargetId = null;
@@ -415,11 +423,15 @@ function getChatExtractExpr() {
                 }
 
                 if (container) {
-                    const listSelector = '.relative.flex.flex-col.gap-y-3, .relative.flex.flex-col.gap-y-3.px-4, .monaco-list-rows, [class*="message-list"], .chat-messages, [data-testid*="message-list"]';
-                    const list = container.matches && container.matches(listSelector) ? container : (container.querySelector ? container.querySelector(listSelector) : null);
-                if (list) {
+                    let messageNodes = Array.from(container.querySelectorAll('.rounded-xl.bg-card-border, .rounded-2xl.bg-card-border'));
+                    if (messageNodes.length === 0) {
+                        const listSelector = '.relative.flex.flex-col.gap-y-3, .relative.flex.flex-col.gap-y-3.px-4, .monaco-list-rows, [class*="message-list"], .chat-messages, [data-testid*="message-list"]';
+                        const list = container.matches && container.matches(listSelector) ? container : (container.querySelector ? container.querySelector(listSelector) : null);
+                        if (list) messageNodes = Array.from(list.children);
+                    }
+                if (messageNodes.length > 0) {
                     const msgs = [];
-                    for (let child of list.children) {
+                    for (let child of messageNodes) {
                         let clone = child.cloneNode(true);
                         
                         Array.from(clone.querySelectorAll('style, .material-icons, .material-symbols-outlined, .material-symbols-rounded, .google-symbols, .codicon, [class*="icon"]')).forEach(el => el.remove());
@@ -446,7 +458,7 @@ function getChatExtractExpr() {
                         });
                         
                         let userNodes = Array.from(clone.querySelectorAll('[role="article"][aria-label="User message"], [aria-label*="User message"], .bg-input, [data-message-author="user"], [class*="group/user-input-step"], .interactive-request, .chat-request'));
-                        if (userNodes.length === 0 && (clone.getAttribute && (clone.getAttribute('aria-label') === 'User message' || clone.getAttribute('data-message-author') === 'user')) || (clone.className && (clone.className.includes('user-message') || clone.className.includes('interactive-request') || clone.className.includes('chat-request') || clone.className.includes('user-input')))) {
+                        if (userNodes.length === 0 && (clone.getAttribute && (clone.getAttribute('aria-label') === 'User message' || clone.getAttribute('data-message-author') === 'user')) || (clone.className && (clone.className.includes('user-message') || clone.className.includes('interactive-request') || clone.className.includes('chat-request') || clone.className.includes('user-input') || (clone.className.includes('rounded-xl') && clone.className.includes('bg-card-border') && !clone.className.includes('rounded-2xl'))))) {
                             userNodes = [clone];
                         }
                         
@@ -593,10 +605,32 @@ function httpGet(url, timeoutMs = 5000) {
  * Snapshot the current chat state for diff tracking.
  * DOM fallback uses globalLastChatState.
  */
+
 async function snapshotChatState(port, specificTargetId = null, threadName = null) {
     lastResolvedThreadId = null; // ALWAYS clear stale cache before attempting to anchor
 
+    // STRATEGY 0: Extract exact UUID from active page URL (Standalone App)
+    let candidates = await resolveTargets(port, false);
+    if (specificTargetId && specificTargetId !== 'auto') {
+        const filtered = candidates.filter(t => t.id === specificTargetId);
+        if (filtered.length > 0) candidates = filtered;
+    }
+    for (const target of candidates) {
+        if (target.url) {
+            const uuidMatch = target.url.match(/\/c\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+            if (uuidMatch) {
+                const conversationId = uuidMatch[1];
+                console.log(`[snapshot] Anchored via URL extraction → ${conversationId}`);
+                lastResolvedThreadId = conversationId;
+                _notifyThreadResolved(conversationId);
+                if (threadName) threadNameToIdCache.set(threadName, conversationId);
+                return;
+            }
+        }
+    }
+
     // Strategy 1: If we have a thread name, resolve directly via filesystem
+
     // This is the most reliable path — used after /agents_N thread switching
     if (threadName) {
         const resolvedId = findConversationIdByTitle(threadName);
@@ -767,7 +801,7 @@ async function snapshotChatState(port, specificTargetId = null, threadName = nul
 async function _domLatestExtraction(port, specificTargetId = null) {
     let candidates = await resolveTargets(port);
     if (specificTargetId) {
-        candidates = candidates.filter(t => t.id === specificTargetId);
+        const filtered = candidates.filter(t => t.id === specificTargetId); if (filtered.length > 0) candidates = filtered;
     }
     for (const target of candidates) {
         try {
@@ -824,7 +858,7 @@ async function _domLatestExtraction(port, specificTargetId = null) {
 
 async function getInteractiveModalState(port, specificTargetId = null) {
     let candidates = await resolveTargets(port);
-    if (specificTargetId) candidates = candidates.filter(t => t.id === specificTargetId);
+    if (specificTargetId) { const filtered = candidates.filter(t => t.id === specificTargetId); if (filtered.length > 0) candidates = filtered; }
     
     for (const target of candidates) {
         try {
@@ -835,6 +869,7 @@ async function getInteractiveModalState(port, specificTargetId = null) {
                 expression: `(() => {
                     const isVisible = (el) => {
                         if (!el) return false;
+                        if (el.classList && el.classList.contains('sr-only') && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'BUTTON')) return true;
                         const r = el.getBoundingClientRect();
                         if (r.width === 0 || r.height === 0) return false;
                         const s = window.getComputedStyle(el);
@@ -843,16 +878,35 @@ async function getInteractiveModalState(port, specificTargetId = null) {
 
                     const isExcluded = (el) => !!el.closest('.titlebar, .monaco-workbench .menubar, .monaco-workbench .statusbar, .monaco-workbench .activitybar, .monaco-editor, .editor-widget, .find-widget, .quick-input-widget, .monaco-menu-container, .context-view, .tabs-container, .monaco-action-bar, .actions-container');
 
-                    // 1. Direct interactive question elements (radio buttons, checkboxes)
+                    // 1. Direct interactive question elements (radio buttons, checkboxes, radiogroup, write-in)
                     const allRadios = Array.from(document.querySelectorAll('[role="radio"], input[type="radio"]')).filter(el => isVisible(el) && !isExcluded(el));
                     const allCheckboxes = Array.from(document.querySelectorAll('[role="checkbox"], input[type="checkbox"]')).filter(el => isVisible(el) && !isExcluded(el));
-                    const interactiveElements = [...allRadios, ...allCheckboxes];
+                    const radiogroups = Array.from(document.querySelectorAll('[role="radiogroup"], textarea[data-testid*="ask-question" i]')).filter(el => isVisible(el) && !isExcluded(el));
+                    const interactiveElements = [...allRadios, ...allCheckboxes, ...radiogroups];
 
                     let container = null;
                     if (interactiveElements.length > 0) {
-                        container = interactiveElements[0].closest('form, fieldset, [role="dialog"], .modal, [class*="rounded"], div.p-4, div.p-3, div.p-2, div.border') ||
-                                    interactiveElements[0].parentElement?.parentElement?.parentElement ||
-                                    interactiveElements[0].parentElement;
+                        // Walk up to find a container that has all options AND some text (header)
+                        let ancestor = interactiveElements[0].parentElement;
+                        while (ancestor && ancestor !== document.body) {
+                            if (interactiveElements.every(el => ancestor.contains(el))) {
+                                if (ancestor.tagName === 'FORM' || ancestor.tagName === 'FIELDSET' || ancestor.getAttribute('role') === 'dialog' || ancestor.classList.contains('no-focus-ring') || ancestor.classList.contains('modal') || (ancestor.className && ancestor.className.includes('bg-card-border'))) {
+                                    container = ancestor;
+                                    break;
+                                }
+                                const textEls = Array.from(ancestor.querySelectorAll('p, h2, h3, h4, legend'));
+                                if (textEls.some(t => t.textContent.trim().length > 5)) {
+                                    container = ancestor;
+                                    break;
+                                }
+                            }
+                            ancestor = ancestor.parentElement;
+                        }
+                        
+                        // Fallback
+                        if (!container) {
+                            container = interactiveElements[0].closest('form, fieldset, [role="dialog"], .modal, [class*="bg-card-border"], div.p-4, div.p-3, div.p-2, div.border') || interactiveElements[0].parentElement?.parentElement?.parentElement || interactiveElements[0].parentElement;
+                        }
                     }
 
                     // 2. Check for standard modal dialog containers
@@ -865,10 +919,10 @@ async function getInteractiveModalState(port, specificTargetId = null) {
                     
                     // 3. Check for submit / skip / proceed action buttons
                     if (!container) {
-                        const allBtns = Array.from(document.querySelectorAll('button')).filter(b => isVisible(b) && !isExcluded(b));
+                        const allBtns = Array.from(document.querySelectorAll('button, [role="button"], a, div[class*="cursor-pointer"]')).filter(b => isVisible(b) && !isExcluded(b));
                         const submitBtn = allBtns.find(b => {
                             const t = (b.textContent || '').trim().toLowerCase();
-                            return t.includes('submit') || t.includes('gönder') || t.includes('skip') || t.includes('atla') || t.includes('proceed') || t.includes('onayla');
+                            return t === 'submit' || t === 'skip' || t === 'gönder' || t === 'atla' || t === 'proceed' || t === 'onayla' || t === 'cancel' || t === 'iptal';
                         });
                         if (submitBtn) {
                             container = submitBtn.closest('form, fieldset, [class*="rounded"], div.p-4, div.p-3, div.border') || submitBtn.parentElement?.parentElement;
@@ -883,45 +937,54 @@ async function getInteractiveModalState(port, specificTargetId = null) {
                             return ph.includes('other') || ph.includes('answer') || ph.includes('diğer');
                         });
                         if (otherInput) {
-                            container = otherInput.closest('form, fieldset, [class*="rounded"], div.p-4, div') || otherInput.parentElement?.parentElement;
+                            let ancestor = otherInput.parentElement;
+                            while(ancestor && ancestor !== document.body) {
+                                if (ancestor.querySelectorAll('input[type="radio"], input[type="checkbox"], label').length > 1) {
+                                    container = ancestor;
+                                    break;
+                                }
+                                ancestor = ancestor.parentElement;
+                            }
+                            if (!container) {
+                                container = otherInput.closest('form, fieldset, [class*="rounded"], div.p-4, div') || otherInput.parentElement?.parentElement;
+                            }
                         }
                     }
 
                     if (!container) return null;
 
-                    // Ensure this container actually has question inputs or choices
-                    const hasInputs = !!container.querySelector(
-                        'textarea, input[type="radio"], input[type="checkbox"], [role="radio"], [role="checkbox"], button, [data-testid*="option"]'
-                    );
-                    if (!hasInputs && interactiveElements.length === 0) return null;
-                    
-                    let headerEl = container.querySelector('.modal-header, [data-testid*="interactive-modal"] h2, [data-testid*="modal"] h2, h2, h3.font-medium, h3, h4, fieldset legend, .font-semibold, .font-medium');
+                    // Clean clone of container to remove any inline style tags, scripts, svgs, icons
+                    const cleanContainer = container.cloneNode(true);
+                    cleanContainer.querySelectorAll('style, script, svg, [class*="icon"]').forEach(s => s.remove());
+
+                    // Extract Question Header
+                    let headerEl = Array.from(cleanContainer.querySelectorAll('.modal-header, [data-testid*="interactive-modal"] h2, [data-testid*="modal"] h2, h2, h3.font-medium, h3, h4, fieldset legend, .leading-relaxed p, .leading-relaxed, p, .text-sm, .text-base, .font-semibold, .font-medium')).find(el => {
+                        if (el.tagName === 'BUTTON' || el.closest('button') || el.closest('[role="button"]') || el.closest('[role="radiogroup"]')) return false;
+                        return el.textContent.trim().length > 0;
+                    });
                     let header = (headerEl && headerEl.textContent.trim()) || '';
-                    
-                    const optionCandidateEls = Array.from(container.querySelectorAll(
-                        'label, [role="radio"], [role="checkbox"], input[type="radio"], input[type="checkbox"], [data-testid*="option"], div[class*="cursor-pointer"], li'
-                    )).filter(el => isVisible(el) && !isExcluded(el));
+
+                    // Extract Options
+                    const optionCandidateEls = Array.from(cleanContainer.querySelectorAll(
+                        'label, [role="radio"], [role="checkbox"], input[type="radio"], input[type="checkbox"], [data-testid*="option"]'
+                    ));
 
                     let options = [];
-                    for (const el of (interactiveElements.length > 0 ? interactiveElements : optionCandidateEls)) {
-                        let txt = (el.innerText || el.textContent || '').trim();
-                        if (!txt || txt.length <= 2) {
-                            const row = el.closest('label, div.flex, li, [role="button"]') || el.parentElement;
-                            txt = (row?.innerText || row?.textContent || '').trim();
-                        }
-                        if (!txt) {
-                            txt = el.getAttribute('aria-label') || el.getAttribute('value') || '';
-                        }
-                        txt = txt.replace(/^[0-9]+[\s.)\-]+/, '').replace(/\b\(Recommended\)\b/gi, '').trim();
-                        if (txt && !txt.match(/^(Other|Other \(write your answer\)|Other \(write in\)|Diğer|Submit|Skip|Gönder|Atla|\d+)$/i)) {
+                    for (const el of optionCandidateEls) {
+                        const elClone = el.cloneNode(true);
+                        // Remove write-in textarea, badge numbers (1, 2, etc.), inputs
+                        elClone.querySelectorAll('textarea, input, .rounded.bg-border, span.font-mono').forEach(b => b.remove());
+                        let txt = elClone.textContent.trim();
+                        txt = txt.replace(/^[0-9]+[\\s.)\\-]+/, '').replace(/\\b\\(Recommended\\)\\b/gi, '').trim();
+                        if (txt && !txt.match(/^(Other|Other \\(write your answer\\)|Other \\(write in\\)|Diğer|Submit|Skip|Gönder|Atla|\\d+)$/i)) {
                             if (!options.includes(txt)) options.push(txt);
                         }
                     }
-                    
+
                     options = [...new Set(options)];
-                    
+
                     if (!header && options.length > 0) {
-                        const textNodes = Array.from(container.querySelectorAll('p, .text-sm, .text-base, div, legend')).filter(isVisible);
+                        const textNodes = Array.from(cleanContainer.querySelectorAll('p, .text-sm, .text-base, div, legend'));
                         for (let el of textNodes) {
                             const txt = el.textContent.trim();
                             if (txt && (txt.includes('?') || txt.length > 10) && !options.includes(txt) && !options.some(o => o.includes(txt))) {
@@ -931,7 +994,7 @@ async function getInteractiveModalState(port, specificTargetId = null) {
                         }
                     }
                     header = header || 'Agent Soru Sordu / Question';
-                    
+
                     return { header, options };
                 })()`,
                 returnByValue: true
@@ -1204,6 +1267,9 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null,
                         (function() {
                             const isVisible = (el) => {
                                 if (!el) return false;
+                                // sr-only inputs (used by IDE's ask_question widget) are intentionally hidden via CSS clip
+                                // but are still functionally present — treat them as visible
+                                if (el.classList && el.classList.contains('sr-only') && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return true;
                                 const r = el.getBoundingClientRect();
                                 if (r.width === 0 || r.height === 0) return false;
                                 const s = window.getComputedStyle(el);
@@ -2266,7 +2332,7 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
 
     let candidates = await resolveTargets(port, false);
     if (specificTargetId) {
-        candidates = candidates.filter(t => t.id === specificTargetId);
+        const filtered = candidates.filter(t => t.id === specificTargetId); if (filtered.length > 0) candidates = filtered;
     }
     // 1. Try to get Name, Workspace, and Thread ID from the DOM
     for (const target of candidates) {
@@ -2397,7 +2463,7 @@ async function getActiveThreadId(port, specificTargetId = null) {
 async function isAgentWorking(port, specificTargetId = null) {
     let candidates = await resolveTargets(port, false);
     if (specificTargetId) {
-        candidates = candidates.filter(t => t.id === specificTargetId);
+        const filtered = candidates.filter(t => t.id === specificTargetId); if (filtered.length > 0) candidates = filtered;
     }
     for (const target of candidates) {
         try {
@@ -2441,6 +2507,8 @@ async function isAgentWorking(port, specificTargetId = null) {
     return false;
 }
 
+let lastKnownModel = null;
+
 async function getCurrentModel(port) {
     const candidates = await resolveTargets(port, false);
     for (const target of candidates) {
@@ -2457,17 +2525,21 @@ async function getCurrentModel(port) {
                             const label = btn.getAttribute('aria-label') || '';
                             const current = label.match(/(?:current|当前)[：:]\\s*(.+)$/i);
                             if (current && current[1]) return current[1].trim();
-                            return btn.textContent.trim();
+                            const txt = btn.textContent.trim();
+                            if (txt) return txt;
                         }
                         return null;
                     })()
                 `, returnByValue: true
             });
             await client.close();
-            if (check?.result?.value) return check.result.value;
+            if (check?.result?.value) {
+                lastKnownModel = check.result.value;
+                return check.result.value;
+            }
         } catch(e) {}
     }
-    return null;
+    return lastKnownModel || null;
 }
 
 async function switchStandaloneWorkspace(port, wsName) {
@@ -2890,7 +2962,7 @@ async function selectModel(port, modelName, specificTargetId = null) {
     const raw = await resolveTargets(port, false);
     let candidates = raw;
     if (specificTargetId) {
-        candidates = candidates.filter(t => t.id === specificTargetId);
+        const filtered = candidates.filter(t => t.id === specificTargetId); if (filtered.length > 0) candidates = filtered;
     }
 
     for (const target of candidates) {
