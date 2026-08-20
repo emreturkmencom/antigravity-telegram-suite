@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [3.8.5] - 2026-08-21
+
+### Fixed
+- **CDP DOM Chat Extraction**: Fixed issue where `.rounded-xl.bg-card-border` (introduced for Standalone 2.0) was matching user prompt bubbles and the composer input in Classic IDE, causing agent responses to be completely bypassed and returning empty/truncated responses or model name pills (`\`Gemini 3.7...\``).
+- **Direct Turn Article Selection**: Modernized agent response extraction to query `[role="article"][aria-label="Agent response"]` and its dedicated `.leading-relaxed` markdown container, preserving full formatting, code blocks, and markdown structure without destructive element deletion.
+- **Model Selector & Effort Tiers**: Fixed Base UI model dropdown selection for Claude, GPT, and Gemini models with direct clicking, hover simulation, and effort tier submenu handling.
+- **Interactive Modals & Questions**: Added strict write-in/modal guards and removed false-positive button matches (such as cancel/stop buttons) from trigger checks.
+
 ## [3.8.4] - 2026-08-19
 
 ### Added

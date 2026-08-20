@@ -423,7 +423,13 @@ function getChatExtractExpr() {
                 }
 
                 if (container) {
-                    let messageNodes = Array.from(container.querySelectorAll('.rounded-xl.bg-card-border, .rounded-2xl.bg-card-border'));
+                    const isClassic = typeof AG_UI !== 'undefined' && AG_UI.isClassicIDE && AG_UI.isClassicIDE();
+                    let messageNodes = [];
+
+                    if (!isClassic) {
+                        messageNodes = Array.from(container.querySelectorAll('.rounded-xl.bg-card-border, .rounded-2xl.bg-card-border'));
+                    }
+
                     if (messageNodes.length === 0) {
                         const listSelector = '.relative.flex.flex-col.gap-y-3, .relative.flex.flex-col.gap-y-3.px-4, .monaco-list-rows, [class*="message-list"], .chat-messages, [data-testid*="message-list"]';
                         const list = container.matches && container.matches(listSelector) ? container : (container.querySelector ? container.querySelector(listSelector) : null);
@@ -458,7 +464,7 @@ function getChatExtractExpr() {
                         });
                         
                         let userNodes = Array.from(clone.querySelectorAll('[role="article"][aria-label="User message"], [aria-label*="User message"], .bg-input, [data-message-author="user"], [class*="group/user-input-step"], .interactive-request, .chat-request'));
-                        if (userNodes.length === 0 && (clone.getAttribute && (clone.getAttribute('aria-label') === 'User message' || clone.getAttribute('data-message-author') === 'user')) || (clone.className && (clone.className.includes('user-message') || clone.className.includes('interactive-request') || clone.className.includes('chat-request') || clone.className.includes('user-input') || (clone.className.includes('rounded-xl') && clone.className.includes('bg-card-border') && !clone.className.includes('rounded-2xl'))))) {
+                        if (userNodes.length === 0 && ((clone.getAttribute && (clone.getAttribute('aria-label') === 'User message' || clone.getAttribute('data-message-author') === 'user')) || (clone.className && (clone.className.includes('user-message') || clone.className.includes('interactive-request') || clone.className.includes('chat-request') || clone.className.includes('user-input') || (clone.className.includes('rounded-xl') && clone.className.includes('bg-card-border') && !clone.className.includes('rounded-2xl')))))) {
                             userNodes = [clone];
                         }
                         
@@ -469,14 +475,36 @@ function getChatExtractExpr() {
                                 if (uText) msgs.push("👤 User:\\n" + uText);
                                 if (un === clone) {
                                     isEntireRowUser = true;
-                                } else {
-                                    un.remove(); // Remove user text from clone so agent text is left
                                 }
                             });
                             
                             if (!isEntireRowUser) {
-                                let aText = cleanText(nodeToMd(clone));
-                                if (aText) msgs.push("🤖 Agent:\\n" + aText);
+                                // First try: look for a dedicated agent response article element
+                                const agentArticle = clone.querySelector('[role="article"][aria-label="Agent response"], [data-message-author="agent"], [data-message-author="assistant"]');
+                                if (agentArticle) {
+                                    // Remove model selectors, thought/tool headers, status spinners
+                                    Array.from(agentArticle.querySelectorAll('style, svg, [data-testid*="worked-for"], [data-testid*="thought"], [data-testid*="model"], [class*="animate-spin"]')).forEach(el => el.remove());
+                                    AG_UI.removeThoughtBlocks(agentArticle);
+
+                                    const markdownEl = agentArticle.querySelector('.leading-relaxed, .prose, .markdown-body, [class*="rendered-markdown"]');
+                                    let aText = '';
+                                    if (markdownEl) {
+                                        aText = cleanText(nodeToMd(markdownEl));
+                                        if (!aText) aText = cleanText(markdownEl.innerText || markdownEl.textContent);
+                                    } else {
+                                        Array.from(agentArticle.querySelectorAll('button, [role="button"]')).forEach(el => el.remove());
+                                        aText = cleanText(nodeToMd(agentArticle));
+                                        if (!aText) aText = cleanText(agentArticle.innerText || agentArticle.textContent);
+                                    }
+                                    if (aText && aText !== '\`\`' && !aText.startsWith('\`Gemini') && !aText.startsWith('\`Claude') && !aText.startsWith('\`GPT')) {
+                                        msgs.push("🤖 Agent:\\n" + aText);
+                                    }
+                                } else {
+                                    // Fallback: remove user nodes and use remaining text
+                                    userNodes.forEach(un => { if (un !== clone) un.remove(); });
+                                    let aText = cleanText(nodeToMd(clone));
+                                    if (aText && aText !== '\`\`') msgs.push("🤖 Agent:\\n" + aText);
+                                }
                             }
                         } else {
                             let aText = cleanText(nodeToMd(clone));
@@ -829,7 +857,10 @@ async function _domLatestExtraction(port, specificTargetId = null) {
                     const lastTurn = parts[parts.length - 1];
                     const agentParts = lastTurn.split('🤖 Agent:');
                     if (agentParts.length > 1 && agentParts.slice(1).join('').trim().length > 0) {
-                        return agentParts.slice(1).join('\n\n').trim();
+                        const lastAgentText = agentParts.slice(1).join('\n\n').trim();
+                        if (lastAgentText !== '``' && !lastAgentText.startsWith('`Gemini') && !lastAgentText.startsWith('`Claude') && !lastAgentText.startsWith('`GPT')) {
+                            return lastAgentText;
+                        }
                     }
                     // There is no agent response in this turn yet (e.g. agent is generating or paused on question)
                     // Check if there is a previous completed turn to display
@@ -837,7 +868,10 @@ async function _domLatestExtraction(port, specificTargetId = null) {
                         const prevTurn = parts[p];
                         const prevAgentParts = prevTurn.split('🤖 Agent:');
                         if (prevAgentParts.length > 1 && prevAgentParts.slice(1).join('').trim().length > 0) {
-                            return prevAgentParts.slice(1).join('\n\n').trim();
+                            const prevAgentText = prevAgentParts.slice(1).join('\n\n').trim();
+                            if (prevAgentText !== '``' && !prevAgentText.startsWith('`Gemini') && !prevAgentText.startsWith('`Claude') && !prevAgentText.startsWith('`GPT')) {
+                                return prevAgentText;
+                            }
                         }
                     }
                     return "";
@@ -922,7 +956,7 @@ async function getInteractiveModalState(port, specificTargetId = null) {
                         const allBtns = Array.from(document.querySelectorAll('button, [role="button"], a, div[class*="cursor-pointer"]')).filter(b => isVisible(b) && !isExcluded(b));
                         const submitBtn = allBtns.find(b => {
                             const t = (b.textContent || '').trim().toLowerCase();
-                            return t === 'submit' || t === 'skip' || t === 'gönder' || t === 'atla' || t === 'proceed' || t === 'onayla' || t === 'cancel' || t === 'iptal';
+                            return t === 'submit' || t === 'skip' || t === 'gönder' || t === 'atla' || t === 'proceed' || t === 'onayla';
                         });
                         if (submitBtn) {
                             container = submitBtn.closest('form, fieldset, [class*="rounded"], div.p-4, div.p-3, div.border') || submitBtn.parentElement?.parentElement;
@@ -993,6 +1027,12 @@ async function getInteractiveModalState(port, specificTargetId = null) {
                             }
                         }
                     }
+
+                    const hasWriteIn = !!cleanContainer.querySelector('textarea, input[type="text"]');
+                    if (options.length === 0 && !hasWriteIn && !cleanContainer.querySelector('[role="dialog"], .modal')) {
+                        return null;
+                    }
+
                     header = header || 'Agent Soru Sordu / Question';
 
                     return { header, options };

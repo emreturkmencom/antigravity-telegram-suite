@@ -71,7 +71,7 @@ const IDE_LOCATORS_SCRIPT = `
                 const allBtns = Array.from(document.querySelectorAll('button, [role="button"], a, div[class*="cursor-pointer"]')).filter(b => isVisible(b) && !isExcluded(b));
                 const submitBtn = allBtns.find(b => {
                     const t = (b.textContent || '').trim().toLowerCase();
-                    return t === 'submit' || t === 'skip' || t === 'gönder' || t === 'atla' || t === 'proceed' || t === 'onayla' || t === 'cancel' || t === 'iptal';
+                    return t === 'submit' || t === 'skip' || t === 'gönder' || t === 'atla' || t === 'proceed' || t === 'onayla';
                 });
                 if (submitBtn) {
                     container = submitBtn.closest('form, fieldset, [class*="rounded"], div.p-4, div.p-3, div.border') || submitBtn.parentElement?.parentElement;
