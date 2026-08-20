@@ -3716,8 +3716,12 @@ bot.action(/pref_app_(.+)/, async (ctx) => {
     const success = updateEnvFile('ANTIGRAVITY_PREFERRED_APP', selectedApp);
     
     if (success) {
-        // Eski uygulamayı güvenli bir şekilde kapat (UI'ı bloklamadan arka planda)
-        const killPromise = killIDE(oldApp).catch(e => console.error('[App Switch] Failed to kill old app:', e.message));
+        // Only kill the old app if they share the exact same port (to free it up).
+        // If they are configured on different ports, both can run concurrently.
+        let killPromise = Promise.resolve();
+        if (getCDPPort('agent') === getCDPPort('ide')) {
+            killPromise = killIDE(oldApp).catch(e => console.error('[App Switch] Failed to kill old app:', e.message));
+        }
         
         // Recalculate port
         CDP_PORT = getCDPPort();
