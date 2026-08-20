@@ -2981,7 +2981,12 @@ bot.action(/md_tier_(\d+)/, async (ctx) => {
             return ctx.answerCbQuery(t('model.not_found') || 'Model not found');
         }
 
-        ctx.answerCbQuery(modelObj.name);
+        const cleanName = (modelObj.name || modelObj.baseName || '')
+            .replace(/\s*\(?\b(low|medium|high)\b\)?\s*/gi, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        ctx.answerCbQuery(cleanName);
 
         const tierButtons = [];
         const tiersRow = (modelObj.tiers || ['Low', 'Medium', 'High']).map(tier => {
@@ -2991,7 +2996,7 @@ bot.action(/md_tier_(\d+)/, async (ctx) => {
         tierButtons.push(tiersRow);
         tierButtons.push([{ text: '🔙 Model Listesi', callback_data: 'md_back' }]);
 
-        const text = `🤖 <b>${modelObj.name}</b> için düşünme seviyesini (effort tier) seçin:`;
+        const text = `🤖 <b>${escapeHtml(cleanName)}</b> için düşünme seviyesini (effort tier) seçin:`;
         if (ctx.callbackQuery && ctx.callbackQuery.message) {
             await ctx.editMessageText(text, {
                 parse_mode: 'HTML',
@@ -3032,7 +3037,12 @@ bot.action(/md_sel_(\d+)_(.+)/, async (ctx) => {
         const models = await ensureModelsCache();
         const modelObj = models[idx];
         
-        const fullModelName = modelObj ? `${modelObj.baseName} (${tier})` : `${tier}`;
+        const cleanBase = (modelObj ? (modelObj.baseName || modelObj.name) : '')
+            .replace(/\s*\(?\b(low|medium|high)\b\)?\s*/gi, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const fullModelName = cleanBase ? `${cleanBase} (${tier})` : `${tier}`;
         ctx.answerCbQuery(fullModelName);
         
         const changingText = t('model.changing', { model: fullModelName });

@@ -30,6 +30,10 @@ function run() {
         'Gemini 3.5 Fla h (Medium)Fa t'
     );
     assert.strictEqual(
+        findBestModelOption(options, 'Gemini 3.5 Flash (High)'),
+        'Gemini 3.5 Fla h (High)Fa t'
+    );
+    assert.strictEqual(
         findBestModelOption(options, 'Claude Opus 4.6 (Thinking)'),
         'Claude Opu  4.6 (Thinking)'
     );

@@ -2869,6 +2869,7 @@ async function getAvailableModels(port) {
                     ${DriverFactory.getDriver().getLocatorsScript()}
                     (async () => {
                         const cleanModelText = (text) => (text || '')
+                            .replace(/\\s*\\(?\\b(low|medium|high)\\b\\)?\\s*/gi, ' ')
                             .replace(/Fla\\s*h/g, 'Flash')
                             .replace(/Fa\\s*t/g, 'Fast')
                             .replace(/\\bopus?\\b/gi, 'Opus')
@@ -2971,291 +2972,176 @@ async function selectModel(port, modelName, specificTargetId = null) {
             const { Runtime, Input } = client;
             await Runtime.enable();
 
-            const selectRes = await Runtime.evaluate({
-                expression: `
-                    ${DriverFactory.getDriver().getLocatorsScript()}
-                    (async () => {
-                        const rawTarget = ${JSON.stringify(modelName)};
-                        
-                        // Parse target: check if it has (Low), (Medium), (High) or Low, Medium, High
-                        let targetEffort = null;
-                        let targetBase = rawTarget;
-                        const effortMatch = rawTarget.match(/\\b(low|medium|high)\\b/i);
+            const evaluateScript = `
+                ${DriverFactory.getDriver().getLocatorsScript()}
+                (async () => {
+                    const rawTarget = ${JSON.stringify(modelName)};
+                    
+                    // Parse target: Effort tiers ONLY apply to Gemini models
+                    let targetEffort = null;
+                    let targetBase = rawTarget;
+                    if (/gemini/i.test(rawTarget)) {
+                        const effortMatch = rawTarget.match(/\\((Low|Medium|High)\\)$/i) || rawTarget.match(/\\b(low|medium|high)\\b$/i);
                         if (effortMatch) {
                             targetEffort = effortMatch[1].toLowerCase();
-                            targetBase = rawTarget.replace(/\\s*\\(?\\b(low|medium|high)\\b\\)?\\s*/i, ' ').trim();
+                            targetBase = rawTarget.replace(/\\s*\\(?\\b(low|medium|high)\\b\\)?\\s*$/i, '').trim();
                         }
+                    }
 
-                        const normalize = (str) => (str || '')
-                            .toLowerCase()
-                            .replace(/选择模型/g, ' ')
-                            .replace(/select model/g, ' ')
-                            .replace(/current/g, ' ')
-                            .replace(/当前/g, ' ')
-                            .replace(/fla\\s*h/g, 'flash')
-                            .replace(/fa\\s*t/g, 'fast')
-                            .replace(/\\bopus?\\b/g, 'opus')
-                            .replace(/fa\\s*t$/i, '')
-                            .replace(/new$/i, '')
-                            .replace(/[^a-z0-9]+/g, '');
+                    const stripPunct = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+                    const targetBaseNorm = stripPunct(targetBase);
 
-                        const targetBaseNorm = normalize(targetBase);
+                    const dispatchClick = (el) => {
+                        if (!el) return false;
+                        const rect = el.getBoundingClientRect();
+                        const clientX = rect.left + rect.width / 2;
+                        const clientY = rect.top + rect.height / 2;
+                        const screenX = window.screenX + clientX;
+                        const screenY = window.screenY + clientY;
 
-                        const dispatchClick = (el) => {
-                            if (!el) return false;
-                            const rect = el.getBoundingClientRect();
-                            const clientX = rect.left + rect.width / 2;
-                            const clientY = rect.top + rect.height / 2;
-                            const screenX = window.screenX + clientX;
-                            const screenY = window.screenY + clientY;
+                        el.focus();
+                        el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, view: window, screenX, screenY, clientX, clientY, button: 0, buttons: 1, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
+                        el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true, view: window, screenX, screenY, clientX, clientY, button: 0 }));
+                        el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, composed: true, view: window, screenX, screenY, clientX, clientY, button: 0, buttons: 0, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
+                        el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, composed: true, view: window, screenX, screenY, clientX, clientY, button: 0 }));
+                        el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window, screenX, screenY, clientX, clientY, button: 0 }));
+                        try { el.click(); } catch(e) {}
+                        return true;
+                    };
 
-                            const pDown = new PointerEvent('pointerdown', {
-                                bubbles: true, cancelable: true, composed: true, view: window,
-                                detail: 1, screenX, screenY, clientX, clientY,
-                                button: 0, buttons: 1, pointerId: 1, pointerType: 'mouse', isPrimary: true
+                    const dispatchHover = (el) => {
+                        if (!el) return false;
+                        const rect = el.getBoundingClientRect();
+                        const clientX = rect.left + rect.width / 2;
+                        const clientY = rect.top + rect.height / 2;
+                        const screenX = window.screenX + clientX;
+                        const screenY = window.screenY + clientY;
+                        el.focus();
+                        el.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, cancelable: true, composed: true, view: window, clientX, clientY, screenX, screenY, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
+                        el.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, cancelable: true, composed: true, view: window, clientX, clientY, screenX, screenY, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
+                        el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true, clientX, clientY, screenX, screenY }));
+                        el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, clientX, clientY, screenX, screenY }));
+                        el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX, clientY, screenX, screenY }));
+                        el.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39, bubbles: true }));
+                        el.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39, bubbles: true }));
+                        return true;
+                    };
+
+                    // Step 1: Ensure main model menu is open
+                    let btn = AG_UI.getModelSelectorButton();
+                    if (!btn) return { selected: false, reason: "no_selector_button" };
+
+                    let isAlreadyOpen = btn.getAttribute('aria-expanded') === 'true' || AG_UI.getModelOptions().filter(AG_UI.isVisible).length > 1;
+                    if (!isAlreadyOpen) {
+                        btn.focus();
+                        dispatchClick(btn);
+                        for (let i = 0; i < 10; i++) {
+                            await new Promise(r => setTimeout(r, 50));
+                            if (AG_UI.getModelOptions().filter(AG_UI.isVisible).length > 1) break;
+                        }
+                    }
+
+                    let candidateList = AG_UI.getModelOptions().filter(AG_UI.isVisible);
+                    if (candidateList.length === 0) {
+                        return { needCdpOpen: true };
+                    }
+
+                    // Find matching base item
+                    let matchedItem = candidateList.find(el => {
+                        const baseAttr = el.querySelector('[data-model-base]')?.getAttribute('data-model-base');
+                        if (baseAttr && stripPunct(baseAttr) === targetBaseNorm) return true;
+                        const labelAttr = el.getAttribute('data-model-label');
+                        if (labelAttr && stripPunct(labelAttr) === targetBaseNorm) return true;
+                        
+                        const innerSpan = el.querySelector('span.truncate span, span span') || el;
+                        const innerNorm = stripPunct(innerSpan.textContent);
+                        const fullNorm = stripPunct(el.textContent);
+
+                        return innerNorm === targetBaseNorm || 
+                               innerNorm.startsWith(targetBaseNorm) || 
+                               fullNorm === targetBaseNorm || 
+                               fullNorm.startsWith(targetBaseNorm);
+                    });
+
+                    if (!matchedItem) {
+                        return { selected: false, reason: "base_model_not_found", targetBase, available: candidateList.map(i => i.textContent.trim()) };
+                    }
+
+                    // Only Gemini models with explicit targetEffort need submenu handling
+                    if (targetEffort) {
+                        // Check if direct effort button exists inside item
+                        const directEffortBtn = Array.from(matchedItem.querySelectorAll('button, [role="button"], [role="menuitem"], [role="radio"], div[class*="cursor-pointer"], span[class*="cursor-pointer"]'))
+                            .find(el => {
+                                const t = (el.textContent || '').trim().toLowerCase();
+                                const attr = (el.getAttribute('data-effort') || el.getAttribute('data-tier') || '').trim().toLowerCase();
+                                return t === targetEffort || t.includes(targetEffort) || attr === targetEffort;
                             });
-                            const mDown = new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true, view: window, detail: 1, screenX, screenY, clientX, clientY, button: 0 });
-                            const pUp = new PointerEvent('pointerup', {
-                                bubbles: true, cancelable: true, composed: true, view: window,
-                                detail: 1, screenX, screenY, clientX, clientY,
-                                button: 0, buttons: 0, pointerId: 1, pointerType: 'mouse', isPrimary: true
+
+                        if (directEffortBtn) {
+                            dispatchClick(directEffortBtn);
+                            await new Promise(r => setTimeout(r, 150));
+                            return { selected: true, method: "direct_effort_child", base: targetBase, effort: targetEffort };
+                        }
+
+                        // Open submenu by hovering
+                        dispatchHover(matchedItem);
+
+                        // Wait for nested submenu
+                        let subOptions = [];
+                        const mainParent = matchedItem.closest('[role="menu"]') || matchedItem.closest('[data-testid="model-selector-panel"]');
+                        const mainId = mainParent ? mainParent.id : '';
+                        for (let i = 0; i < 12; i++) {
+                            await new Promise(r => setTimeout(r, 40));
+                            const subMenus = Array.from(document.querySelectorAll('[role="menu"][data-nested], [role="menu"], [data-radix-popper-content-wrapper], [data-radix-menu-content]'))
+                                .filter(el => el.offsetWidth > 0 && el.offsetHeight > 0 && el !== mainParent && (!mainId || el.id !== mainId));
+                            if (subMenus.length > 0) {
+                                for (const sm of subMenus) {
+                                    const items = Array.from(sm.querySelectorAll('[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [data-radix-collection-item], div[data-base-ui-focusable], div[class*="cursor-pointer"], button'))
+                                        .filter(el => el.offsetWidth > 0 && (el.textContent || '').trim().length > 0 && !candidateList.includes(el));
+                                    if (items.length > 0) {
+                                        subOptions.push(...items);
+                                    }
+                                }
+                                if (subOptions.length > 0) break;
+                            }
+                        }
+
+                        if (subOptions.length > 0) {
+                            const effortOption = subOptions.find(opt => {
+                                const optText = (opt.textContent || '').trim().toLowerCase();
+                                const effortAttr = (opt.getAttribute('data-effort') || opt.getAttribute('data-tier') || '').trim().toLowerCase();
+                                const ariaLabel = (opt.getAttribute('aria-label') || '').trim().toLowerCase();
+                                return optText === targetEffort || 
+                                       optText.startsWith(targetEffort) || 
+                                       effortAttr === targetEffort || 
+                                       ariaLabel.startsWith(targetEffort);
                             });
-                            const mUp = new MouseEvent('mouseup', { bubbles: true, cancelable: true, composed: true, view: window, detail: 1, screenX, screenY, clientX, clientY, button: 0 });
-                            const click = new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window, detail: 1, screenX, screenY, clientX, clientY, button: 0 });
 
-                            el.focus();
-                            el.dispatchEvent(pDown);
-                            el.dispatchEvent(mDown);
-                            el.dispatchEvent(pUp);
-                            el.dispatchEvent(mUp);
-                            el.dispatchEvent(click);
-                            return true;
-                        };
-
-                        const dispatchHover = (el) => {
-                            if (!el) return false;
-                            const rect = el.getBoundingClientRect();
-                            const clientX = rect.left + rect.width / 2;
-                            const clientY = rect.top + rect.height / 2;
-                            el.focus();
-                            el.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, cancelable: true, composed: true, view: window, clientX, clientY, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
-                            el.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, cancelable: true, composed: true, view: window, clientX, clientY, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
-                            el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true, clientX, clientY }));
-                            el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, clientX, clientY }));
-                            el.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39, bubbles: true }));
-                            el.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39, bubbles: true }));
-                            return true;
-                        };
-
-                        // Step 1: Ensure main model menu is open
-                        let btn = AG_UI.getModelSelectorButton();
-                        if (!btn) return { selected: false, reason: "no_selector_button" };
-
-                        let isAlreadyOpen = btn.getAttribute('aria-expanded') === 'true' || AG_UI.getModelOptions().filter(AG_UI.isVisible).length > 1;
-                        if (!isAlreadyOpen) {
-                            btn.focus();
-                            dispatchClick(btn);
-                            for (let i = 0; i < 10; i++) {
-                                await new Promise(r => setTimeout(r, 50));
-                                if (AG_UI.getModelOptions().filter(AG_UI.isVisible).length > 1) break;
+                            if (effortOption) {
+                                dispatchClick(effortOption);
+                                await new Promise(r => setTimeout(r, 150));
+                                return { selected: true, method: "effort_submenu", base: targetBase, effort: targetEffort };
                             }
                         }
+                    }
 
-                        let candidateList = AG_UI.getModelOptions().filter(AG_UI.isVisible);
-                        if (candidateList.length === 0) {
-                            return { needCdpOpen: true };
-                        }
+                    // Direct model click (Claude, GPT, or base Gemini)
+                    dispatchClick(matchedItem);
+                    await new Promise(r => setTimeout(r, 150));
+                    return { selected: true, method: "direct_click", model: matchedItem.textContent.trim() };
+                })()
+            `;
 
-                        // Find matching base item
-                        let matchedItem = candidateList.find(el => {
-                            const baseAttr = el.querySelector('[data-model-base]')?.getAttribute('data-model-base');
-                            if (baseAttr && normalize(baseAttr) === targetBaseNorm) return true;
-                            const labelAttr = el.getAttribute('data-model-label');
-                            if (labelAttr && normalize(labelAttr) === targetBaseNorm) return true;
-                            const innerSpan = el.querySelector('span.truncate span, span span') || el;
-                            const innerNorm = normalize(innerSpan.textContent);
-                            const fullNorm = normalize(el.textContent);
-                            return innerNorm === targetBaseNorm || innerNorm.includes(targetBaseNorm) || fullNorm.includes(targetBaseNorm);
-                        });
-
-                        if (!matchedItem) {
-                            return { selected: false, reason: "base_model_not_found", targetBase, available: candidateList.map(i => i.textContent.trim()) };
-                        }
-
-                        // Check if this item is a submenu (has effort group)
-                        const hasSubmenu = matchedItem.getAttribute('aria-haspopup') === 'menu' || !!matchedItem.querySelector('[data-testid="model-selector-effort-group"]');
-
-                        if (hasSubmenu && targetEffort) {
-                            dispatchHover(matchedItem);
-
-                            // Wait for nested submenu to appear
-                            let subOptions = [];
-                            const mainParent = matchedItem.closest('[role="menu"]');
-                            const mainId = mainParent ? mainParent.id : '';
-                            for (let i = 0; i < 12; i++) {
-                                await new Promise(r => setTimeout(r, 50));
-                                const subMenus = Array.from(document.querySelectorAll('[role="menu"][data-nested], [role="menu"]'))
-                                    .filter(el => el.offsetWidth > 0 && el.offsetHeight > 0 && el !== mainParent && el.id !== mainId);
-                                if (subMenus.length > 0) {
-                                    subOptions = Array.from(subMenus[0].querySelectorAll('[role="menuitem"], div[data-base-ui-focusable], div[class*="cursor-pointer"]'))
-                                        .filter(el => el.offsetWidth > 0 && (el.textContent || '').trim().length > 0);
-                                    if (subOptions.length > 0) break;
-                                }
-                            }
-
-                            if (subOptions.length > 0) {
-                                const effortOption = subOptions.find(opt => normalize(opt.textContent) === targetEffort || normalize(opt.textContent).includes(targetEffort));
-                                if (effortOption) {
-                                    dispatchClick(effortOption);
-                                    await new Promise(r => setTimeout(r, 300));
-                                    return { selected: true, method: "effort_submenu", base: targetBase, effort: targetEffort };
-                                }
-                            }
-                        }
-
-                        // If no submenu or direct click
-                        dispatchClick(matchedItem);
-                        await new Promise(r => setTimeout(r, 300));
-                        return { selected: true, method: "direct_click", model: matchedItem.textContent.trim() };
-                    })()
-                `, returnByValue: true, awaitPromise: true
-            });
-
+            const selectRes = await Runtime.evaluate({ expression: evaluateScript, returnByValue: true, awaitPromise: true });
             let selectVal = selectRes.result?.value;
 
-            // If needCdpOpen fallback was requested because synthetic click didn't open menu
+            // Fallback retry if menu was not opened
             if (selectVal && selectVal.needCdpOpen && Input) {
                 await Input.dispatchKeyEvent({ type: 'rawKeyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
                 await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
-                await new Promise(r => setTimeout(r, 200));
+                await new Promise(r => setTimeout(r, 150));
 
-                const retryRes = await Runtime.evaluate({
-                    expression: `
-                        ${DriverFactory.getDriver().getLocatorsScript()}
-                        (async () => {
-                            const rawTarget = ${JSON.stringify(modelName)};
-                            let targetEffort = null;
-                            let targetBase = rawTarget;
-                            const effortMatch = rawTarget.match(/\\b(low|medium|high)\\b/i);
-                            if (effortMatch) {
-                                targetEffort = effortMatch[1].toLowerCase();
-                                targetBase = rawTarget.replace(/\\s*\\(?\\b(low|medium|high)\\b\\)?\\s*/i, ' ').trim();
-                            }
-
-                            const normalize = (str) => (str || '')
-                                .toLowerCase()
-                                .replace(/选择模型/g, ' ')
-                                .replace(/select model/g, ' ')
-                                .replace(/current/g, ' ')
-                                .replace(/当前/g, ' ')
-                                .replace(/fla\\s*h/g, 'flash')
-                                .replace(/fa\\s*t/g, 'fast')
-                                .replace(/\\bopus?\\b/g, 'opus')
-                                .replace(/fa\\s*t$/i, '')
-                                .replace(/new$/i, '')
-                                .replace(/[^a-z0-9]+/g, '');
-
-                            const targetBaseNorm = normalize(targetBase);
-
-                            const dispatchClick = (el) => {
-                                if (!el) return false;
-                                const rect = el.getBoundingClientRect();
-                                const clientX = rect.left + rect.width / 2;
-                                const clientY = rect.top + rect.height / 2;
-                                const screenX = window.screenX + clientX;
-                                const screenY = window.screenY + clientY;
-
-                                const pDown = new PointerEvent('pointerdown', {
-                                    bubbles: true, cancelable: true, composed: true, view: window,
-                                    detail: 1, screenX, screenY, clientX, clientY,
-                                    button: 0, buttons: 1, pointerId: 1, pointerType: 'mouse', isPrimary: true
-                                });
-                                const mDown = new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true, view: window, detail: 1, screenX, screenY, clientX, clientY, button: 0 });
-                                const pUp = new PointerEvent('pointerup', {
-                                    bubbles: true, cancelable: true, composed: true, view: window,
-                                    detail: 1, screenX, screenY, clientX, clientY,
-                                    button: 0, buttons: 0, pointerId: 1, pointerType: 'mouse', isPrimary: true
-                                });
-                                const mUp = new MouseEvent('mouseup', { bubbles: true, cancelable: true, composed: true, view: window, detail: 1, screenX, screenY, clientX, clientY, button: 0 });
-                                const click = new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window, detail: 1, screenX, screenY, clientX, clientY, button: 0 });
-
-                                el.focus();
-                                el.dispatchEvent(pDown);
-                                el.dispatchEvent(mDown);
-                                el.dispatchEvent(pUp);
-                                el.dispatchEvent(mUp);
-                                el.dispatchEvent(click);
-                                return true;
-                            };
-
-                            const dispatchHover = (el) => {
-                                if (!el) return false;
-                                const rect = el.getBoundingClientRect();
-                                const clientX = rect.left + rect.width / 2;
-                                const clientY = rect.top + rect.height / 2;
-                                el.focus();
-                                el.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, cancelable: true, composed: true, view: window, clientX, clientY, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
-                                el.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, cancelable: true, composed: true, view: window, clientX, clientY, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
-                                el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true, clientX, clientY }));
-                                el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, clientX, clientY }));
-                                el.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39, bubbles: true }));
-                                el.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39, bubbles: true }));
-                                return true;
-                            };
-
-                            let candidateList = AG_UI.getModelOptions().filter(AG_UI.isVisible);
-                            if (candidateList.length === 0) return { selected: false, reason: "no_items_in_menu" };
-
-                            let matchedItem = candidateList.find(el => {
-                                const baseAttr = el.querySelector('[data-model-base]')?.getAttribute('data-model-base');
-                                if (baseAttr && normalize(baseAttr) === targetBaseNorm) return true;
-                                const labelAttr = el.getAttribute('data-model-label');
-                                if (labelAttr && normalize(labelAttr) === targetBaseNorm) return true;
-                                const innerSpan = el.querySelector('span.truncate span, span span') || el;
-                                const innerNorm = normalize(innerSpan.textContent);
-                                const fullNorm = normalize(el.textContent);
-                                return innerNorm === targetBaseNorm || innerNorm.includes(targetBaseNorm) || fullNorm.includes(targetBaseNorm);
-                            });
-
-                            if (!matchedItem) {
-                                return { selected: false, reason: "base_model_not_found", targetBase, available: candidateList.map(i => i.textContent.trim()) };
-                            }
-
-                            const hasSubmenu = matchedItem.getAttribute('aria-haspopup') === 'menu' || !!matchedItem.querySelector('[data-testid="model-selector-effort-group"]');
-
-                            if (hasSubmenu && targetEffort) {
-                                dispatchHover(matchedItem);
-
-                                let subOptions = [];
-                                const mainParent = matchedItem.closest('[role="menu"]');
-                                const mainId = mainParent ? mainParent.id : '';
-                                for (let i = 0; i < 12; i++) {
-                                    await new Promise(r => setTimeout(r, 50));
-                                    const subMenus = Array.from(document.querySelectorAll('[role="menu"][data-nested], [role="menu"]'))
-                                        .filter(el => el.offsetWidth > 0 && el.offsetHeight > 0 && el !== mainParent && el.id !== mainId);
-                                    if (subMenus.length > 0) {
-                                        subOptions = Array.from(subMenus[0].querySelectorAll('[role="menuitem"], div[data-base-ui-focusable], div[class*="cursor-pointer"]'))
-                                            .filter(el => el.offsetWidth > 0 && (el.textContent || '').trim().length > 0);
-                                        if (subOptions.length > 0) break;
-                                    }
-                                }
-
-                                if (subOptions.length > 0) {
-                                    const effortOption = subOptions.find(opt => normalize(opt.textContent) === targetEffort || normalize(opt.textContent).includes(targetEffort));
-                                    if (effortOption) {
-                                        dispatchClick(effortOption);
-                                        await new Promise(r => setTimeout(r, 300));
-                                        return { selected: true, method: "effort_submenu", base: targetBase, effort: targetEffort };
-                                    }
-                                }
-                            }
-
-                            dispatchClick(matchedItem);
-                            await new Promise(r => setTimeout(r, 300));
-                            return { selected: true, method: "direct_click", model: matchedItem.textContent.trim() };
-                        })()
-                    `, returnByValue: true, awaitPromise: true
-                });
+                const retryRes = await Runtime.evaluate({ expression: evaluateScript, returnByValue: true, awaitPromise: true });
                 selectVal = retryRes.result?.value;
             }
 
