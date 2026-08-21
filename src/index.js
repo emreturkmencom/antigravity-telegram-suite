@@ -3642,7 +3642,9 @@ function getMenuCommands() {
         { command: 'gettask', description: t('menu.gettask_desc') || 'Get the latest Task Checklist' },
         { command: 'getplan', description: t('menu.getplan_desc') || 'Get the latest Implementation Plan' },
         { command: 'getwalk', description: t('menu.getwalk_desc') || 'Get the latest Walkthrough' },
-        { command: 'watcher', description: t('menu.watcher_desc') || 'Toggle background Task Watcher' }
+        { command: 'watcher', description: t('menu.watcher_desc') || 'Toggle background Task Watcher' },
+        { command: 'audio', description: t('menu.audio_desc') },
+        { command: 'tts', description: t('menu.tts_desc') }
     ];
     return cmds.sort((a, b) => a.command.localeCompare(b.command));
 }
