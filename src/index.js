@@ -19,6 +19,7 @@ const accountManager = require('./account_manager');
 const { ensureMemoryConvention } = require('./memory_convention');
 const DriverFactory = require('./drivers');
 const telegraphPublisher = require('./telegraph_publisher');
+const tts = require('./tts');
 
 let scheduleClient = null;
 try {
@@ -564,6 +565,11 @@ async function sendExtractedImage(ctx, image, replyToMsgId = null) {
 async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMsgId = null) {
     const MAX_LEN = 3500;
     
+    // Extract summary
+    const ttsResult = tts.extractAndCleanText(text);
+    text = ttsResult.text;
+    const summaryText = ttsResult.summary;
+    
     // Extract file links: e.g. [task.md](file:///C:/Users/...)
     const fileLinkRegex = /\[([^\]]+)\]\((file:\/\/\/[^\)]+)\)/gi;
     let fileMatch;
@@ -700,6 +706,12 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
             const sentMsg = await replyWithRetry(currentChunk, false, finalButtons, 3, currentReplyId);
             if (sentMsg) sentMsgIds.push(sentMsg.message_id);
         }
+        
+        // Send audio clip if we extracted a summary
+        if (summaryText) {
+            await tts.speakAndSend(ctx, summaryText, currentReplyId);
+        }
+        
         if (sentMsgIds && sentMsgIds.length > 0) {
             const lastMsgId = sentMsgIds[sentMsgIds.length - 1];
             lastSentMessageIdMap.set(ctx.chat.id, {
@@ -1127,6 +1139,7 @@ const handleLatest = async (ctx) => {
 
 bot.command('latest', handleLatest);
 bot.hears(/^💬/i, handleLatest);
+tts.registerTtsHandlers(bot);
 
 const handleScreenshot = async (ctx) => {
     try {
@@ -3979,6 +3992,12 @@ let isAgentBusy = false;
         explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
     }
 
+    // Append summary prompt suffix for standard queries (not quick options like numbers)
+    const isQuickOption = /^\d+$/.test(query.trim()) || query.trim().length <= 3;
+    if (!isQuickOption) {
+        query = tts.appendTtsInstruction(query);
+    }
+
     // If agent is already processing, just send the follow-up message without starting a new wait loop
     if (isAgentBusy && !isTurboMode) {
         try {
@@ -4152,7 +4171,8 @@ async function processMediaGroup(group) {
     const paths = group.files.map(p => `\`${p}\``).join(', ');
     const combinedCaption = group.captions.join('\n');
     
-    const query = `[System: The user has uploaded ${group.files.length} files. You MUST use your \`view_file\` tool to examine ALL files at these absolute paths: ${paths} . Do not say you cannot see them. Use the tool!]${combinedCaption ? `\nUser's message: ${combinedCaption}` : ''}`;
+    let query = `[System: The user has uploaded ${group.files.length} files. You MUST use your \`view_file\` tool to examine ALL files at these absolute paths: ${paths} . Do not say you cannot see them. Use the tool!]${combinedCaption ? `\nUser's message: ${combinedCaption}` : ''}`;
+    query = tts.appendTtsInstruction(query);
     
     try {
         await processAgentRequest(ctx, query, group.explicitTargetId, group.explicitThreadName, combinedCaption);
@@ -4247,9 +4267,10 @@ bot.on(['photo', 'document', 'voice', 'audio'], (ctx) => {
                 return;
             }
             
-            const query = isVoiceOrAudio
+            let query = isVoiceOrAudio
                 ? `[System: The user sent a voice message/audio recording. You MUST examine/listen to the audio file at this absolute path using your \`view_file\` tool: ${dest} . Transcribe and understand the user's spoken instruction, and execute the requested task.]${caption ? `\nUser's message: ${caption}` : ''}`
                 : `[System: The user has uploaded an image or file. You MUST use your \`view_file\` tool to examine the file at this absolute path: ${dest} . Do not say you cannot see it. Use the tool!]${caption ? `\nUser's message: ${caption}` : ''}`;
+            query = tts.appendTtsInstruction(query);
             
             await processAgentRequest(ctx, query, explicitTargetId, explicitThreadName, caption || (isVoiceOrAudio ? "🎤 Voice Message" : ""));
             

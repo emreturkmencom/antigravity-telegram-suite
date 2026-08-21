@@ -189,7 +189,10 @@
     "getplan_desc": "获取最新的实施计划",
     "getwalk_desc": "获取最新的走查/Walkthrough",
     "closeall_desc": "关闭所有打开的文件标签",
-    "watcher_desc": "切换后台任务监控"
+    "watcher_desc": "切换后台任务监控",
+    "btn_audio": "🔊 语音",
+    "audio_desc": "切换语音摘要 (开启/关闭)",
+    "tts_desc": "配置语音摘要设置"
   },
   "watcher": {
     "enabled": "👁️ <b>Task Watcher：</b>已启用\n\n后台 Agent 通知已激活。",
@@ -531,5 +534,15 @@
     "canceled": "❌ 已取消",
     "processing": "处理中...",
     "error": "错误: {message}"
+  },
+  "tts": {
+    "menu_title": "🔊 <b>语音摘要设置:</b>\n选择自动语音摘要的首选项:",
+    "toggle_on": "🔊 语音摘要: 已启用",
+    "toggle_off": "🔇 语音摘要: 已禁用",
+    "status_enabled": "语音摘要现已启用。",
+    "status_disabled": "语音摘要现已禁用。",
+    "toast_success": "语音摘要已配置。",
+    "toast_invalid": "无效选择",
+    "prompt_instruction": "[请在回复的最末尾添加一段 1-2 句的简短语音友好型摘要，并另起一行以 '[SUMMARY]' 开头。保持对话语气。]"
   }
 }

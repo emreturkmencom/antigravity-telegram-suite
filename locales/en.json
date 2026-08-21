@@ -189,7 +189,10 @@
     "getplan_desc": "Get the latest Implementation Plan",
     "getwalk_desc": "Get the latest Walkthrough",
     "closeall_desc": "Close all open file tabs",
-    "watcher_desc": "Toggle background Task Watcher"
+    "watcher_desc": "Toggle background Task Watcher",
+    "btn_audio": "🔊 Audio",
+    "audio_desc": "Toggle audio summaries (ON/OFF)",
+    "tts_desc": "Configure audio summary settings"
   },
   "watcher": {
     "enabled": "👁️ <b>Task Watcher:</b> ENABLED\n\nBackground agent notifications are active.",
@@ -531,5 +534,15 @@
     "canceled": "❌ Canceled",
     "processing": "Processing...",
     "error": "Error: {message}"
+  },
+  "tts": {
+    "menu_title": "🔊 <b>Audio Summary Settings:</b>\nSelect your preference for automated audio summaries:",
+    "toggle_on": "🔊 Audio Summaries: Enabled",
+    "toggle_off": "🔇 Audio Summaries: Disabled",
+    "status_enabled": "Audio summaries are now ENABLED.",
+    "status_disabled": "Audio summaries are now DISABLED.",
+    "toast_success": "Audio summary configured.",
+    "toast_invalid": "Invalid selection",
+    "prompt_instruction": "[Please format your response with a brief 1-2 sentence audio-friendly summary of what you did/found at the very end, starting with '[SUMMARY]' on a new line. Keep it conversational.]"
   }
 }

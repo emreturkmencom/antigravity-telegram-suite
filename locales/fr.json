@@ -189,7 +189,10 @@
     "getplan_desc": "Obtenir le dernier plan d'implémentation",
     "getwalk_desc": "Obtenir le dernier walkthrough",
     "closeall_desc": "Fermer tous les onglets de fichiers",
-    "watcher_desc": "Activer/désactiver l'observateur de tâches"
+    "watcher_desc": "Activer/désactiver l'observateur de tâches",
+    "btn_audio": "🔊 Audio",
+    "audio_desc": "Activer/désactiver les résumés audio",
+    "tts_desc": "Configurer les résumés audio"
   },
   "watcher": {
     "enabled": "👁️ <b>Task Watcher :</b> ACTIVÉ\n\nLes notifications d'agent en arrière-plan sont actives.",
@@ -531,5 +534,15 @@
     "canceled": "❌ Annulé",
     "processing": "Traitement...",
     "error": "Erreur: {message}"
+  },
+  "tts": {
+    "menu_title": "🔊 <b>Paramètres du résumé audio:</b>\nSélectionnez vos préférences pour les résumés audio automatisés:",
+    "toggle_on": "🔊 Résumés audio: Activés",
+    "toggle_off": "🔇 Résumés audio: Désactivés",
+    "status_enabled": "Les résumés audio sont maintenant ACTIVÉS.",
+    "status_disabled": "Les résumés audio sont maintenant DÉSACTIVÉS.",
+    "toast_success": "Résumé audio configuré.",
+    "toast_invalid": "Sélection invalide",
+    "prompt_instruction": "[Veuillez formater votre réponse avec un bref résumé de 1-2 phrases adapté à l'audio tout à la fin, en commençant par '[SUMMARY]' sur une nouvelle ligne. Gardez un ton conversationnel.]"
   }
 }

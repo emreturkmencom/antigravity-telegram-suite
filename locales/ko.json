@@ -218,7 +218,10 @@
     "getplan_desc": "최신 구현 계획 가져오기",
     "getwalk_desc": "최신 워크스루 가져오기",
     "closeall_desc": "열려 있는 모든 파일 탭 닫기",
-    "watcher_desc": "백그라운드 작업 모니터 전환"
+    "watcher_desc": "백그라운드 작업 모니터 전환",
+    "btn_audio": "🔊 음성",
+    "audio_desc": "음성 요약 켜기/끄기",
+    "tts_desc": "음성 요약 설정 구성"
   },
   "model": {
     "changed": "✅ 모델이 변경되었습니다: {model}",
@@ -531,5 +534,15 @@
     "canceled": "❌ 취소됨",
     "processing": "처리 중...",
     "error": "오류: {message}"
+  },
+  "tts": {
+    "menu_title": "🔊 <b>음성 요약 설정:</b>\n자동 음성 요약에 대한 기본 설정을 선택하십시오:",
+    "toggle_on": "🔊 음성 요약: 활성화됨",
+    "toggle_off": "🔇 음성 요약: 비활성화됨",
+    "status_enabled": "음성 요약이 이제 활성화되었습니다.",
+    "status_disabled": "음성 요약이 이제 비활성화되었습니다.",
+    "toast_success": "음성 요약이 설정되었습니다.",
+    "toast_invalid": "잘못된 선택",
+    "prompt_instruction": "[답변의 맨 마지막에 새로운 줄로 '[SUMMARY]'를 시작하여 수행했거나 찾은 내용에 대한 1-2문장의 짧고 듣기 편한 음성 요약을 작성해 주세요. 대화체로 작성해 주세요.]"
   }
 }

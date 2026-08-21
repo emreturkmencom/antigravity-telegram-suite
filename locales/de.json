@@ -189,7 +189,10 @@
     "getplan_desc": "Holen Sie sich den neuesten Implementierungsplan",
     "getwalk_desc": "Holen Sie sich den neuesten Walkthrough",
     "closeall_desc": "Alle geöffneten Dateireiter schließen",
-    "watcher_desc": "Hintergrund-Task-Watcher umschalten"
+    "watcher_desc": "Hintergrund-Task-Watcher umschalten",
+    "btn_audio": "🔊 Audio",
+    "audio_desc": "Audio-Zusammenfassungen ein-/ausschalten",
+    "tts_desc": "Audio-Zusammenfassungseinstellungen konfigurieren"
   },
   "watcher": {
     "enabled": "👁️ <b>Task Watcher:</b> AKTIVIERT\n\nHintergrund-Agentenbenachrichtigungen sind aktiv.",
@@ -531,5 +534,15 @@
     "canceled": "❌ Abgebrochen",
     "processing": "Verarbeitung...",
     "error": "Fehler: {message}"
+  },
+  "tts": {
+    "menu_title": "🔊 <b>Audio-Zusammenfassungseinstellungen:</b>\nWählen Sie Ihre Präferenz für automatische Audio-Zusammenfassungen:",
+    "toggle_on": "🔊 Audio-Zusammenfassungen: Aktiviert",
+    "toggle_off": "🔇 Audio-Zusammenfassungen: Deaktiviert",
+    "status_enabled": "Audio-Zusammenfassungen sind jetzt AKTIVIERT.",
+    "status_disabled": "Audio-Zusammenfassungen sind jetzt DEAKTIVIERT.",
+    "toast_success": "Audio-Zusammenfassung konfiguriert.",
+    "toast_invalid": "Ungültige Auswahl",
+    "prompt_instruction": "[Bitte fügen Sie ganz am Ende Ihrer Antwort eine kurze, 1-2 Sätze lange, hörfreundliche Zusammenfassung Ihrer Aktivitäten/Ergebnisse hinzu, die auf einer neuen Zeile mit '[SUMMARY]' beginnt. Formulieren Sie sie umgangssprachlich.]"
   }
 }

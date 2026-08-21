@@ -189,7 +189,10 @@
     "getplan_desc": "En son Uygulama Planını getir",
     "getwalk_desc": "Son Walkthrough belgesini getirir",
     "closeall_desc": "Tüm açık dosya sekmelerini kapatır",
-    "watcher_desc": "Arka plan Task Watcher'ı aç/kapat"
+    "watcher_desc": "Arka plan Task Watcher'ı aç/kapat",
+    "btn_audio": "🔊 Ses",
+    "audio_desc": "Sesli özetleri aç/kapat",
+    "tts_desc": "Sesli özet ayarlarını yapılandır"
   },
   "watcher": {
     "enabled": "👁️ <b>Task Watcher:</b> AKTİF\n\nArka plan ajan bildirimleri açık.",
@@ -531,5 +534,15 @@
     "canceled": "❌ İptal Edildi",
     "processing": "İşleniyor...",
     "error": "Hata: {message}"
+  },
+  "tts": {
+    "menu_title": "🔊 <b>Sesli Özet Ayarları:</b>\nOtomatik sesli özetler için tercihinizi seçin:",
+    "toggle_on": "🔊 Sesli Özetler: Etkin",
+    "toggle_off": "🔇 Sesli Özetler: Devre Dışı",
+    "status_enabled": "Sesli özetler ETKİNLEŞTİRİLDİ.",
+    "status_disabled": "Sesli özetler DEVRE DIŞI bırakıldı.",
+    "toast_success": "Sesli özet yapılandırıldı.",
+    "toast_invalid": "Geçersiz seçim",
+    "prompt_instruction": "[Lütfen yanıtınızın sonuna yeni bir satırda '[SUMMARY]' ile başlayan, yaptığınız/bulduğunuz şeylerin 1-2 cümlelik kısa bir sesli özetini ekleyin. Samimi bir dil kullanın.]"
   }
 }
