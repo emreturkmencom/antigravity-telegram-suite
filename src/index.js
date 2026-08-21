@@ -4236,6 +4236,7 @@ function getMenuCommands() {
         { command: 'autoaccept', description: t('menu.autoaccept_desc') },
         { command: 'quota', description: t('menu.quota_desc') },
         { command: 'update', description: t('menu.update_desc') || 'Check for updates' },
+        { command: 'force_update', description: t('menu.force_update_desc') || 'Force update (overwrites local changes)' },
         { command: 'version', description: t('menu.version_desc') || 'Show current version' },
         { command: 'menu', description: t('menu.menu_desc') },
         { command: 'app', description: t('menu.app_desc') || 'Select active application' },
@@ -4368,7 +4369,37 @@ bot.command('version', async (ctx) => {
     );
 });
 
+async function handleForceUpdate(ctx) {
+    if (ctx.callbackQuery) {
+        await ctx.answerCbQuery(t('update.updating') || 'Updating...').catch(() => {});
+    }
+    await ctx.reply(
+        t('update.force_updating') || '⚡️ <b>[Force Update]</b> Force update in progress...\nDiscarding local modifications and syncing with <code>origin/main</code>...',
+        { parse_mode: 'HTML' }
+    );
+
+    try {
+        const updateResult = await updater.performForceUpdate((err2) => {
+            const pmId = process.env.pm_id || 'antigravity-telegram-suite';
+            ctx.reply(`⚠️ Failed to restart automatically.\nPM2 Error: <code>${err2.message}</code>\n\nPlease run manually:\n<code>pm2 restart ${pmId}</code>`, { parse_mode: 'HTML' }).catch(() => {});
+        });
+        await ctx.reply(`ℹ️ ${updateResult.message}`);
+    } catch (e) {
+        ctx.reply(t('update.error', { error: e.message }));
+    }
+}
+
+bot.command('force_update', handleForceUpdate);
+bot.command('forceupdate', handleForceUpdate);
+bot.action('force_update', handleForceUpdate);
+
 bot.command('update', async (ctx) => {
+    const text = ctx.message?.text || '';
+    const args = text.split(/\s+/).slice(1);
+    if (args.some(a => ['force', 'zorla', '-f', '--force'].includes(a.toLowerCase()))) {
+        return handleForceUpdate(ctx);
+    }
+
     ctx.reply(t('update.checking'));
     try {
         const result = await updater.checkForUpdates();
@@ -4394,7 +4425,14 @@ bot.command('update', async (ctx) => {
         });
         await ctx.reply(`ℹ️ ${updateResult.message}`);
     } catch(e) {
-        ctx.reply(t('update.error', { error: e.message }));
+        const replyMarkup = Markup.inlineKeyboard([
+            [Markup.button.callback(t('update.btn_force_update') || '⚡️ Force Update (Overwrite)', 'force_update')]
+        ]);
+        const warning = t('update.conflict_warning') || '⚠️ Local conflicts or merge issues detected. You can force update to the latest version. Note: Any local file modifications will be overwritten.\n\n👉 Use /force_update or click the button below:';
+        ctx.reply(`${t('update.error', { error: e.message })}\n\n${warning}`, {
+            parse_mode: 'HTML',
+            ...replyMarkup
+        });
     }
 });
 
@@ -4600,6 +4638,7 @@ let isAgentBusy = false;
         'start', 'help', 'latest', 'screenshot', 'status', 'start_ide', 'start_ag', 'close_ide', 'close_ag',
         'close', 'close_window', 'closeall', 'new', 'agents', 'artifacts', 'skills', 'skill',
         'model', 'workspace', 'memory', 'window', 'lang', 'cmd', 'file', 'stop', 'autoaccept', 'quota', 'update',
+        'force_update', 'forceupdate',
         'version', 'menu', 'app', 'fix_shortcuts', 'restart', 'goal', 'plan', 'schedule_task', 'schedule_setup',
         'schedule_list', 'schedule_add', 'schedule_del', 'schedule_status', 'login', 'logincode', 'accounts',
         'switchacc', 'getinfo', 'delacc', 'gettask', 'getplan', 'getwalk', 'watcher', 'turbo', 'panel', 'ask'

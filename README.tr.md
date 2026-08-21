@@ -211,6 +211,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/cleartelegraph` | Yayınlanan Telegraph sayfalarını temizle ve kaldırma bildirimleriyle değiştir |
 | `/lang` | Görüntüleme dilini değiştirir |
 | `/update` | Güncellemeleri kontrol eder, changelog'u gösterir ve botu otomatik günceller |
+| `/force_update` | En son sürüme zorla günceller (yerel çakışmaları ve değişiklikleri sıfırlar) |
 | `/version` | Mevcut sürüm bilgisini gösterir |
 | `/menu` | Telegram komut menüsünü yeniler |
 | `/fix_shortcuts` | Antigravity uygulamaları için masaüstü kısayollarını onarır |

@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [3.8.6] - 2026-08-21
+
+### Added
+- **1-Tap Force Update & Conflict Recovery (`/force_update`)**:
+  - Added 1-click **⚡️ Force Update** inline keyboard button directly to auto-update and manual `/update` error messages when git merge conflicts or diverged branches are detected.
+  - Added dedicated `/force_update` command (and `/update force` / `/update zorla` support) to hard-reset the local repository to `origin/main`, install dependencies, and restart cleanly in a single action.
+  - Informative conflict warning messages explaining that local modifications will be overwritten to restore standard sync with upstream repository.
 
 ## [3.8.5] - 2026-08-21
 

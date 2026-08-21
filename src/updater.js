@@ -152,17 +152,72 @@ async function checkForUpdates() {
 }
 
 /**
- * Perform a self-update: git pull, npm install (if needed), pm2 restart.
+ * Perform a self-update: git pull/merge (or hard reset if forced), npm install (if needed), pm2 restart.
  * Returns a promise that resolves with the update result message.
+ * @param {Function} onRestartFail - Callback if pm2 restart fails
+ * @param {Object} [options] - Options object
+ * @param {boolean} [options.force=false] - If true, force resets local repository to origin/main
  */
-function performUpdate(onRestartFail) {
+function performUpdate(onRestartFail, options = {}) {
+    const force = typeof options === 'object' && !!options.force;
     return new Promise((resolve, reject) => {
         const pmId = process.env.pm_id;
         const isWatchdog = process.env.WATCHDOG === 'true';
         if (!pmId && !isWatchdog) {
-            return reject(new Error('Not running under PM2 or Watchdog. Please update manually:\n`cd ' + PROJECT_ROOT + ' && git pull && npm install`'));
+            const manualCmd = force
+                ? `cd ${PROJECT_ROOT} && git fetch origin main && git reset --hard origin/main && npm install`
+                : `cd ${PROJECT_ROOT} && git pull && npm install`;
+            return reject(new Error(`Not running under PM2 or Watchdog. Please update manually:\n\`${manualCmd}\``));
         }
 
+        const nextStep = () => {
+            // Set update flag for index.js
+            try { fs.writeFileSync(path.join(PROJECT_ROOT, '.update_flag'), '1'); } catch (e) {}
+            
+            // Resolve immediately so the bot can send the confirmation message
+            const successMsg = force ? (t('update.force_success') || t('update.success')) : t('update.success');
+            resolve({ updated: true, forced: force, message: successMsg });
+            
+            // Delay restart by 3 seconds to let Telegram API deliver the message
+            setTimeout(() => {
+                if (isWatchdog) {
+                    process.exit(0);
+                } else {
+                    exec(`pm2 restart ${pmId}`, (err2) => {
+                        if (err2) {
+                            console.error(`PM2 restart failed: ${err2.message}`);
+                            if (onRestartFail) onRestartFail(err2);
+                        }
+                    });
+                }
+            }, 3000);
+        };
+
+        if (force) {
+            // Step 1: Fetch origin main
+            exec('git fetch origin main', { cwd: PROJECT_ROOT }, (fetchErr) => {
+                if (fetchErr) return reject(new Error(`git fetch failed: ${fetchErr.message}`));
+
+                // Abort any merge in progress
+                try {
+                    execSync('git merge --abort', { cwd: PROJECT_ROOT, stdio: 'ignore' });
+                } catch (_) {}
+
+                // Step 2: Hard reset to origin/main
+                exec('git reset --hard origin/main', { cwd: PROJECT_ROOT }, (resetErr) => {
+                    if (resetErr) return reject(new Error(`git reset failed: ${resetErr.message}`));
+
+                    // Step 3: Run npm install
+                    exec('npm install --production', { cwd: PROJECT_ROOT }, (npmErr) => {
+                        if (npmErr) console.error('npm install warning:', npmErr.message);
+                        nextStep();
+                    });
+                });
+            });
+            return;
+        }
+
+        // Standard update flow:
         // Step 1: Check if package.json will change before we merge
         exec('git fetch origin main && git diff --name-only HEAD origin/main', { cwd: PROJECT_ROOT }, (err, stdout) => {
             if (err) return reject(new Error(`git fetch failed: ${err.message}`));
@@ -204,28 +259,6 @@ function performUpdate(onRestartFail) {
                     }
                 }
 
-                const nextStep = () => {
-                    // Set update flag for index.js
-                    try { fs.writeFileSync(path.join(PROJECT_ROOT, '.update_flag'), '1'); } catch (e) {}
-                    
-                    // Resolve immediately so the bot can send the confirmation message
-                    resolve({ updated: true, message: t('update.success') });
-                    
-                    // Delay restart by 3 seconds to let Telegram API deliver the message
-                    setTimeout(() => {
-                        if (isWatchdog) {
-                            process.exit(0);
-                        } else {
-                            exec(`pm2 restart ${pmId}`, (err2) => {
-                                if (err2) {
-                                    console.error(`PM2 restart failed: ${err2.message}`);
-                                    if (onRestartFail) onRestartFail(err2);
-                                }
-                            });
-                        }
-                    }, 3000);
-                };
-
                 if (packageChanged) {
                     exec('npm install --production', { cwd: PROJECT_ROOT }, (err3) => {
                         if (err3) console.error('npm install warning:', err3.message);
@@ -238,6 +271,10 @@ function performUpdate(onRestartFail) {
         }); // close exec git fetch
     }); // close new Promise
 } // close performUpdate
+
+function performForceUpdate(onRestartFail) {
+    return performUpdate(onRestartFail, { force: true });
+}
 
 /**
  * Start periodic update checking. Sends Telegram notification, fusions updates, and restarts bot.
@@ -281,9 +318,22 @@ function startUpdateChecker(bot, chatIds) {
                     // performUpdate will write the .update_flag and restart or exit
                 } catch (updateErr) {
                     const failMsg = t('update.auto_update_failed', { error: updateErr.message }) ||
-                                    `❌ <b>[Mise à jour auto]</b> Échec de la mise à jour : ${updateErr.message}`;
+                                    `❌ <b>[Auto-Update]</b> Update failed: ${updateErr.message}`;
+                    const conflictMsg = t('update.conflict_warning') ||
+                                    `⚠️ <i>Local conflicts or merge issues detected. You can force update to the latest version. Note: Any local file modifications will be overwritten.</i>\n\n👉 Use /force_update or click the button below:`;
+                    const fullMsg = `${failMsg}\n\n${conflictMsg}`;
+                    const replyMarkup = {
+                        inline_keyboard: [
+                            [
+                                { text: t('update.btn_force_update') || '⚡️ Force Update (Overwrite)', callback_data: 'force_update' }
+                            ]
+                        ]
+                    };
                     for (const chatId of chatIds) {
-                        await bot.telegram.sendMessage(chatId, failMsg, { parse_mode: 'HTML' }).catch(() => {});
+                        await bot.telegram.sendMessage(chatId, fullMsg, { 
+                            parse_mode: 'HTML',
+                            reply_markup: replyMarkup
+                        }).catch(() => {});
                     }
                 }
             }
@@ -302,6 +352,7 @@ function startUpdateChecker(bot, chatIds) {
 module.exports = {
     checkForUpdates,
     performUpdate,
+    performForceUpdate,
     getLocalVersion,
     startUpdateChecker,
     isNewerVersion

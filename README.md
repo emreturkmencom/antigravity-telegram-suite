@@ -233,6 +233,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/cleartelegraph` | Wipe published Telegraph pages and replace with redaction notices |
 | `/lang` | Switch display language |
 | `/update` | Check for updates, view changelog, and auto-update the bot |
+| `/force_update` | Force update to latest remote version (discards local modifications) |
 | `/version` | Show current version info |
 | `/menu` | Update the Telegram command menu |
 | `/fix_shortcuts` | Repair desktop shortcuts for Antigravity apps |

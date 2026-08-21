@@ -290,6 +290,51 @@ const keysToInject = {
         de: '❌ <b>[Auto-Update]</b> Update fehlgeschlagen: {error}',
         fr: '❌ <b>[Mise à jour auto]</b> Échec de la mise à jour : {error}',
         es: '❌ <b>[Actualización automática]</b> Error al actualizar: {error}'
+    },
+    'menu.force_update_desc': {
+        en: 'Force update (overwrites local changes)',
+        tr: 'Zorla güncelle (yerel değişiklikleri sıfırlar)',
+        de: 'Update erzwingen (lokale Änderungen überschreiben)',
+        fr: 'Forcer la mise à jour (écrase les modifications locales)',
+        es: 'Forzar actualización (sobrescribe cambios locales)',
+        ko: '강제 업데이트 (로컬 변경사항 덮어쓰기)',
+        zh: '强制更新 (覆盖本地修改)'
+    },
+    'update.btn_force_update': {
+        en: '⚡️ Force Update (Overwrite)',
+        tr: '⚡️ Zorla Güncelle (Değişiklikleri Sıfırla)',
+        de: '⚡️ Update erzwingen (Änderungen verwerfen)',
+        fr: '⚡️ Forcer la mise à jour (Écraser)',
+        es: '⚡️ Forzar actualización (Sobrescribir)',
+        ko: '⚡️ 강제 업데이트 (로컬 변경 취소)',
+        zh: '⚡️ 强制更新 (丢弃本地修改)'
+    },
+    'update.force_updating': {
+        en: '⚡️ <b>[Force Update]</b> Force update in progress...\nDiscarding local modifications and syncing with <code>origin/main</code>...',
+        tr: '⚡️ <b>[Zorla Güncelleme]</b> Zorla güncelleme başlatıldı...\nYerel değişiklikler sıfırlanıyor ve <code>origin/main</code> ile eşitleniyor...',
+        de: '⚡️ <b>[Update erzwingen]</b> Update wird erzwungen...\nLokale Änderungen werden verworfen und mit <code>origin/main</code> synchronisiert...',
+        fr: '⚡️ <b>[Mise à jour forcée]</b> Mise à jour forcée en cours...\nSuppression des modifications locales et synchronisation avec <code>origin/main</code>...',
+        es: '⚡️ <b>[Actualización forzada]</b> Actualización forzada en curso...\nDescartando modificaciones locales y sincronizando con <code>origin/main</code>...',
+        ko: '⚡️ <b>[강제 업데이트]</b> 강제 업데이트 진행 중...\n로컬 변경 사항을 취소하고 <code>origin/main</code>으로 동기화합니다...',
+        zh: '⚡️ <b>[强制更新]</b> 强制更新进行中...\n正在丢弃本地修改并与 <code>origin/main</code> 同步...'
+    },
+    'update.force_success': {
+        en: '✅ Code force updated to latest remote and dependencies installed.\nBot is restarting now...',
+        tr: '✅ Kodlar zorla en son sürüme güncellendi ve bağımlılıklar yüklendi.\nBot yeniden başlatılıyor...',
+        de: '✅ Code wurde erfolgreich auf den neuesten Stand erzwungen und Abhängigkeiten installiert.\nBot startet neu...',
+        fr: '✅ Code mis à jour de force avec succès et dépendances installées.\nLe bot redémarre maintenant...',
+        es: '✅ Código actualizado forzosamente a la última versión y dependencias instaladas.\nEl bot se está reiniciando...',
+        ko: '✅ 최신 원격 코드로 강제 업데이트되었으며 종속성이 설치되었습니다.\n봇을 다시 시작합니다...',
+        zh: '✅ 代码已强制更新至最新版本并已安装依赖项。\nBot 正在重启...'
+    },
+    'update.conflict_warning': {
+        en: '⚠️ <i>Local conflicts or merge issues detected. You can force update to the latest version. Note: Any local file modifications will be overwritten.</i>\n\n👉 Use /force_update or click the button below:',
+        tr: '⚠️ <i>Yerel çakışmalar veya birleştirme sorunları tespit edildi. Zorla güncelleme ile en son sürüme geçebilirsiniz. Not: Yerel dosya değişiklikleriniz silinecektir.</i>\n\n👉 /force_update komutunu kullanın veya aşağıdaki butona tıklayın:',
+        de: '⚠️ <i>Lokale Konflikte erkannt. Sie können das Update erzwingen, um auf die neueste Version zu aktualisieren. Hinweis: Lokale Dateiänderungen werden überschrieben.</i>\n\n👉 Verwenden Sie /force_update oder klicken Sie unten:',
+        fr: '⚠️ <i>Des conflits locaux ont été détectés. Vous pouvez forcer la mise à jour. Remarque : toutes les modifications locales seront écrasées.</i>\n\n👉 Utilisez /force_update ou cliquez ci-dessous :',
+        es: '⚠️ <i>Se detectaron conflictos locales. Puedes forzar la actualización. Nota: Cualquier modificación local será sobrescrita.</i>\n\n👉 Usa /force_update o haz clic abajo:',
+        ko: '⚠️ <i>로컬 충돌이 감지되었습니다. 강제 업데이트하여 최신 버전으로 업데이트할 수 있습니다. 참고: 로컬 수정 사항은 덮어쓰여집니다.</i>\n\n👉 /force_update 명령어를 사용하거나 아래 버튼을 클릭하세요:',
+        zh: '⚠️ <i>检测到本地冲突。您可以强制更新至最新版本。注意：任何本地修改都将被覆盖。</i>\n\n👉 使用 /force_update 或点击下方按钮：'
     }
 };
 
@@ -303,7 +348,7 @@ function assignValue(obj, keyPath, value) {
     current[parts[parts.length - 1]] = value;
 }
 
-const langs = ['en', 'tr', 'de', 'es', 'fr'];
+const langs = ['en', 'tr', 'de', 'es', 'fr', 'ko', 'zh'];
 
 langs.forEach(lang => {
     const filePath = path.join(LOCALES_DIR, `${lang}.json`);
