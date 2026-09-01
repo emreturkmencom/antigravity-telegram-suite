@@ -1,0 +1,38 @@
+name: Localization contract
+
+on:
+  pull_request:
+    paths:
+      - "locales/**"
+      - ".l10n-sentinel-baseline.json"
+      - ".github/workflows/l10n-sentinel.yml"
+  push:
+    branches: [main]
+    paths:
+      - "locales/**"
+      - ".l10n-sentinel-baseline.json"
+      - ".github/workflows/l10n-sentinel.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  locale-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install L10n Sentinel
+        run: python -m pip install l10n-sentinel==0.3.1
+      - name: Reject new localization contract errors
+        run: |
+          l10n-sentinel check-locales \
+            --source locales/en.json \
+            --target locales/de.json locales/es.json locales/fr.json locales/ko.json locales/tr.json locales/zh.json \
+            --baseline .l10n-sentinel-baseline.json \
+            --output-format github \
+            --report-file "$RUNNER_TEMP/l10n-sentinel-report.json" \
+            --fail-on error
