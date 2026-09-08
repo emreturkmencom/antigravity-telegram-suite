@@ -54,6 +54,22 @@ Send messages, switch AI models, manage workspaces, take screenshots, and run mu
 
 ## 🚀 Quick Start
 
+### ⚡ One-Line Install
+
+**Linux / macOS / WSL:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/emreturkmencom/antigravity-telegram-suite/main/scripts/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+iwr -useb https://raw.githubusercontent.com/emreturkmencom/antigravity-telegram-suite/main/scripts/install.ps1 | iex
+```
+
+---
+
+### 🛠️ Manual Installation
+
 ### Prerequisites
 
 - **Dual-Engine Support (IDE & Standalone):** Seamlessly switch between the Classic Monaco IDE and the Standalone Agent via the `/app` command. Isolated driver architectures ensure zero conflicts and perfectly clean background process management when switching.
