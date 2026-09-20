@@ -170,6 +170,16 @@
     "title": "📝 최신 응답:\n\n",
     "updated_at": "⏱️ <i>업데이트: {time}</i>"
   },
+  "nlp": {
+    "suggestion_title": "💡 <b>스마트 추천 명령어:</b>\n\n봇 기능에 대해 문의하신 것 같습니다. 다음 명령어 중 하나를 의미하셨나요?",
+    "todo_title": "📋 <b>작업 공간 TODO 및 과제 개요</b>\n\n",
+    "no_todo_found": "ℹ️ 현재 작업 공간에서 <code>TODO</code> 디렉터리 또는 작업 파일을 찾을 수 없습니다.",
+    "btn_run_agent": "🤖 Agent로 실행",
+    "btn_view_summary": "📋 작업 요약 보기",
+    "btn_direct_prompt": "✍️ Agent에게 직접 전송",
+    "forwarding_agent": "🤖 작업 공간 컨텍스트와 함께 요청을 Agent에게 전달 중...",
+    "sent_to_agent": "✍️ 프롬프트를 Agent에게 직접 전달 중..."
+  },
   "menu": {
     "agents_desc": "최근 채팅 스레드 목록 및 전환",
     "app_desc": "활성 애플리케이션 선택",

@@ -79,6 +79,16 @@
     "updated_at": "⏱️ <i>Mis à jour : {time}</i>",
     "refreshed": "🔄 Réponse de la tâche active rafraîchie !"
   },
+  "nlp": {
+    "suggestion_title": "💡 <b>Suggestions intelligentes pour votre requête :</b>\n\nIl semble que vous posiez une question sur les fonctionnalités du bot. Vouliez-vous dire l'une de ces commandes ?",
+    "todo_title": "📋 <b>Aperçu des Tâches et TODO de l'Espace de Travail</b>\n\n",
+    "no_todo_found": "ℹ️ Aucun dossier <code>TODO</code> ni fichier de tâches trouvé dans l'espace de travail actuel.",
+    "btn_run_agent": "🤖 Exécuter avec l'Agent",
+    "btn_view_summary": "📋 Voir le résumé des tâches",
+    "btn_direct_prompt": "✍️ Envoyer directement à l'Agent",
+    "forwarding_agent": "🤖 Transfert de la requête avec le contexte des tâches à l'Agent...",
+    "sent_to_agent": "✍️ Transfert direct de la consigne à l'Agent..."
+  },
   "screenshot": {
     "taking": "📸 Capture de l'IDE en cours (via CDP)...",
     "error": "❌ Erreur : {error}\n(L'IDE est-il ouvert ?)"

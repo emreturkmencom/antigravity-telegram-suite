@@ -19,6 +19,7 @@ const accountManager = require('./account_manager');
 const { ensureMemoryConvention } = require('./memory_convention');
 const DriverFactory = require('./drivers');
 const telegraphPublisher = require('./telegraph_publisher');
+const { classifyIntent, inspectWorkspaceTasks } = require('./nlp_intent_router');
 
 let scheduleClient = null;
 try {
@@ -1228,6 +1229,58 @@ bot.action('latest_stop', async (ctx) => {
         await handleStop(ctx);
     } catch (err) {
         ctx.reply(t('stop.error', { error: err.message }));
+    }
+});
+
+bot.action(/^nlp_cmd:(.+)$/, async (ctx) => {
+    try {
+        await ctx.answerCbQuery().catch(() => {});
+        const cmdName = ctx.match[1];
+        if (cmdName === 'quota') return handleQuota(ctx);
+        if (cmdName === 'screenshot') return handleScreenshot(ctx);
+        if (cmdName === 'status') return handleStatus(ctx);
+        if (cmdName === 'workspace') return handleWorkspace(ctx);
+        if (cmdName === 'agents') return handleAgents(ctx);
+        if (cmdName === 'artifacts') return handleArtifacts(ctx);
+        if (cmdName === 'model') return handleModel(ctx);
+        if (cmdName === 'help') return handleHelp(ctx);
+        if (cmdName === 'stop') return handleStop(ctx);
+    } catch (err) {
+        ctx.reply(t('error.general_error', { error: err.message }));
+    }
+});
+
+bot.action(/^nlp_todo_run:(.+)$/, async (ctx) => {
+    try {
+        await ctx.answerCbQuery(t('nlp.forwarding_agent')).catch(() => {});
+        const rawQuery = decodeURIComponent(ctx.match[1]);
+        let activeWs = null;
+        try {
+            const info = await getActiveThreadInfo(CDP_PORT, null);
+            if (info && info.workspace) activeWs = info.workspace;
+        } catch (_) {}
+        const taskData = inspectWorkspaceTasks(activeWs || process.cwd());
+        
+        let fullPrompt = rawQuery;
+        if (taskData.hasTaskData && taskData.summaryText) {
+            fullPrompt += `\n\n[Workspace Task Context]\n${taskData.summaryText}`;
+        }
+        
+        ctx.reply(`🤖 ${t('nlp.forwarding_agent')}`);
+        await sendViaCDPWithRecovery(fullPrompt, null);
+    } catch (err) {
+        ctx.reply(t('ask.send_error', { error: err.message }));
+    }
+});
+
+bot.action(/^nlp_direct:(.+)$/, async (ctx) => {
+    try {
+        await ctx.answerCbQuery(t('nlp.sent_to_agent')).catch(() => {});
+        const rawQuery = decodeURIComponent(ctx.match[1]);
+        ctx.reply(`✍️ ${t('nlp.sent_to_agent')}`);
+        await sendViaCDPWithRecovery(rawQuery, null);
+    } catch (err) {
+        ctx.reply(t('ask.send_error', { error: err.message }));
     }
 });
 
@@ -4732,6 +4785,48 @@ let isAgentBusy = false;
     }
     if (!explicitTargetId && ctx.message.reply_to_message?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data?.startsWith('focus_')) {
         explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
+    }
+
+    // Check SMART_NLP_ROUTER classification for casual text queries
+    const useSmartNlp = process.env.SMART_NLP_ROUTER !== 'false';
+    if (useSmartNlp && !ctx.message.reply_to_message) {
+        const { intent, matchedCommands } = classifyIntent(query);
+        
+        if (intent === 'COMMAND_SUGGESTION' && matchedCommands.length > 0) {
+            const buttons = matchedCommands.map(cmd => [{ text: `/${cmd}`, callback_data: `nlp_cmd:${cmd}` }]);
+            return ctx.reply(t('nlp.suggestion_title'), {
+                parse_mode: 'HTML',
+                reply_markup: { inline_keyboard: buttons }
+            });
+        }
+
+        if (intent === 'PROJECT_TODO_QUERY') {
+            let activeWs = null;
+            try {
+                const info = await getActiveThreadInfo(CDP_PORT, explicitTargetId);
+                if (info && info.workspace) activeWs = info.workspace;
+            } catch (_) {}
+
+            const taskData = inspectWorkspaceTasks(activeWs || process.cwd());
+            let msgText = t('nlp.todo_title');
+            if (taskData.hasTaskData) {
+                msgText += taskData.summaryText;
+            } else {
+                msgText += t('nlp.no_todo_found');
+            }
+
+            const buttons = [
+                [
+                    { text: t('nlp.btn_run_agent'), callback_data: `nlp_todo_run:${encodeURIComponent(query.substring(0, 100))}` },
+                    { text: t('nlp.btn_direct_prompt'), callback_data: `nlp_direct:${encodeURIComponent(query.substring(0, 100))}` }
+                ]
+            ];
+
+            return ctx.reply(msgText, {
+                parse_mode: 'HTML',
+                reply_markup: { inline_keyboard: buttons }
+            });
+        }
     }
 
     // If agent is already processing, just send the follow-up message without starting a new wait loop

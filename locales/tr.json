@@ -79,6 +79,16 @@
     "updated_at": "⏱️ <i>Güncellendi: {time}</i>",
     "refreshed": "🔄 Aktif görev yanıtı yenilendi!"
   },
+  "nlp": {
+    "suggestion_title": "💡 <b>Sorgunuz için Akıllı Öneriler:</b>\n\nBot özellikleri hakkında bilgi almak istiyor gibisiniz. Bu komutlardan birini mi demek istediniz?",
+    "todo_title": "📋 <b>Çalışma Alanı Görev ve TODO Özeti</b>\n\n",
+    "no_todo_found": "ℹ️ Mevcut çalışma alanında <code>TODO</code> dizini veya görev dosyası bulunamadı.",
+    "btn_run_agent": "🤖 Agent ile Çalıştır",
+    "btn_view_summary": "📋 Görev Özetini Göster",
+    "btn_direct_prompt": "✍️ Doğrudan Agent'a Gönder",
+    "forwarding_agent": "🤖 Sorgu çalışma alanı görev bağlamıyla Agent'a iletiliyor...",
+    "sent_to_agent": "✍️ Komut doğrudan Agent'a iletiliyor..."
+  },
   "screenshot": {
     "taking": "📸 IDE ekran görüntüsü alınıyor (CDP üzerinden)...",
     "error": "❌ Hata: {error}\n(IDE açık mı?)"

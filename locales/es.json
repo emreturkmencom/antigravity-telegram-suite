@@ -79,6 +79,16 @@
     "updated_at": "⏱️ <i>Actualizado: {time}</i>",
     "refreshed": "🔄 ¡Respuesta de la tarea activa actualizada!"
   },
+  "nlp": {
+    "suggestion_title": "💡 <b>Sugerencias inteligentes para tu consulta:</b>\n\nParece que preguntas sobre funciones del bot. ¿Querías decir uno de estos comandos?",
+    "todo_title": "📋 <b>Resumen de Tareas y TODO del Espacio de Trabajo</b>\n\n",
+    "no_todo_found": "ℹ️ No se encontraron directorios <code>TODO</code> ni archivos de tareas en el espacio de trabajo actual.",
+    "btn_run_agent": "🤖 Ejecutar con el Agente",
+    "btn_view_summary": "📋 Ver resumen de tareas",
+    "btn_direct_prompt": "✍️ Enviar directamente al Agente",
+    "forwarding_agent": "🤖 Reenviando consulta con contexto de tareas al Agente...",
+    "sent_to_agent": "✍️ Reenviando instrucción directamente al Agente..."
+  },
   "screenshot": {
     "taking": "📸 Tomando captura de la IDE (vía CDP)...",
     "error": "❌ Error: {error}\n(¿Está abierta la IDE?)"

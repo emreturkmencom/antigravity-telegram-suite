@@ -79,6 +79,16 @@
     "updated_at": "⏱️ <i>Updated: {time}</i>",
     "refreshed": "🔄 Refreshed active task response!"
   },
+  "nlp": {
+    "suggestion_title": "💡 <b>Smart Suggestions for your query:</b>\n\nIt looks like you are asking about bot features. Did you mean one of these commands?",
+    "todo_title": "📋 <b>Workspace Task & TODO Overview</b>\n\n",
+    "no_todo_found": "ℹ️ No <code>TODO</code> directories or task files found in the current workspace.",
+    "btn_run_agent": "🤖 Run with Agent",
+    "btn_view_summary": "📋 View Task Summary",
+    "btn_direct_prompt": "✍️ Send directly to Agent",
+    "forwarding_agent": "🤖 Forwarding query with workspace task context to Agent...",
+    "sent_to_agent": "✍️ Forwarding prompt directly to Agent..."
+  },
   "screenshot": {
     "taking": "📸 Taking IDE screenshot (via CDP)...",
     "error": "❌ Error: {error}\n(Is the IDE open?)"

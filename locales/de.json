@@ -79,6 +79,16 @@
     "updated_at": "⏱️ <i>Aktualisiert: {time}</i>",
     "refreshed": "🔄 Antworten der aktiven Aufgabe aktualisiert!"
   },
+  "nlp": {
+    "suggestion_title": "💡 <b>Intelligente Vorschläge für deine Anfrage:</b>\n\nDu scheinst nach Bot-Funktionen zu fragen. Meintest du einen dieser Befehle?",
+    "todo_title": "📋 <b>Workspace Aufgaben & TODO Übersicht</b>\n\n",
+    "no_todo_found": "ℹ️ Keine <code>TODO</code> Ordner oder Aufgabendateien im aktuellen Workspace gefunden.",
+    "btn_run_agent": "🤖 Mit Agent ausführen",
+    "btn_view_summary": "📋 Aufgaben-Zusammenfassung anzeigen",
+    "btn_direct_prompt": "✍️ Direkt an Agent senden",
+    "forwarding_agent": "🤖 Sende Anfrage mit Workspace-Kontext an Agent...",
+    "sent_to_agent": "✍️ Sende Prompt direkt an Agent..."
+  },
   "screenshot": {
     "taking": "📸 Nehme IDE-Screenshot auf (über CDP)...",
     "error": "❌ Fehler: {error}\n(Ist die IDE geöffnet?)"

@@ -79,6 +79,16 @@
     "updated_at": "⏱️ <i>更新于：{time}</i>",
     "refreshed": "🔄 动态任务回复已刷新！"
   },
+  "nlp": {
+    "suggestion_title": "💡 <b>针对您查询的智能建议：</b>\n\n看起来您正在询问 Bot 的功能，您是指以下命令之一吗？",
+    "todo_title": "📋 <b>工作区任务与 TODO 概览</b>\n\n",
+    "no_todo_found": "ℹ️ 当前工作区中未找到 <code>TODO</code> 目录或任务文件。",
+    "btn_run_agent": "🤖 结合 Agent 运行",
+    "btn_view_summary": "📋 查看任务摘要",
+    "btn_direct_prompt": "✍️ 直接发送给 Agent",
+    "forwarding_agent": "🤖 正在将包含工作区任务上下文的查询发送给 Agent...",
+    "sent_to_agent": "✍️ 正在将提示直接发送给 Agent..."
+  },
   "screenshot": {
     "taking": "📸 正在截取 IDE 屏幕（通过 CDP）...",
     "error": "❌ 错误：{error}\n（IDE 是否已打开？）"
