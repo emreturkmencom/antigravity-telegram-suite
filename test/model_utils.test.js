@@ -20,11 +20,21 @@ function run() {
     );
 
     const options = [
+        'Gemini 3.8 Fla h (High)Fa t',
+        'Gemini 3.7 Fla h (Medium)Fa t',
         'Gemini 3.5 Fla h (High)Fa t',
         'Gemini 3.5 Fla h (Medium)Fa t',
         'Claude Opu  4.6 (Thinking)'
     ];
 
+    assert.strictEqual(
+        findBestModelOption(options, 'Gemini 3.8 Flash (High)'),
+        'Gemini 3.8 Fla h (High)Fa t'
+    );
+    assert.strictEqual(
+        findBestModelOption(options, 'Gemini 3.7 Flash (Medium)'),
+        'Gemini 3.7 Fla h (Medium)Fa t'
+    );
     assert.strictEqual(
         findBestModelOption(options, 'Gemini 3.5 Flash (Medium)'),
         'Gemini 3.5 Fla h (Medium)Fa t'

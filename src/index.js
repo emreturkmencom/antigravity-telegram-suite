@@ -2908,6 +2908,8 @@ async function ensureModelsCache() {
         }
         if (!cachedModelsList || cachedModelsList.length === 0) {
             cachedModelsList = [
+                { name: 'Gemini 3.8 Flash', baseName: 'Gemini 3.8 Flash', hasTiers: true, tiers: ['Low', 'Medium', 'High'], currentTier: 'Medium' },
+                { name: 'Gemini 3.8 Pro', baseName: 'Gemini 3.8 Pro', hasTiers: true, tiers: ['Low', 'Medium', 'High'], currentTier: 'Medium' },
                 { name: 'Gemini 3.7 Flash', baseName: 'Gemini 3.7 Flash', hasTiers: true, tiers: ['Low', 'Medium', 'High'], currentTier: 'Medium' },
                 { name: 'Gemini 3.6 Flash', baseName: 'Gemini 3.6 Flash', hasTiers: true, tiers: ['Low', 'Medium', 'High'], currentTier: 'Medium' },
                 { name: 'Gemini 3.5 Flash', baseName: 'Gemini 3.5 Flash', hasTiers: true, tiers: ['Low', 'Medium', 'High'], currentTier: 'Medium' },
