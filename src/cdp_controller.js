@@ -2853,7 +2853,8 @@ async function captureFullIDEScreenshot(port) {
 
             const screenshotResult = await Page.captureScreenshot({
                 format: 'jpeg',
-                quality: 80
+                quality: 60,
+                optimizeForSpeed: true
             });
             await client.close();
             if (screenshotResult && screenshotResult.data) {
