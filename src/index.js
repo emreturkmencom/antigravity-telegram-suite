@@ -21,6 +21,7 @@ const DriverFactory = require('./drivers');
 const telegraphPublisher = require('./telegraph_publisher');
 const driveUploader = require('./drive_uploader');
 const { classifyIntent, inspectWorkspaceTasks } = require('./nlp_intent_router');
+const { startDashboardServer, eventBus } = require('./web/server');
 
 let scheduleClient = null;
 try {
@@ -215,6 +216,21 @@ function checkAuth(ctx, next) {
 }
 
 bot.use(checkAuth);
+
+// Web GUI Interaction Tracker: stream user interactions to the web dashboard in real time
+bot.use((ctx, next) => {
+    if (ctx.from) {
+        const text = ctx.message?.text || (ctx.callbackQuery ? `[Callback] ${ctx.callbackQuery.data}` : `[${ctx.updateType}]`);
+        eventBus.emitEvent('telegram_interaction', {
+            userId: ctx.from.id,
+            username: ctx.from.username || ctx.from.first_name || 'User',
+            text: text,
+            command: ctx.message?.text?.startsWith('/') ? ctx.message.text.split(' ')[0] : null,
+            status: 'received'
+        });
+    }
+    return next();
+});
 
 // Fix for Issue #31: Prevent menu emojis and bare numbers from fanning out to all bots in a group
 bot.use((ctx, next) => {
@@ -1259,6 +1275,7 @@ bot.action(/^nlp_cmd:(.+)$/, async (ctx) => {
         if (cmdName === 'model') return handleModel(ctx);
         if (cmdName === 'help') return handleHelp(ctx);
         if (cmdName === 'stop') return handleStop(ctx);
+        if (cmdName === 'chat') return handleChat(ctx);
     } catch (err) {
         ctx.reply(t('error.general_error', { error: err.message }));
     }
@@ -5307,6 +5324,18 @@ async function init() {
         });
     };
     launchBot();
+
+    // Start embedded Web GUI Dashboard (enabled by default, disable with ENABLE_WEB_GUI=false)
+    if (process.env.ENABLE_WEB_GUI !== 'false') {
+        try {
+            startDashboardServer({
+                botContext: { botInfo: bot.botInfo },
+                cdpController: require('./cdp_controller')
+            });
+        } catch (guiErr) {
+            console.error('[WebGUI] Failed to initialize dashboard server:', guiErr.message || guiErr);
+        }
+    }
 
     // Push the main menu keyboard to the user so it's active by default (wait 3s to let IDE/CDP initialize)
     setTimeout(() => {
