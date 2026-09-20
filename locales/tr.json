@@ -72,7 +72,12 @@
     "no_new": "[Yeni mesaj yok]",
     "error": "❌ Hata: {error}\n(Antigravity açık mı?)",
     "last_agent_reply": "📋 Son Agent Yanıtı:",
-    "not_found_active": "⚠️ Aktif sohbet penceresi bulunamadı. Lütfen /agents komutuyla bir sohbet seçin veya yeni bir mesaj gönderin."
+    "not_found_active": "⚠️ Aktif sohbet penceresi bulunamadı. Lütfen /agents komutuyla bir sohbet seçin veya yeni bir mesaj gönderin.",
+    "btn_refresh": "🔄 Yenile",
+    "btn_snap": "📸 Ekran Görüntüsü",
+    "btn_stop": "🛑 Durdur",
+    "updated_at": "⏱️ <i>Güncellendi: {time}</i>",
+    "refreshed": "🔄 Aktif görev yanıtı yenilendi!"
   },
   "screenshot": {
     "taking": "📸 IDE ekran görüntüsü alınıyor (CDP üzerinden)...",

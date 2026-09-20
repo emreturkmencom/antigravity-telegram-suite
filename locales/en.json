@@ -72,7 +72,12 @@
     "no_new": "[No new messages]",
     "error": "❌ Error: {error}\n(Is Antigravity open?)",
     "last_agent_reply": "📋 Last Agent Reply:",
-    "not_found_active": "⚠️ Active chat window not found. Please select a chat using the /agents command or send a new message."
+    "not_found_active": "⚠️ Active chat window not found. Please select a chat using the /agents command or send a new message.",
+    "btn_refresh": "🔄 Refresh",
+    "btn_snap": "📸 Screenshot",
+    "btn_stop": "🛑 Stop",
+    "updated_at": "⏱️ <i>Updated: {time}</i>",
+    "refreshed": "🔄 Refreshed active task response!"
   },
   "screenshot": {
     "taking": "📸 Taking IDE screenshot (via CDP)...",

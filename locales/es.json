@@ -69,10 +69,15 @@
   },
   "latest": {
     "title": "📝 Última Respuesta:\n\n",
-    "no_new": "[No hay mensajes nuevos]",
+    "no_new": "[Sin mensajes nuevos]",
     "error": "❌ Error: {error}\n(¿Está abierto Antigravity?)",
     "last_agent_reply": "📋 Última Respuesta del Agente:",
-    "not_found_active": "⚠️ No se encontró la ventana de chat activa. Por favor, selecciona un chat usando el comando /agents o envía un nuevo mensaje."
+    "not_found_active": "⚠️ No se encontró la ventana de chat activa. Selecciona un chat usando /agents o envía un nuevo mensaje.",
+    "btn_refresh": "🔄 Actualizar",
+    "btn_snap": "📸 Captura de pantalla",
+    "btn_stop": "🛑 Detener",
+    "updated_at": "⏱️ <i>Actualizado: {time}</i>",
+    "refreshed": "🔄 ¡Respuesta de la tarea activa actualizada!"
   },
   "screenshot": {
     "taking": "📸 Tomando captura de la IDE (vía CDP)...",

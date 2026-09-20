@@ -72,7 +72,12 @@
     "no_new": "[没有新消息]",
     "error": "❌ 错误：{error}\n（Antigravity 是否已打开？）",
     "last_agent_reply": "📋 Agent 最新回复：",
-    "not_found_active": "⚠️ 未找到活动聊天窗口。请使用 /agents 选择一个聊天，或发送一条新消息。"
+    "not_found_active": "⚠️ 未找到活动聊天窗口。请使用 /agents 选择一个聊天，或发送一条新消息。",
+    "btn_refresh": "🔄 刷新",
+    "btn_snap": "📸 截图",
+    "btn_stop": "🛑 停止",
+    "updated_at": "⏱️ <i>更新于：{time}</i>",
+    "refreshed": "🔄 动态任务回复已刷新！"
   },
   "screenshot": {
     "taking": "📸 正在截取 IDE 屏幕（通过 CDP）...",

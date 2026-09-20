@@ -1146,24 +1146,90 @@ bot.command('start', async (ctx) => {
     await sendMainMenu(ctx, t('menu.welcome'));
 });
 
-const handleLatest = async (ctx) => {
+const handleLatest = async (ctx, editMessageId = null) => {
     try {
-        // Use the preferred target (set by workspace switch or /window command)
-        // instead of blindly picking candidates[0] which may be the wrong window
         const targetId = getPreferredTargetId() || null;
         let _latestRes = await getFullLatestResponse(CDP_PORT, targetId, null, true);
         let text = typeof _latestRes === 'string' ? _latestRes : _latestRes.text;
         let buttons = typeof _latestRes === 'string' ? null : _latestRes.buttons;
         
+        const nowStr = new Date().toLocaleTimeString();
         const header = await getChatHeader(targetId, t('latest.title'));
-        await sendBotMessage(ctx, text, header, buttons);
+        const footerTime = t('latest.updated_at', { time: nowStr });
+        const fullHeader = `${header}\n${footerTime}`;
+
+        const inlineControls = [
+            [
+                { text: t('latest.btn_refresh'), callback_data: 'latest_refresh' },
+                { text: t('latest.btn_snap'), callback_data: 'latest_snap' },
+                { text: t('latest.btn_stop'), callback_data: 'latest_stop' }
+            ]
+        ];
+
+        let combinedButtons = [];
+        if (buttons) {
+            if (Array.isArray(buttons)) {
+                combinedButtons = [...buttons, ...inlineControls];
+            } else if (buttons.reply_markup && Array.isArray(buttons.reply_markup.inline_keyboard)) {
+                combinedButtons = [...buttons.reply_markup.inline_keyboard, ...inlineControls];
+            } else {
+                combinedButtons = inlineControls;
+            }
+        } else {
+            combinedButtons = inlineControls;
+        }
+
+        if (editMessageId) {
+            const formatted = `${fullHeader}\n\n${markdownToTelegramHtml(text)}`;
+            await ctx.telegram.editMessageText(ctx.chat.id, editMessageId, undefined, formatted, {
+                parse_mode: 'HTML',
+                reply_markup: { inline_keyboard: combinedButtons }
+            }).catch(e => {
+                if (!e.message.includes('message is not modified')) {
+                    console.error('[handleLatest] editMessageText failed:', e.message);
+                }
+            });
+        } else {
+            await sendBotMessage(ctx, text, fullHeader, combinedButtons);
+        }
     } catch (err) {
         ctx.reply(t('latest.error', { error: err.message }));
     }
 };
 
 bot.command('latest', handleLatest);
+bot.command('live', handleLatest);
 bot.hears(/^💬/i, handleLatest);
+
+bot.action('latest_refresh', async (ctx) => {
+    try {
+        await ctx.answerCbQuery(t('latest.refreshed')).catch(() => {});
+        if (ctx.callbackQuery && ctx.callbackQuery.message) {
+            await handleLatest(ctx, ctx.callbackQuery.message.message_id);
+        }
+    } catch (err) {
+        ctx.reply(t('latest.error', { error: err.message }));
+    }
+});
+
+bot.action('latest_snap', async (ctx) => {
+    try {
+        await ctx.answerCbQuery().catch(() => {});
+        const buffer = await captureFullIDEScreenshot(CDP_PORT);
+        await ctx.replyWithPhoto({ source: buffer });
+    } catch (err) {
+        ctx.reply(t('screenshot.error', { error: err.message }));
+    }
+});
+
+bot.action('latest_stop', async (ctx) => {
+    try {
+        await ctx.answerCbQuery().catch(() => {});
+        await handleStop(ctx);
+    } catch (err) {
+        ctx.reply(t('stop.error', { error: err.message }));
+    }
+});
 
 const handleScreenshot = async (ctx) => {
     try {
