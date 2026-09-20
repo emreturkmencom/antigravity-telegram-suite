@@ -51,11 +51,16 @@ function classifyIntent(text) {
         }
     }
 
-    // If text looks like a question asking "how to" / "where is" / "can I check" and matches commands
+    // If text matches command keywords or is a question asking "how to" / "where is" / "can I check"
     const isCasualQuestion = /\b(how|can i|where|what is|show me|check)\b/i.test(trimmed);
-
-    if (isCasualQuestion && matchedCommands.length > 0) {
+    if ((isCasualQuestion || matchedCommands.length > 0) && matchedCommands.length > 0) {
         return { intent: 'COMMAND_SUGGESTION', matchedCommands };
+    }
+
+    // Check if it's a casual greeting (e.g. "hi", "hello", "hey", "good morning")
+    const isGreeting = /^(hi|hello|hey|greetings|good morning|good evening|good afternoon|howdy|sup)\b/i.test(trimmed);
+    if (isGreeting) {
+        return { intent: 'CASUAL_GREETING', matchedCommands: [] };
     }
 
     // Default: route to agent directly

@@ -1180,16 +1180,18 @@ const handleLatest = async (ctx, editMessageId = null) => {
             combinedButtons = inlineControls;
         }
 
-        if (editMessageId) {
+        if (editMessageId && typeof editMessageId === 'number') {
             const formatted = `${fullHeader}\n\n${markdownToTelegramHtml(text)}`;
-            await ctx.telegram.editMessageText(ctx.chat.id, editMessageId, undefined, formatted, {
-                parse_mode: 'HTML',
-                reply_markup: { inline_keyboard: combinedButtons }
-            }).catch(e => {
+            try {
+                await ctx.telegram.editMessageText(ctx.chat.id, editMessageId, undefined, formatted, {
+                    parse_mode: 'HTML',
+                    reply_markup: { inline_keyboard: combinedButtons }
+                });
+            } catch (e) {
                 if (!e.message.includes('message is not modified')) {
-                    console.error('[handleLatest] editMessageText failed:', e.message);
+                    await sendBotMessage(ctx, text, fullHeader, combinedButtons);
                 }
-            });
+            }
         } else {
             await sendBotMessage(ctx, text, fullHeader, combinedButtons);
         }
@@ -1198,9 +1200,9 @@ const handleLatest = async (ctx, editMessageId = null) => {
     }
 };
 
-bot.command('latest', handleLatest);
-bot.command('live', handleLatest);
-bot.hears(/^💬/i, handleLatest);
+bot.command('latest', (ctx) => handleLatest(ctx));
+bot.command('live', (ctx) => handleLatest(ctx));
+bot.hears(/^💬/i, (ctx) => handleLatest(ctx));
 
 bot.action('latest_refresh', async (ctx) => {
     try {
@@ -4758,7 +4760,7 @@ let isAgentBusy = false;
 
     // Default text handler
     const KNOWN_BOT_COMMANDS = new Set([
-        'start', 'help', 'latest', 'screenshot', 'status', 'start_ide', 'start_ag', 'close_ide', 'close_ag',
+        'start', 'help', 'latest', 'live', 'screenshot', 'status', 'start_ide', 'start_ag', 'close_ide', 'close_ag',
         'close', 'close_window', 'closeall', 'new', 'agents', 'artifacts', 'skills', 'skill',
         'model', 'workspace', 'memory', 'window', 'lang', 'cmd', 'file', 'stop', 'autoaccept', 'quota', 'update',
         'force_update', 'forceupdate',
@@ -4792,6 +4794,24 @@ let isAgentBusy = false;
     if (useSmartNlp && !ctx.message.reply_to_message) {
         const { intent, matchedCommands } = classifyIntent(query);
         
+        if (intent === 'CASUAL_GREETING') {
+            const greetingMsg = `👋 <b>${t('menu.welcome') || 'Hello! How can I help you today?'}</b>\n\n` +
+                `Choose what you would like to do:`;
+            const buttons = [
+                [
+                    { text: t('nlp.btn_direct_prompt'), callback_data: `nlp_direct:${encodeURIComponent(query.substring(0, 100))}` },
+                    { text: t('nlp.btn_view_summary'), callback_data: `nlp_cmd:status` }
+                ],
+                [
+                    { text: `❓ ${t('menu.help_desc') || 'Help & Commands'}`, callback_data: `nlp_cmd:help` }
+                ]
+            ];
+            return ctx.reply(greetingMsg, {
+                parse_mode: 'HTML',
+                reply_markup: { inline_keyboard: buttons }
+            });
+        }
+
         if (intent === 'COMMAND_SUGGESTION' && matchedCommands.length > 0) {
             const buttons = matchedCommands.map(cmd => [{ text: `/${cmd}`, callback_data: `nlp_cmd:${cmd}` }]);
             return ctx.reply(t('nlp.suggestion_title'), {

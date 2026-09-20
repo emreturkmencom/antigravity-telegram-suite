@@ -15,7 +15,11 @@ assert.deepStrictEqual(test1.matchedCommands, ['quota']);
 const test2 = classifyIntent('What tasks are left in todo?');
 assert.strictEqual(test2.intent, 'PROJECT_TODO_QUERY');
 
-// Test 3: AGENT_PROMPT classification
+// Test 3: CASUAL_GREETING classification
+const testGreeting = classifyIntent('Hi');
+assert.strictEqual(testGreeting.intent, 'CASUAL_GREETING');
+
+// Test 4: AGENT_PROMPT classification
 const test3 = classifyIntent('Write a function to format dates in utils.js');
 assert.strictEqual(test3.intent, 'AGENT_PROMPT');
 
