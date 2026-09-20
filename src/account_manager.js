@@ -1012,7 +1012,8 @@ async function injectTokenIntoIde(tokenData, app) {
                 updatedAgentStateBytes.set(oauthTokenField, stateWithoutPreviousToken.length);
 
                 const updatedEncodedAgentState = Buffer.from(updatedAgentStateBytes).toString('base64');
-                sqlStatements.push(`INSERT OR REPLACE INTO ItemTable(key,value) VALUES('jetskiStateSync.agentManagerInitState','${updatedEncodedAgentState}');`);
+                const escapedAgentState = updatedEncodedAgentState.replace(/'/g, "''");
+                sqlStatements.push(`INSERT OR REPLACE INTO ItemTable(key,value) VALUES('jetskiStateSync.agentManagerInitState','${escapedAgentState}');`);
             } catch (e) {
                 // If legacy format injection fails, fallback will handle auth status write
             }
