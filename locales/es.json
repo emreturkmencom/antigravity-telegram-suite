@@ -96,6 +96,19 @@
     "gdrive_link": "📸 <b>Captura del IDE (Google Drive):</b>\n🔗 <a href=\"{link}\">Ver captura</a>\n\n🕒 <i>Limpieza automática activa: se eliminará en {days} días.</i>",
     "gdrive_fallback": "⚠️ <i>El envío directo a Telegram agotó el tiempo de espera. Se ha subido a Google Drive:</i>\n\n📸 🔗 <a href=\"{link}\">Ver captura</a>\n\n🕒 <i>Limpieza automática: vence en {days} días.</i>"
   },
+  "voice": {
+    "transcribed": "🎤 <i>Voz transcrita:</i>\n❝ <b>{text}</b> ❞",
+    "transcribing": "🎙️ Procesando y transcribiendo mensaje de voz...",
+    "choose_mode": "🎙️ <b>Mensaje de voz recibido</b>\n\n¿Cómo prefieres procesar este mensaje de voz?",
+    "choose_settings": "🎙️ <b>Ajustes de Mensajes de Voz</b>\n\nModo actual: <b>{current}</b>\n\nElige tu modo preferido:",
+    "btn_transcribe": "📝 Transcribir a Texto (Whisper STT)",
+    "btn_direct": "🎙️ Enviar Audio Directo (Antigravity IDE)",
+    "btn_ask": "❓ Preguntar siempre",
+    "btn_save_text": "💾 Modo predeterminado: Texto",
+    "btn_save_direct": "💾 Modo predeterminado: Audio",
+    "mode_saved": "✅ Modo predeterminado de voz establecido en: <b>{mode}</b>",
+    "forwarding_direct": "🎙️ Reenviando audio directamente a Antigravity IDE..."
+  },
   "ask": {
     "empty": "Por favor escribe una pregunta. Ejemplo: `/ask Hola`",
     "sent": "✅ Mensaje enviado, esperando respuesta...",
@@ -163,8 +176,9 @@
   },
   "menu": {
     "updated": "✅ ¡Menú actualizado! Puedes verlo desde el menú ☰ abajo a la izquierda.",
-    "help_desc": "Muestra todos los comandos disponibles",
-    "chat_desc": "Alternar modo Chat/Discusión sin cambios de código",
+    "help_desc": "Mostrar todos los comandos disponibles",
+    "chat_desc": "Alternar modo de chat/discusión sin código",
+    "voice_desc": "Configurar modo de procesamiento de mensajes de voz",
     "ask_desc": "Enviar una pregunta al agente",
     "latest_desc": "Obtener la última respuesta",
     "live_desc": "Salida de tarea en vivo y actualización",

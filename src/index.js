@@ -20,6 +20,8 @@ const { ensureMemoryConvention } = require('./memory_convention');
 const DriverFactory = require('./drivers');
 const telegraphPublisher = require('./telegraph_publisher');
 const driveUploader = require('./drive_uploader');
+const speechRecognizer = require('./speech_recognizer');
+const voiceSettings = require('./voice_settings');
 const { classifyIntent, inspectWorkspaceTasks } = require('./nlp_intent_router');
 const { startDashboardServer, eventBus } = require('./web/server');
 
@@ -1786,6 +1788,84 @@ bot.hears(/^chat:stop$/i, async (ctx) => {
     return ctx.reply(t('chat_mode.disabled'), { parse_mode: 'HTML' });
 });
 
+const handleVoiceSettings = async (ctx) => {
+    try {
+        const userId = ctx.from?.id ? String(ctx.from.id) : null;
+        const text = ctx.message?.text?.trim() || '';
+        const args = text.split(/\s+/).slice(1);
+        const arg = args[0]?.toLowerCase();
+
+        if (arg === 'text' || arg === 'stt' || arg === 'whisper') {
+            voiceSettings.setVoiceMode(userId, voiceSettings.VOICE_MODES.TEXT);
+            return ctx.reply(t('voice.mode_saved', { mode: t('voice.btn_transcribe') }), { parse_mode: 'HTML' });
+        }
+        if (arg === 'direct' || arg === 'audio' || arg === 'raw') {
+            voiceSettings.setVoiceMode(userId, voiceSettings.VOICE_MODES.DIRECT);
+            return ctx.reply(t('voice.mode_saved', { mode: t('voice.btn_direct') }), { parse_mode: 'HTML' });
+        }
+        if (arg === 'ask' || arg === 'prompt' || arg === 'always') {
+            voiceSettings.setVoiceMode(userId, voiceSettings.VOICE_MODES.ASK);
+            return ctx.reply(t('voice.mode_saved', { mode: t('voice.btn_ask') }), { parse_mode: 'HTML' });
+        }
+
+        const currentMode = voiceSettings.getVoiceMode(userId) || 'unset';
+        const currentDisplay = currentMode === 'text'
+            ? t('voice.btn_transcribe')
+            : (currentMode === 'direct'
+                ? t('voice.btn_direct')
+                : (currentMode === 'ask' ? t('voice.btn_ask') : '❓ Not Set (Prompts on message)'));
+
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.callback(t('voice.btn_transcribe'), 'voice_set_text')],
+            [Markup.button.callback(t('voice.btn_direct'), 'voice_set_direct')],
+            [Markup.button.callback(t('voice.btn_ask'), 'voice_set_ask')]
+        ]);
+
+        return ctx.reply(t('voice.choose_settings', { current: currentDisplay }), {
+            parse_mode: 'HTML',
+            ...keyboard
+        });
+    } catch (err) {
+        return ctx.reply(`❌ Voice Settings Error: ${err.message}`);
+    }
+};
+
+bot.command('voice', handleVoiceSettings);
+bot.command('voicemode', handleVoiceSettings);
+
+bot.action('voice_set_text', async (ctx) => {
+    try {
+        const userId = ctx.from?.id ? String(ctx.from.id) : null;
+        voiceSettings.setVoiceMode(userId, voiceSettings.VOICE_MODES.TEXT);
+        await ctx.answerCbQuery(t('voice.mode_saved', { mode: 'Text' }));
+        await ctx.editMessageText(t('voice.mode_saved', { mode: t('voice.btn_transcribe') }), { parse_mode: 'HTML' });
+    } catch (e) {
+        await ctx.answerCbQuery(e.message);
+    }
+});
+
+bot.action('voice_set_direct', async (ctx) => {
+    try {
+        const userId = ctx.from?.id ? String(ctx.from.id) : null;
+        voiceSettings.setVoiceMode(userId, voiceSettings.VOICE_MODES.DIRECT);
+        await ctx.answerCbQuery(t('voice.mode_saved', { mode: 'Direct Audio' }));
+        await ctx.editMessageText(t('voice.mode_saved', { mode: t('voice.btn_direct') }), { parse_mode: 'HTML' });
+    } catch (e) {
+        await ctx.answerCbQuery(e.message);
+    }
+});
+
+bot.action('voice_set_ask', async (ctx) => {
+    try {
+        const userId = ctx.from?.id ? String(ctx.from.id) : null;
+        voiceSettings.setVoiceMode(userId, voiceSettings.VOICE_MODES.ASK);
+        await ctx.answerCbQuery(t('voice.mode_saved', { mode: 'Ask' }));
+        await ctx.editMessageText(t('voice.mode_saved', { mode: t('voice.btn_ask') }), { parse_mode: 'HTML' });
+    } catch (e) {
+        await ctx.answerCbQuery(e.message);
+    }
+});
+
 bot.command('new', async (ctx) => {
     console.log('[/new] Command triggered');
     isChatModeActive = false; // Reset chat mode on new chat session
@@ -3166,6 +3246,8 @@ async function ensureModelsCache() {
         }
         if (!cachedModelsList || cachedModelsList.length === 0) {
             cachedModelsList = [
+                { name: 'Gemini 3.8 Flash', baseName: 'Gemini 3.8 Flash', hasTiers: true, tiers: ['Low', 'Medium', 'High'], currentTier: 'Medium' },
+                { name: 'Gemini 3.8 Pro', baseName: 'Gemini 3.8 Pro', hasTiers: true, tiers: ['Low', 'Medium', 'High'], currentTier: 'Medium' },
                 { name: 'Gemini 3.7 Flash', baseName: 'Gemini 3.7 Flash', hasTiers: true, tiers: ['Low', 'Medium', 'High'], currentTier: 'Medium' },
                 { name: 'Gemini 3.6 Flash', baseName: 'Gemini 3.6 Flash', hasTiers: true, tiers: ['Low', 'Medium', 'High'], currentTier: 'Medium' },
                 { name: 'Gemini 3.5 Flash', baseName: 'Gemini 3.5 Flash', hasTiers: true, tiers: ['Low', 'Medium', 'High'], currentTier: 'Medium' },
@@ -3984,12 +4066,8 @@ bot.action(/pref_app_(.+)/, async (ctx) => {
     const success = updateEnvFile('ANTIGRAVITY_PREFERRED_APP', selectedApp);
     
     if (success) {
-        // Only kill the old app if they share the exact same port (to free it up).
-        // If they are configured on different ports, both can run concurrently.
-        let killPromise = Promise.resolve();
-        if (getCDPPort('agent') === getCDPPort('ide')) {
-            killPromise = killIDE(oldApp).catch(e => console.error('[App Switch] Failed to kill old app:', e.message));
-        }
+        // Eski uygulamayı güvenli bir şekilde kapat (UI'ı bloklamadan arka planda)
+        const killPromise = killIDE(oldApp).catch(e => console.error('[App Switch] Failed to kill old app:', e.message));
         
         // Recalculate port
         CDP_PORT = getCDPPort();
@@ -4474,6 +4552,7 @@ bot.action(/fp_(.+)/, (ctx) => {
 function getMenuCommands() {
     const cmds = [
         { command: 'chat', description: t('menu.chat_desc') || 'Toggle No-Code Chat/Discussion mode' },
+        { command: 'voice', description: t('menu.voice_desc') || 'Configure voice message processing mode' },
         { command: 'help', description: t('menu.help_desc') },
         { command: 'latest', description: t('menu.latest_desc') },
         { command: 'live', description: t('menu.live_desc') || 'Live active task output & refresh' },
@@ -4905,7 +4984,7 @@ let isAgentBusy = false;
         'force_update', 'forceupdate',
         'version', 'menu', 'app', 'fix_shortcuts', 'restart', 'goal', 'plan', 'schedule_task', 'schedule_setup',
         'schedule_list', 'schedule_add', 'schedule_del', 'schedule_status', 'login', 'logincode', 'accounts',
-        'switchacc', 'getinfo', 'delacc', 'gettask', 'getplan', 'getwalk', 'watcher', 'turbo', 'panel', 'ask'
+        'switchacc', 'getinfo', 'delacc', 'gettask', 'getplan', 'getwalk', 'watcher', 'turbo', 'panel', 'ask', 'voice', 'voicemode'
     ]);
 
     bot.on('text', async (ctx, next) => {
@@ -5177,6 +5256,98 @@ async function processMediaGroup(group) {
     }
 }
 
+const pendingVoiceMap = new Map();
+
+async function processVoiceAsText(ctx, dest, caption, explicitTargetId, explicitThreadName, quotedContext) {
+    let transcribedText = '';
+    try {
+        const sttRes = await speechRecognizer.transcribeAudio(dest);
+        if (sttRes && sttRes.text) {
+            transcribedText = sttRes.text.trim();
+        }
+    } catch (sttErr) {
+        console.warn('[STT] Local transcription failed:', sttErr.message);
+    }
+
+    if (transcribedText) {
+        await ctx.reply(t('voice.transcribed', { text: transcribedText }), { parse_mode: 'HTML' }).catch(() => {});
+        const fullPrompt = caption ? `${transcribedText}\n\n${caption}` : transcribedText;
+
+        if (!explicitTargetId && !quotedContext && typeof classifyIntent === 'function') {
+            try {
+                const nlpResult = await classifyIntent(fullPrompt);
+                if (nlpResult && nlpResult.action === 'command' && nlpResult.confidence >= 0.8) {
+                    return await executeNlpCommand(ctx, nlpResult.command, nlpResult.cleanedText);
+                }
+            } catch (nlpErr) {
+                console.warn('[STT] NLP classification error:', nlpErr.message);
+            }
+        }
+
+        return await processAgentRequest(ctx, fullPrompt, explicitTargetId, explicitThreadName, `🎤 "${transcribedText.substring(0, 30)}..."`);
+    }
+
+    return processVoiceAsDirect(ctx, dest, caption, explicitTargetId, explicitThreadName);
+}
+
+async function processVoiceAsDirect(ctx, dest, caption, explicitTargetId, explicitThreadName) {
+    const query = `[System: The user sent a voice message/audio recording. You MUST examine/listen to the audio file at this absolute path using your \`view_file\` tool: ${dest} . Transcribe and understand the user's spoken instruction, and execute the requested task.]${caption ? `\nUser's message: ${caption}` : ''}`;
+    return await processAgentRequest(ctx, query, explicitTargetId, explicitThreadName, caption || "🎤 Voice Message");
+}
+
+bot.action(/^vact_t_(.+)$/, async (ctx) => {
+    const vId = ctx.match[1];
+    const data = pendingVoiceMap.get(vId);
+    if (!data) return ctx.answerCbQuery('Expired');
+    pendingVoiceMap.delete(vId);
+    await ctx.answerCbQuery(t('voice.btn_transcribe'));
+    await ctx.deleteMessage().catch(() => {});
+    return processVoiceAsText(data.ctx, data.dest, data.caption, data.explicitTargetId, data.explicitThreadName, data.quotedContext);
+});
+
+bot.action(/^vact_d_(.+)$/, async (ctx) => {
+    const vId = ctx.match[1];
+    const data = pendingVoiceMap.get(vId);
+    if (!data) return ctx.answerCbQuery('Expired');
+    pendingVoiceMap.delete(vId);
+    await ctx.answerCbQuery(t('voice.btn_direct'));
+    await ctx.deleteMessage().catch(() => {});
+    return processVoiceAsDirect(data.ctx, data.dest, data.caption, data.explicitTargetId, data.explicitThreadName);
+});
+
+bot.action(/^vset_t_(.+)$/, async (ctx) => {
+    const vId = ctx.match[1];
+    const data = pendingVoiceMap.get(vId);
+    if (!data) return ctx.answerCbQuery('Expired');
+    pendingVoiceMap.delete(vId);
+    voiceSettings.setVoiceMode(data.userId, voiceSettings.VOICE_MODES.TEXT);
+    await ctx.answerCbQuery(t('voice.mode_saved', { mode: 'Text' }));
+    await ctx.deleteMessage().catch(() => {});
+    return processVoiceAsText(data.ctx, data.dest, data.caption, data.explicitTargetId, data.explicitThreadName, data.quotedContext);
+});
+
+bot.action(/^vset_d_(.+)$/, async (ctx) => {
+    const vId = ctx.match[1];
+    const data = pendingVoiceMap.get(vId);
+    if (!data) return ctx.answerCbQuery('Expired');
+    pendingVoiceMap.delete(vId);
+    voiceSettings.setVoiceMode(data.userId, voiceSettings.VOICE_MODES.DIRECT);
+    await ctx.answerCbQuery(t('voice.mode_saved', { mode: 'Direct Audio' }));
+    await ctx.deleteMessage().catch(() => {});
+    return processVoiceAsDirect(data.ctx, data.dest, data.caption, data.explicitTargetId, data.explicitThreadName);
+});
+
+bot.action(/^vset_a_(.+)$/, async (ctx) => {
+    const vId = ctx.match[1];
+    const data = pendingVoiceMap.get(vId);
+    if (!data) return ctx.answerCbQuery('Expired');
+    pendingVoiceMap.delete(vId);
+    voiceSettings.setVoiceMode(data.userId, voiceSettings.VOICE_MODES.ASK);
+    await ctx.answerCbQuery(t('voice.mode_saved', { mode: 'Ask' }));
+    await ctx.deleteMessage().catch(() => {});
+    return processVoiceAsText(data.ctx, data.dest, data.caption, data.explicitTargetId, data.explicitThreadName, data.quotedContext);
+});
+
 bot.on(['photo', 'document', 'voice', 'audio'], (ctx) => {
     (async () => {
         try {
@@ -5262,11 +5433,54 @@ bot.on(['photo', 'document', 'voice', 'audio'], (ctx) => {
                 return;
             }
             
-            const query = isVoiceOrAudio
-                ? `[System: The user sent a voice message/audio recording. You MUST examine/listen to the audio file at this absolute path using your \`view_file\` tool: ${dest} . Transcribe and understand the user's spoken instruction, and execute the requested task.]${caption ? `\nUser's message: ${caption}` : ''}`
-                : `[System: The user has uploaded an image or file. You MUST use your \`view_file\` tool to examine the file at this absolute path: ${dest} . Do not say you cannot see it. Use the tool!]${caption ? `\nUser's message: ${caption}` : ''}`;
+            if (isVoiceOrAudio) {
+                const userId = ctx.from?.id ? String(ctx.from.id) : null;
+                const voiceMode = voiceSettings.getVoiceMode(userId);
+
+                if (voiceMode === voiceSettings.VOICE_MODES.TEXT) {
+                    return await processVoiceAsText(ctx, dest, caption, explicitTargetId, explicitThreadName, quotedContext);
+                } else if (voiceMode === voiceSettings.VOICE_MODES.DIRECT) {
+                    return await processVoiceAsDirect(ctx, dest, caption, explicitTargetId, explicitThreadName);
+                } else {
+                    const vId = `${Date.now()}_${Math.random().toString(36).substring(7)}`;
+                    pendingVoiceMap.set(vId, {
+                        ctx,
+                        dest,
+                        caption,
+                        explicitTargetId,
+                        explicitThreadName,
+                        quotedContext,
+                        userId
+                    });
+
+                    setTimeout(() => {
+                        pendingVoiceMap.delete(vId);
+                    }, 300000);
+
+                    const keyboard = Markup.inlineKeyboard([
+                        [
+                            Markup.button.callback(t('voice.btn_transcribe'), `vact_t_${vId}`),
+                            Markup.button.callback(t('voice.btn_direct'), `vact_d_${vId}`)
+                        ],
+                        [
+                            Markup.button.callback(t('voice.btn_save_text'), `vset_t_${vId}`),
+                            Markup.button.callback(t('voice.btn_save_direct'), `vset_d_${vId}`)
+                        ],
+                        [
+                            Markup.button.callback(t('voice.btn_ask'), `vset_a_${vId}`)
+                        ]
+                    ]);
+
+                    return await ctx.reply(t('voice.choose_mode'), {
+                        parse_mode: 'HTML',
+                        ...keyboard
+                    });
+                }
+            }
+
+            const query = `[System: The user has uploaded an image or file. You MUST use your \`view_file\` tool to examine the file at this absolute path: ${dest} . Do not say you cannot see it. Use the tool!]${caption ? `\nUser's message: ${caption}` : ''}`;
             
-            await processAgentRequest(ctx, query, explicitTargetId, explicitThreadName, caption || (isVoiceOrAudio ? "🎤 Voice Message" : ""));
+            await processAgentRequest(ctx, query, explicitTargetId, explicitThreadName, caption || "");
             
         } catch(err) {
             const errorMsg = err.message === 'no_chat_input' ? t('ask.no_chat_input') : err.message;

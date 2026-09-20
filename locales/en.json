@@ -96,6 +96,19 @@
     "gdrive_link": "📸 <b>IDE Screenshot (Google Drive):</b>\n🔗 <a href=\"{link}\">View Screenshot</a>\n\n🕒 <i>Auto-cleanup active: will be deleted automatically in {days} days.</i>",
     "gdrive_fallback": "⚠️ <i>Direct Telegram photo upload timed out. Uploaded to Google Drive instead:</i>\n\n📸 🔗 <a href=\"{link}\">View Screenshot</a>\n\n🕒 <i>Auto-cleanup: expires in {days} days.</i>"
   },
+  "voice": {
+    "transcribed": "🎤 <i>Transcribed Voice:</i>\n❝ <b>{text}</b> ❞",
+    "transcribing": "🎙️ Processing & transcribing voice note...",
+    "choose_mode": "🎙️ <b>Voice Message Received</b>\n\nHow would you like this voice message processed?",
+    "choose_settings": "🎙️ <b>Voice Message Settings</b>\n\nCurrent default: <b>{current}</b>\n\nChoose your preferred default behavior:",
+    "btn_transcribe": "📝 Transcribe to Text (Whisper STT)",
+    "btn_direct": "🎙️ Send Raw Audio (Antigravity IDE)",
+    "btn_ask": "❓ Ask Every Time",
+    "btn_save_text": "💾 Set Default: Text",
+    "btn_save_direct": "💾 Set Default: Direct",
+    "mode_saved": "✅ Voice processing default set to: <b>{mode}</b>",
+    "forwarding_direct": "🎙️ Forwarding raw audio directly to Antigravity IDE..."
+  },
   "ask": {
     "empty": "Please type a question. Example: `/ask Hello`",
     "sent": "✅ Message Sent, waiting for response...",
@@ -165,6 +178,7 @@
     "updated": "✅ Menu updated! You can see it from the ☰ menu at the bottom left.",
     "help_desc": "Show all available commands",
     "chat_desc": "Toggle No-Code Chat/Discussion mode",
+    "voice_desc": "Configure voice message processing mode",
     "ask_desc": "Send a question to the agent",
     "latest_desc": "Get the latest response",
     "live_desc": "Live active task output & refresh",

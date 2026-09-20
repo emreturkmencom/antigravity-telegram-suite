@@ -96,6 +96,19 @@
     "gdrive_link": "📸 <b>IDE 屏幕截图（Google Drive）：</b>\n🔗 <a href=\"{link}\">查看截图</a>\n\n🕒 <i>自动清理已启用：将在 {days} 天后自动删除。</i>",
     "gdrive_fallback": "⚠️ <i>直接上传 Telegram 照片超时。已转存至 Google Drive：</i>\n\n📸 🔗 <a href=\"{link}\">查看截图</a>\n\n🕒 <i>自动清理：{days} 天后过期。</i>"
   },
+  "voice": {
+    "transcribed": "🎤 <i>语音转文字：</i>\n❝ <b>{text}</b> ❞",
+    "transcribing": "🎙️ 正在处理并转录语音消息...",
+    "choose_mode": "🎙️ <b>收到语音消息</b>\n\n您希望如何处理此语音消息？",
+    "choose_settings": "🎙️ <b>语音消息设置</b>\n\n当前默认模式：<b>{current}</b>\n\n选择您的偏好处理方式：",
+    "btn_transcribe": "📝 转录为文本（Whisper STT）",
+    "btn_direct": "🎙️ 直接发送原始音频（Antigravity IDE）",
+    "btn_ask": "❓ 每次询问",
+    "btn_save_text": "💾 设为默认：转录文本",
+    "btn_save_direct": "💾 设为默认：直接音频",
+    "mode_saved": "✅ 语音处理默认模式已设置为：<b>{mode}</b>",
+    "forwarding_direct": "🎙️ 正在直接将原始音频转发给 Antigravity IDE..."
+  },
   "ask": {
     "empty": "请输入问题。例如：`/ask Hello`",
     "sent": "✅ 消息已发送，正在等待回复...",
@@ -164,7 +177,8 @@
   "menu": {
     "updated": "✅ 菜单已更新！您可以通过左下角 ☰ 菜单进行查看。",
     "help_desc": "显示所有可用命令",
-    "chat_desc": "切换无代码纯讨论对话模式",
+    "chat_desc": "切换免代码聊天/讨论模式",
+    "voice_desc": "配置语音消息处理模式",
     "ask_desc": "向 Agent 发送问题",
     "latest_desc": "获取最新回复",
     "live_desc": "实时任务输出与刷新",

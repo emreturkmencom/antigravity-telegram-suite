@@ -96,6 +96,19 @@
     "gdrive_link": "📸 <b>IDE-Screenshot (Google Drive):</b>\n🔗 <a href=\"{link}\">Screenshot ansehen</a>\n\n🕒 <i>Automatische Bereinigung aktiv: wird in {days} Tagen gelöscht.</i>",
     "gdrive_fallback": "⚠️ <i>Direkter Telegram-Fotoupload fehlgeschlagen. Stattdessen auf Google Drive hochgeladen:</i>\n\n📸 🔗 <a href=\"{link}\">Screenshot ansehen</a>\n\n🕒 <i>Automatische Bereinigung: läuft in {days} Tagen ab.</i>"
   },
+  "voice": {
+    "transcribed": "🎤 <i>Sprachnachricht transkribiert:</i>\n❝ <b>{text}</b> ❞",
+    "transcribing": "🎙️ Sprachnachricht wird verarbeitet und transkribiert...",
+    "choose_mode": "🎙️ <b>Sprachnachricht empfangen</b>\n\nWie soll diese Sprachnachricht verarbeitet werden?",
+    "choose_settings": "🎙️ <b>Sprachnachrichten-Einstellungen</b>\n\nAktueller Standard: <b>{current}</b>\n\nWähle deinen bevorzugten Verarbeitungsmodus:",
+    "btn_transcribe": "📝 In Text umwandeln (Whisper STT)",
+    "btn_direct": "🎙️ Roh-Audio direkt senden (Antigravity IDE)",
+    "btn_ask": "❓ Jedes Mal nachfragen",
+    "btn_save_text": "💾 Als Standard: Text",
+    "btn_save_direct": "💾 Als Standard: Direkt-Audio",
+    "mode_saved": "✅ Standardmodus für Sprachnachrichten gesetzt auf: <b>{mode}</b>",
+    "forwarding_direct": "🎙️ Leite Roh-Audio direkt an die Antigravity IDE weiter..."
+  },
   "ask": {
     "empty": "Bitte tippe eine Frage ein. Beispiel: `/ask Hallo`",
     "sent": "✅ Nachricht gesendet, warte auf Antwort...",
@@ -163,9 +176,10 @@
   },
   "menu": {
     "updated": "✅ Menü aktualisiert! Du findest es über das ☰-Menü unten links.",
-    "help_desc": "Zeigt alle verfügbaren Befehle an",
-    "chat_desc": "Codefreien Chat-/Diskussionsmodus umschalten",
-    "ask_desc": "Stelle dem Agenten eine Frage",
+    "help_desc": "Alle verfügbaren Befehle anzeigen",
+    "chat_desc": "No-Code Chat-/Diskussionsmodus umschalten",
+    "voice_desc": "Sprachnachrichten-Verarbeitungsmodus konfigurieren",
+    "ask_desc": "Frage an den Agenten senden",
     "latest_desc": "Hole die neueste Antwort",
     "live_desc": "Live-Aufgaben-Ausgabe & Aktualisierung",
     "screenshot_desc": "Nimm einen IDE-Screenshot auf",

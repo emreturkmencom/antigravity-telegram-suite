@@ -96,6 +96,19 @@
     "gdrive_link": "📸 <b>IDE Ekran Görüntüsü (Google Drive):</b>\n🔗 <a href=\"{link}\">Görüntüle</a>\n\n🕒 <i>Otomatik temizleme devrede: {days} gün sonra silinecektir.</i>",
     "gdrive_fallback": "⚠️ <i>Doğrudan Telegram görsel yüklemesi zaman aşımına uğradı. Görsel Google Drive üzerine yüklendi:</i>\n\n📸 🔗 <a href=\"{link}\">Görüntüle</a>\n\n🕒 <i>Otomatik temizleme: {days} gün geçerli.</i>"
   },
+  "voice": {
+    "transcribed": "🎤 <i>Ses Metne Dönüştürüldü:</i>\n❝ <b>{text}</b> ❞",
+    "transcribing": "🎙️ Ses kaydı işleniyor ve metne dökülüyor...",
+    "choose_mode": "🎙️ <b>Ses Mesajı Alındı</b>\n\nBu ses mesajı nasıl işlensin?",
+    "choose_settings": "🎙️ <b>Sesli Mesaj Ayarları</b>\n\nGeçerli varsayılan: <b>{current}</b>\n\nTercih ettiğiniz işleme modunu seçin:",
+    "btn_transcribe": "📝 Metne Dönüştür (Whisper STT)",
+    "btn_direct": "🎙️ Ham Sesi Gönder (Antigravity IDE)",
+    "btn_ask": "❓ Her Seferinde Sor",
+    "btn_save_text": "💾 Varsayılan Yap: Metin",
+    "btn_save_direct": "💾 Varsayılan Yap: Doğrudan Ses",
+    "mode_saved": "✅ Ses işleme varsayılan modu ayarlandı: <b>{mode}</b>",
+    "forwarding_direct": "🎙️ Ham ses doğrudan Antigravity IDE'ye iletiliyor..."
+  },
   "ask": {
     "empty": "Lütfen bir soru yazın. Örn: /ask Merhaba",
     "sent": "✅ Mesaj Gönderildi, yanıt bekleniyor...",
@@ -163,9 +176,10 @@
   },
   "menu": {
     "updated": "✅ Menü güncellendi! Sol alttaki ☰ menüsünden görebilirsiniz.",
-    "help_desc": "Tüm komutların listesini gösterir",
-    "chat_desc": "Kodsuz Sohbet/Tartışma modunu aç/kapat",
-    "ask_desc": "Sorunuzu ajana iletir",
+    "help_desc": "Kullanılabilir komutları listeler",
+    "chat_desc": "Kod Yazmayan Sohbet/Tartışma Modunu Aç/Kapat",
+    "voice_desc": "Sesli mesaj işleme modunu yapılandır",
+    "ask_desc": "Agent'a bir soru gönderir",
     "latest_desc": "Son yanıtı al",
     "live_desc": "Canlı görev çıktısı ve yenileme",
     "screenshot_desc": "IDE ekran görüntüsü alır",
