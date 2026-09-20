@@ -159,11 +159,33 @@
     "select_prompt": "🌐 언어를 선택하세요:"
   },
   "latest": {
+    "btn_refresh": "🔄 새로고침",
+    "btn_snap": "📸 스크린샷",
+    "btn_stop": "🛑 중지",
     "error": "❌ 오류: {error}\n(Antigravity가 열려 있나요?)",
-    "last_agent_reply": "📋 마지막 에이전트 응답:",
+    "last_agent_reply": "📋 마지막 Agent 응답:",
     "no_new": "[새 메시지 없음]",
-    "not_found_active": "⚠️ 활성 채팅 창을 찾을 수 없습니다. /agents 명령으로 채팅을 선택하거나 새 메시지를 보내세요.",
-    "title": "📝 최신 응답:\n\n"
+    "not_found_active": "⚠️ 활성 채팅 창을 찾을 수 없습니다. /agents 명령으로 채팅을 선택하거나 새 메시지를 전송하세요.",
+    "refreshed": "🔄 활성 작업 응답이 새로고침 되었습니다!",
+    "title": "📝 최신 응답:\n\n",
+    "updated_at": "⏱️ <i>업데이트: {time}</i>"
+  },
+  "nlp": {
+    "suggestion_title": "💡 <b>스마트 추천 명령어:</b>\n\n봇 기능에 대해 문의하신 것 같습니다. 다음 명령어 중 하나를 의미하셨나요?",
+    "todo_title": "📋 <b>작업 공간 TODO 및 과제 개요</b>\n\n",
+    "no_todo_found": "ℹ️ 현재 작업 공간에서 <code>TODO</code> 디렉터리 또는 작업 파일을 찾을 수 없습니다.",
+    "btn_run_agent": "🤖 Agent로 실행",
+    "btn_view_summary": "📋 작업 요약 보기",
+    "btn_direct_prompt": "✍️ Agent에게 직접 전송",
+    "forwarding_agent": "🤖 작업 공간 컨텍스트와 함께 요청을 Agent에게 전달 중...",
+    "sent_to_agent": "✍️ 프롬프트를 Agent에게 직접 전달 중..."
+  },
+  "chat_mode": {
+    "enabled": "💬 <b>대화 모드가 활성화되었습니다!</b>\n\n모델이 자동으로 설정되었습니다: <code>{model}</code> (최저 등급).\nAgent가 토론/기획 모드로 설정되었습니다. <b>코드 파일이 수정되지 않습니다.</b>",
+    "disabled": "🔴 <b>대화 모드가 비활성화되었습니다.</b>\n표준 Agent 모드로 돌아왔습니다.",
+    "status_active": "💬 <b>대화 모드 상태:</b> 🟢 활성 (토론 전용 — 코드 변경 없음)\n현재 모델: <code>{model}</code>",
+    "status_inactive": "💬 <b>대화 모드 상태:</b> 🔴 비활성 (표준 Agent 모드)",
+    "error": "❌ 대화 모드 오류: {error}"
   },
   "menu": {
     "agents_desc": "최근 채팅 스레드 목록 및 전환",
@@ -171,6 +193,7 @@
     "artifacts_desc": "현재 스레드의 아티팩트 목록",
     "ask_desc": "에이전트에게 질문 보내기",
     "autoaccept_desc": "자동 승인 켜기/끄기",
+    "chat_desc": "코드 변경 없는 대화/토론 모드 켜기/끄기",
     "browser_desc": "IDE에서 브라우저 실행",
     "btn_artifacts": "📦 아티팩트",
     "btn_auto_off": "🔴 자동",
@@ -191,7 +214,8 @@
     "help_desc": "사용 가능한 모든 명령어 표시",
     "lang_desc": "언어 전환",
     "latest_desc": "최신 응답 가져오기",
-    "menu_desc": "명령어 메뉴 업데이트",
+    "live_desc": "실시간 작업 출력 및 새로고침",
+    "menu_desc": "텔레그램 봇 메뉴 새로고침",
     "model_desc": "모델 선택 메뉴 열기",
     "model_not_selected": "⚠️ 선택된 모델이 없습니다",
     "new_desc": "새 채팅 열기",
@@ -350,7 +374,10 @@
   },
   "screenshot": {
     "error": "❌ 오류: {error}\n(IDE가 열려 있나요?)",
-    "taking": "📸 IDE 스크린샷 촬영 중 (CDP 사용)..."
+    "taking": "📸 IDE 스크린샷 촬영 중 (CDP 사용)...",
+    "upload_error": "❌ <b>텔레그램 업로드 실패:</b> {error}\n\n💡 <i>안내: 텔레그램 API 이미지 전송 시간이 초과되었습니다. 안정적인 클라우드 링크 저장을 위해 <code>.env</code>에서 Google Drive를 설정할 수 있습니다.</i>",
+    "gdrive_link": "📸 <b>IDE 스크린샷 (Google Drive):</b>\n🔗 <a href=\"{link}\">스크린샷 보기</a>\n\n🕒 <i>자동 정리 활성화됨: {days}일 후 자동 삭제됩니다.</i>",
+    "gdrive_fallback": "⚠️ <i>텔레그램 사진 직접 전송 시간이 초과되어 Google Drive에 업로드되었습니다:</i>\n\n📸 🔗 <a href=\"{link}\">스크린샷 보기</a>\n\n🕒 <i>자동 정리: {days}일 후 만료됩니다.</i>"
   },
   "shortcuts": {
     "binary_not_found": "바이너리를 찾을 수 없음",
@@ -562,5 +589,11 @@
     "close_btn": "❌ 닫기",
     "back_btn": "⬅️ 모든 카테고리",
     "refresh_btn": "🔄 새로고침"
+  },
+  "ide_activity": {
+    "user_prompt": "💻 <b>[데스크톱 IDE 프롬프트]</b>\n\n{text}",
+    "model_response": "🤖 <b>[데스크톱 IDE 응답]</b>\n\n{text}",
+    "status_enabled": "✅ 데스크톱 IDE 활동 알림이 활성화되었습니다.",
+    "status_disabled": "❌ 데스크톱 IDE 활동 알림이 비활성화되었습니다."
   }
 }

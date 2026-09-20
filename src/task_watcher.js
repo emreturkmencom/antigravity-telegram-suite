@@ -27,6 +27,9 @@ class TaskWatcher {
         this.debounceTimer = null;
         this.DEBOUNCE_MS = 5000; // Wait 5s of silence before reading new content
         this.enabled = true;
+        this.reportIdeActivity = options.reportIdeActivity !== undefined 
+            ? options.reportIdeActivity 
+            : (process.env.REPORT_IDE_ACTIVITY === 'true');
     }
 
     /**
@@ -196,6 +199,7 @@ class TaskWatcher {
 
             // Parse all new entries
             let hasUserInput = false;
+            const userPrompts = [];
             const modelResponses = [];
             const modelFeedbackRequests = [];
 
@@ -203,7 +207,7 @@ class TaskWatcher {
                 try {
                     const parsed = JSON.parse(line);
 
-                    // If there's a USER_INPUT in the batch, this is a normal conversation
+                    // If there's a USER_INPUT in the batch
                     if (parsed.source === 'USER_EXPLICIT' || parsed.type === 'USER_INPUT') {
                         const content = parsed.content || '';
                         const isAutomatedFeedback = content.includes('The user has approved this document') || 
@@ -211,6 +215,7 @@ class TaskWatcher {
                                                     content.includes('The user has rejected this document');
                         if (!isAutomatedFeedback) {
                             hasUserInput = true;
+                            if (content.trim()) userPrompts.push(content.trim());
                         }
                     }
 
@@ -237,9 +242,31 @@ class TaskWatcher {
                 }
             }
 
-            // If there's a user input in this batch, it's a normal request-response — skip
+            // Handle batches containing user inputs (initiated directly in IDE desktop UI)
             if (hasUserInput) {
-                console.log(`[TaskWatcher] Skipping — batch contains USER_INPUT (normal conversation)`);
+                if (this.reportIdeActivity && userPrompts.length > 0) {
+                    const promptText = userPrompts[userPrompts.length - 1];
+                    console.log(`[TaskWatcher] 💻 IDE User Prompt detected (${promptText.length} chars, conv: ${conversationId.substring(0, 8)})`);
+                    this.onNotification({
+                        conversationId,
+                        text: promptText,
+                        type: 'ide_user_prompt'
+                    });
+
+                    if (modelResponses.length > 0) {
+                        let responseText = modelResponses[modelResponses.length - 1].replace(/\n{3,}/g, '\n\n').trim();
+                        if (responseText.length > 0) {
+                            console.log(`[TaskWatcher] 🤖 IDE Model Response detected (${responseText.length} chars, conv: ${conversationId.substring(0, 8)})`);
+                            this.onNotification({
+                                conversationId,
+                                text: responseText,
+                                type: 'ide_model_response'
+                            });
+                        }
+                    }
+                } else {
+                    console.log(`[TaskWatcher] Skipping — batch contains USER_INPUT (normal conversation)`);
+                }
                 return;
             }
 

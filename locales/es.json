@@ -69,14 +69,32 @@
   },
   "latest": {
     "title": "📝 Última Respuesta:\n\n",
-    "no_new": "[No hay mensajes nuevos]",
+    "no_new": "[Sin mensajes nuevos]",
     "error": "❌ Error: {error}\n(¿Está abierto Antigravity?)",
     "last_agent_reply": "📋 Última Respuesta del Agente:",
-    "not_found_active": "⚠️ No se encontró la ventana de chat activa. Por favor, selecciona un chat usando el comando /agents o envía un nuevo mensaje."
+    "not_found_active": "⚠️ No se encontró la ventana de chat activa. Selecciona un chat usando /agents o envía un nuevo mensaje.",
+    "btn_refresh": "🔄 Actualizar",
+    "btn_snap": "📸 Captura de pantalla",
+    "btn_stop": "🛑 Detener",
+    "updated_at": "⏱️ <i>Actualizado: {time}</i>",
+    "refreshed": "🔄 ¡Respuesta de la tarea activa actualizada!"
+  },
+  "nlp": {
+    "suggestion_title": "💡 <b>Sugerencias inteligentes para tu consulta:</b>\n\nParece que preguntas sobre funciones del bot. ¿Querías decir uno de estos comandos?",
+    "todo_title": "📋 <b>Resumen de Tareas y TODO del Espacio de Trabajo</b>\n\n",
+    "no_todo_found": "ℹ️ No se encontraron directorios <code>TODO</code> ni archivos de tareas en el espacio de trabajo actual.",
+    "btn_run_agent": "🤖 Ejecutar con el Agente",
+    "btn_view_summary": "📋 Ver resumen de tareas",
+    "btn_direct_prompt": "✍️ Enviar directamente al Agente",
+    "forwarding_agent": "🤖 Reenviando consulta con contexto de tareas al Agente...",
+    "sent_to_agent": "✍️ Reenviando instrucción directamente al Agente..."
   },
   "screenshot": {
     "taking": "📸 Tomando captura de la IDE (vía CDP)...",
-    "error": "❌ Error: {error}\n(¿Está abierta la IDE?)"
+    "error": "❌ Error: {error}\n(¿Está abierta la IDE?)",
+    "upload_error": "❌ <b>Error al subir a Telegram:</b> {error}\n\n💡 <i>Consejo: Tiempo de espera agotado al subir a Telegram API. Puedes configurar Google Drive en <code>.env</code> para almacenamiento en la nube confiable.</i>",
+    "gdrive_link": "📸 <b>Captura del IDE (Google Drive):</b>\n🔗 <a href=\"{link}\">Ver captura</a>\n\n🕒 <i>Limpieza automática activa: se eliminará en {days} días.</i>",
+    "gdrive_fallback": "⚠️ <i>El envío directo a Telegram agotó el tiempo de espera. Se ha subido a Google Drive:</i>\n\n📸 🔗 <a href=\"{link}\">Ver captura</a>\n\n🕒 <i>Limpieza automática: vence en {days} días.</i>"
   },
   "ask": {
     "empty": "Por favor escribe una pregunta. Ejemplo: `/ask Hola`",
@@ -136,12 +154,21 @@
     "dir_info": "({count} elementos, pág {page}/{totalPages})",
     "expired": "❌ La sesión ha expirado, escribe /file para empezar de nuevo."
   },
+  "chat_mode": {
+    "enabled": "💬 <b>¡Modo Chat ACTIVADO!</b>\n\nModelo ajustado automáticamente a: <code>{model}</code> (Nivel más bajo).\nEl agente está en modo Discusión/Planificación. <b>No se modificarán archivos de código.</b>",
+    "disabled": "🔴 <b>Modo Chat DESACTIVADO.</b>\nRegresado al modo agente estándar.",
+    "status_active": "💬 <b>Estado del Modo Chat:</b> 🟢 ACTIVADO (Solo discusión — Sin cambios de código)\nModelo activo: <code>{model}</code>",
+    "status_inactive": "💬 <b>Estado del Modo Chat:</b> 🔴 DESACTIVADO (Modo agente estándar)",
+    "error": "❌ Error del Modo Chat: {error}"
+  },
   "menu": {
-    "updated": "✅ ¡Menú actualizado! Puedes verlo desde el botón ☰ abajo a la izquierda.",
+    "updated": "✅ ¡Menú actualizado! Puedes verlo desde el menú ☰ abajo a la izquierda.",
     "help_desc": "Muestra todos los comandos disponibles",
+    "chat_desc": "Alternar modo Chat/Discusión sin cambios de código",
     "ask_desc": "Enviar una pregunta al agente",
     "latest_desc": "Obtener la última respuesta",
-    "screenshot_desc": "Tomar captura de la IDE",
+    "live_desc": "Salida de tarea en vivo y actualización",
+    "screenshot_desc": "Tomar una captura de pantalla de la IDE",
     "status_desc": "Estado del sistema (IDE, CDP, PM2)",
     "start_ide_desc": "Iniciar IDE",
     "close_desc": "Cerrar la IDE completa",
@@ -562,5 +589,11 @@
     "close_btn": "❌ Cerrar",
     "back_btn": "⬅️ Todas las Categorías",
     "refresh_btn": "🔄 Actualizar"
+  },
+  "ide_activity": {
+    "user_prompt": "💻 <b>[Prompt de IDE de Escritorio]</b>\n\n{text}",
+    "model_response": "🤖 <b>[Respuesta de IDE de Escritorio]</b>\n\n{text}",
+    "status_enabled": "✅ Notificación de actividad de IDE de escritorio activada.",
+    "status_disabled": "❌ Notificación de actividad de IDE de escritorio desactivada."
   }
 }

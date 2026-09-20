@@ -72,11 +72,29 @@
     "no_new": "[没有新消息]",
     "error": "❌ 错误：{error}\n（Antigravity 是否已打开？）",
     "last_agent_reply": "📋 Agent 最新回复：",
-    "not_found_active": "⚠️ 未找到活动聊天窗口。请使用 /agents 选择一个聊天，或发送一条新消息。"
+    "not_found_active": "⚠️ 未找到活动聊天窗口。请使用 /agents 选择一个聊天，或发送一条新消息。",
+    "btn_refresh": "🔄 刷新",
+    "btn_snap": "📸 截图",
+    "btn_stop": "🛑 停止",
+    "updated_at": "⏱️ <i>更新于：{time}</i>",
+    "refreshed": "🔄 动态任务回复已刷新！"
+  },
+  "nlp": {
+    "suggestion_title": "💡 <b>针对您查询的智能建议：</b>\n\n看起来您正在询问 Bot 的功能，您是指以下命令之一吗？",
+    "todo_title": "📋 <b>工作区任务与 TODO 概览</b>\n\n",
+    "no_todo_found": "ℹ️ 当前工作区中未找到 <code>TODO</code> 目录或任务文件。",
+    "btn_run_agent": "🤖 结合 Agent 运行",
+    "btn_view_summary": "📋 查看任务摘要",
+    "btn_direct_prompt": "✍️ 直接发送给 Agent",
+    "forwarding_agent": "🤖 正在将包含工作区任务上下文的查询发送给 Agent...",
+    "sent_to_agent": "✍️ 正在将提示直接发送给 Agent..."
   },
   "screenshot": {
     "taking": "📸 正在截取 IDE 屏幕（通过 CDP）...",
-    "error": "❌ 错误：{error}\n（IDE 是否已打开？）"
+    "error": "❌ 错误：{error}\n（IDE 是否已打开？）",
+    "upload_error": "❌ <b>Telegram 上传失败：</b> {error}\n\n💡 <i>提示：Telegram API 上传图片超时。您可以在 <code>.env</code> 中配置 Google Drive 实现稳定云端链接备份。</i>",
+    "gdrive_link": "📸 <b>IDE 屏幕截图（Google Drive）：</b>\n🔗 <a href=\"{link}\">查看截图</a>\n\n🕒 <i>自动清理已启用：将在 {days} 天后自动删除。</i>",
+    "gdrive_fallback": "⚠️ <i>直接上传 Telegram 照片超时。已转存至 Google Drive：</i>\n\n📸 🔗 <a href=\"{link}\">查看截图</a>\n\n🕒 <i>自动清理：{days} 天后过期。</i>"
   },
   "ask": {
     "empty": "请输入问题。例如：`/ask Hello`",
@@ -136,11 +154,20 @@
     "dir_info": "（{count} 项，第 {page}/{totalPages} 页）",
     "expired": "❌ 会话已过期，请输入 /file 重新开始。"
   },
+  "chat_mode": {
+    "enabled": "💬 <b>对话模式已启用！</b>\n\n已自动切换至模型：<code>{model}</code>（最低档位）。\nAgent 已进入讨论/规划模式。<b>不会修改任何代码文件。</b>",
+    "disabled": "🔴 <b>对话模式已禁用。</b>\n已返回标准 Agent 模式。",
+    "status_active": "💬 <b>对话模式状态：</b> 🟢 已启用（仅讨论 — 无代码修改）\n当前模型：<code>{model}</code>",
+    "status_inactive": "💬 <b>对话模式状态：</b> 🔴 未启用（标准 Agent 模式）",
+    "error": "❌ 对话模式错误：{error}"
+  },
   "menu": {
-    "updated": "✅ 菜单已更新！你可以从左下角 ☰ 菜单看到它。",
+    "updated": "✅ 菜单已更新！您可以通过左下角 ☰ 菜单进行查看。",
     "help_desc": "显示所有可用命令",
+    "chat_desc": "切换无代码纯讨论对话模式",
     "ask_desc": "向 Agent 发送问题",
     "latest_desc": "获取最新回复",
+    "live_desc": "实时任务输出与刷新",
     "screenshot_desc": "截取 IDE 屏幕",
     "status_desc": "系统状态（IDE、CDP、PM2）",
     "start_ide_desc": "启动 IDE",
@@ -562,5 +589,11 @@
     "close_btn": "❌ 关闭",
     "back_btn": "⬅️ 所有类别",
     "refresh_btn": "🔄 刷新"
+  },
+  "ide_activity": {
+    "user_prompt": "💻 <b>[桌面 IDE 提示词]</b>\n\n{text}",
+    "model_response": "🤖 <b>[桌面 IDE 回复]</b>\n\n{text}",
+    "status_enabled": "✅ 桌面 IDE 活动报告已启用。",
+    "status_disabled": "❌ 桌面 IDE 活动报告已禁用。"
   }
 }

@@ -19,6 +19,9 @@ const accountManager = require('./account_manager');
 const { ensureMemoryConvention } = require('./memory_convention');
 const DriverFactory = require('./drivers');
 const telegraphPublisher = require('./telegraph_publisher');
+const driveUploader = require('./drive_uploader');
+const { classifyIntent, inspectWorkspaceTasks } = require('./nlp_intent_router');
+const { startDashboardServer, eventBus } = require('./web/server');
 
 let scheduleClient = null;
 try {
@@ -148,7 +151,17 @@ if (ALLOWED_CHAT_IDS.length === 0) {
     }
 }
 
-const bot = new Telegraf(process.env.BOT_TOKEN, { handlerTimeout: 900000 }); // 15 minutes timeout to allow long /ask requests
+const bot = new Telegraf(process.env.BOT_TOKEN, {
+    handlerTimeout: 900000,
+    telegram: {
+        agent: new https.Agent({
+            keepAlive: true,
+            keepAliveMsecs: 10000,
+            timeout: 60000,
+            maxSockets: 50
+        })
+    }
+}); // 15 minutes timeout to allow long /ask requests
 
 const pendingLogins = new Map();
 const lastSentMessageIdMap = new Map(); // conversationId -> { messageId, chatId, baseKeyboard }
@@ -203,6 +216,21 @@ function checkAuth(ctx, next) {
 }
 
 bot.use(checkAuth);
+
+// Web GUI Interaction Tracker: stream user interactions to the web dashboard in real time
+bot.use((ctx, next) => {
+    if (ctx.from) {
+        const text = ctx.message?.text || (ctx.callbackQuery ? `[Callback] ${ctx.callbackQuery.data}` : `[${ctx.updateType}]`);
+        eventBus.emitEvent('telegram_interaction', {
+            userId: ctx.from.id,
+            username: ctx.from.username || ctx.from.first_name || 'User',
+            text: text,
+            command: ctx.message?.text?.startsWith('/') ? ctx.message.text.split(' ')[0] : null,
+            status: 'received'
+        });
+    }
+    return next();
+});
 
 // Fix for Issue #31: Prevent menu emojis and bare numbers from fanning out to all bots in a group
 bot.use((ctx, next) => {
@@ -846,7 +874,7 @@ bot.command('restart', async (ctx) => {
     process.exit(0);
 });
 
-bot.help((ctx) => {
+const handleHelp = (ctx) => {
     const helpMessage = `
 ${t('help.title')}
 
@@ -868,8 +896,10 @@ ${t('help.chat_text')}
 ${t('help.account_title')}
 ${t('help.account_text')}
     `.trim();
-    ctx.reply(helpMessage, { parse_mode: 'HTML' });
-});
+    return ctx.reply(helpMessage, { parse_mode: 'HTML' });
+};
+bot.help(handleHelp);
+bot.command('help', handleHelp);
 
 bot.command('start_ide', async (ctx) => {
     const app = 'ide';
@@ -1146,38 +1176,211 @@ bot.command('start', async (ctx) => {
     await sendMainMenu(ctx, t('menu.welcome'));
 });
 
-const handleLatest = async (ctx) => {
+const handleLatest = async (ctx, editMessageId = null) => {
     try {
-        // Use the preferred target (set by workspace switch or /window command)
-        // instead of blindly picking candidates[0] which may be the wrong window
         const targetId = getPreferredTargetId() || null;
         let _latestRes = await getFullLatestResponse(CDP_PORT, targetId, null, true);
         let text = typeof _latestRes === 'string' ? _latestRes : _latestRes.text;
         let buttons = typeof _latestRes === 'string' ? null : _latestRes.buttons;
         
+        const nowStr = new Date().toLocaleTimeString();
         const header = await getChatHeader(targetId, t('latest.title'));
-        await sendBotMessage(ctx, text, header, buttons);
+        const footerTime = t('latest.updated_at', { time: nowStr });
+        const fullHeader = `${header}\n${footerTime}`;
+
+        const inlineControls = [
+            [
+                { text: t('latest.btn_refresh'), callback_data: 'latest_refresh' },
+                { text: t('latest.btn_snap'), callback_data: 'latest_snap' },
+                { text: t('latest.btn_stop'), callback_data: 'latest_stop' }
+            ]
+        ];
+
+        let combinedButtons = [];
+        if (buttons) {
+            if (Array.isArray(buttons)) {
+                combinedButtons = [...buttons, ...inlineControls];
+            } else if (buttons.reply_markup && Array.isArray(buttons.reply_markup.inline_keyboard)) {
+                combinedButtons = [...buttons.reply_markup.inline_keyboard, ...inlineControls];
+            } else {
+                combinedButtons = inlineControls;
+            }
+        } else {
+            combinedButtons = inlineControls;
+        }
+
+        if (editMessageId && typeof editMessageId === 'number') {
+            const formatted = `${fullHeader}\n\n${markdownToTelegramHtml(text)}`;
+            try {
+                await ctx.telegram.editMessageText(ctx.chat.id, editMessageId, undefined, formatted, {
+                    parse_mode: 'HTML',
+                    reply_markup: { inline_keyboard: combinedButtons }
+                });
+            } catch (e) {
+                if (!e.message.includes('message is not modified')) {
+                    await sendBotMessage(ctx, text, fullHeader, combinedButtons);
+                }
+            }
+        } else {
+            await sendBotMessage(ctx, text, fullHeader, combinedButtons);
+        }
     } catch (err) {
         ctx.reply(t('latest.error', { error: err.message }));
     }
 };
 
-bot.command('latest', handleLatest);
-bot.hears(/^💬/i, handleLatest);
+bot.command('latest', (ctx) => handleLatest(ctx));
+bot.command('live', (ctx) => handleLatest(ctx));
+bot.hears(/^💬/i, (ctx) => handleLatest(ctx));
 
-const handleScreenshot = async (ctx) => {
+bot.action('latest_refresh', async (ctx) => {
     try {
-        setReaction(ctx, REACTION.THINKING);
-        const buffer = await captureFullIDEScreenshot(CDP_PORT);
-        await ctx.replyWithPhoto({ source: buffer });
-        setReaction(ctx, null);
+        await ctx.answerCbQuery(t('latest.refreshed')).catch(() => {});
+        if (ctx.callbackQuery && ctx.callbackQuery.message) {
+            await handleLatest(ctx, ctx.callbackQuery.message.message_id);
+        }
     } catch (err) {
-        setReaction(ctx, null);
+        ctx.reply(t('latest.error', { error: err.message }));
+    }
+});
+
+bot.action('latest_snap', async (ctx) => {
+    try {
+        await ctx.answerCbQuery().catch(() => {});
+        await handleScreenshot(ctx);
+    } catch (err) {
         ctx.reply(t('screenshot.error', { error: err.message }));
     }
+});
+
+bot.action('latest_stop', async (ctx) => {
+    try {
+        await ctx.answerCbQuery().catch(() => {});
+        await handleStop(ctx);
+    } catch (err) {
+        ctx.reply(t('stop.error', { error: err.message }));
+    }
+});
+
+bot.action(/^nlp_cmd:(.+)$/, async (ctx) => {
+    try {
+        await ctx.answerCbQuery().catch(() => {});
+        const cmdName = ctx.match[1];
+        if (cmdName === 'quota') return handleQuota(ctx);
+        if (cmdName === 'screenshot') return handleScreenshot(ctx);
+        if (cmdName === 'status') return handleStatus(ctx);
+        if (cmdName === 'workspace') return handleWorkspace(ctx);
+        if (cmdName === 'agents') return handleAgents(ctx);
+        if (cmdName === 'artifacts') return handleArtifacts(ctx);
+        if (cmdName === 'model') return handleModel(ctx);
+        if (cmdName === 'help') return handleHelp(ctx);
+        if (cmdName === 'stop') return handleStop(ctx);
+        if (cmdName === 'chat') return handleChat(ctx);
+    } catch (err) {
+        ctx.reply(t('error.general_error', { error: err.message }));
+    }
+});
+
+bot.action(/^nlp_todo_run:(.+)$/, async (ctx) => {
+    try {
+        await ctx.answerCbQuery(t('nlp.forwarding_agent')).catch(() => {});
+        const rawQuery = decodeURIComponent(ctx.match[1]);
+        let activeWs = null;
+        try {
+            const info = await getActiveThreadInfo(CDP_PORT, null);
+            if (info && info.workspace) activeWs = info.workspace;
+        } catch (_) {}
+        const taskData = inspectWorkspaceTasks(activeWs || process.cwd());
+        
+        let fullPrompt = rawQuery;
+        if (taskData.hasTaskData && taskData.summaryText) {
+            fullPrompt += `\n\n[Workspace Task Context]\n${taskData.summaryText}`;
+        }
+        
+        ctx.reply(`🤖 ${t('nlp.forwarding_agent')}`);
+        await sendViaCDPWithRecovery(fullPrompt, null);
+    } catch (err) {
+        ctx.reply(t('ask.send_error', { error: err.message }));
+    }
+});
+
+bot.action(/^nlp_direct:(.+)$/, async (ctx) => {
+    try {
+        await ctx.answerCbQuery(t('nlp.sent_to_agent')).catch(() => {});
+        const rawQuery = decodeURIComponent(ctx.match[1]);
+        ctx.reply(`✍️ ${t('nlp.sent_to_agent')}`);
+        await sendViaCDPWithRecovery(rawQuery, null);
+    } catch (err) {
+        ctx.reply(t('ask.send_error', { error: err.message }));
+    }
+});
+
+const handleScreenshot = async (ctx, forceDrive = false) => {
+    let buffer = null;
+    try {
+        setReaction(ctx, REACTION.THINKING);
+        buffer = await captureFullIDEScreenshot(CDP_PORT);
+    } catch (cdpErr) {
+        setReaction(ctx, null);
+        return ctx.reply(t('screenshot.error', { error: cdpErr.message }));
+    }
+
+    const alwaysDrive = forceDrive || process.env.GDRIVE_UPLOAD_ALWAYS === 'true';
+    const filename = `screenshot_${Date.now()}.jpg`;
+
+    if (alwaysDrive && driveUploader.isConfigured()) {
+        try {
+            const gdriveRes = await driveUploader.uploadScreenshot(buffer, filename);
+            const days = process.env.GDRIVE_AUTO_CLEANUP_DAYS || '7';
+            driveUploader.cleanupOldScreenshots(parseInt(days, 10)).catch(e => console.warn('[gdrive] Cleanup error:', e.message));
+            setReaction(ctx, null);
+            return ctx.reply(t('screenshot.gdrive_link', { link: gdriveRes.webViewLink, days }), {
+                parse_mode: 'HTML',
+                disable_web_page_preview: false
+            });
+        } catch (driveErr) {
+            console.warn('[screenshot] Google Drive upload failed, trying Telegram direct:', driveErr.message);
+        }
+    }
+
+    try {
+        await ctx.replyWithPhoto({ source: buffer });
+        setReaction(ctx, null);
+        return;
+    } catch (photoErr) {
+        console.warn('[screenshot] replyWithPhoto failed, evaluating fallback:', photoErr.message);
+
+        // Fallback 1: Google Drive (if configured)
+        if (driveUploader.isConfigured()) {
+            try {
+                const gdriveRes = await driveUploader.uploadScreenshot(buffer, filename);
+                const days = process.env.GDRIVE_AUTO_CLEANUP_DAYS || '7';
+                driveUploader.cleanupOldScreenshots(parseInt(days, 10)).catch(e => console.warn('[gdrive] Cleanup error:', e.message));
+                setReaction(ctx, null);
+                return ctx.reply(t('screenshot.gdrive_fallback', { link: gdriveRes.webViewLink, days }), {
+                    parse_mode: 'HTML',
+                    disable_web_page_preview: false
+                });
+            } catch (driveErr) {
+                console.warn('[screenshot] Google Drive fallback upload failed:', driveErr.message);
+            }
+        }
+
+        // Fallback 2: Document stream
+        try {
+            await ctx.replyWithDocument({ source: buffer, filename });
+            setReaction(ctx, null);
+            return;
+        } catch (docErr) {
+            console.error('[screenshot] Document upload also failed:', docErr.message);
+            setReaction(ctx, null);
+            return ctx.reply(t('screenshot.upload_error', { error: docErr.message }), { parse_mode: 'HTML' });
+        }
+    }
 };
-bot.command('screenshot', handleScreenshot);
-bot.hears(/^📸/i, handleScreenshot);
+bot.command('screenshot', (ctx) => handleScreenshot(ctx, false));
+bot.command('screenshot_drive', (ctx) => handleScreenshot(ctx, true));
+bot.hears(/^📸/i, (ctx) => handleScreenshot(ctx, false));
 
 bot.command('quota', async (ctx) => {
     try {
@@ -1529,8 +1732,63 @@ bot.action(/^sch_del_(.+)$/, async (ctx) => {
     }
 });
 
+let isChatModeActive = false;
+
+const handleChat = async (ctx) => {
+    try {
+        const rawText = ctx.message?.text?.trim() || '';
+        const args = rawText.replace(/^\/chat(?:@[\w_]+)?\s*/i, '').trim().toLowerCase();
+
+        if (args === 'stop' || args === 'off' || args === 'false') {
+            isChatModeActive = false;
+            return ctx.reply(t('chat_mode.disabled'), { parse_mode: 'HTML' });
+        }
+
+        if (args === 'status') {
+            const models = await ensureModelsCache();
+            const lowestModel = models && models.length > 0 ? (models[models.length - 1].name || models[models.length - 1]) : 'Lowest Tier';
+            const msg = isChatModeActive
+                ? t('chat_mode.status_active', { model: lowestModel })
+                : t('chat_mode.status_inactive');
+            return ctx.reply(msg, { parse_mode: 'HTML' });
+        }
+
+        // Enable chat mode (/chat or /chat start)
+        isChatModeActive = true;
+
+        // Switch to lowest tier model (Gemini 3.6 Flash Low) to conserve quota
+        const models = await ensureModelsCache();
+        let lowestModel = 'Gemini 3.6 Flash (Low)';
+        if (models && models.length > 0) {
+            const found36Flash = models.find(m => {
+                const name = typeof m === 'object' ? m.name : m;
+                return name.toLowerCase().includes('3.6') && name.toLowerCase().includes('flash');
+            });
+            if (found36Flash) {
+                lowestModel = typeof found36Flash === 'object' ? (found36Flash.name.includes('Low') ? found36Flash.name : `${found36Flash.baseName || found36Flash.name} (Low)`) : found36Flash;
+            } else {
+                const lowestObj = models[models.length - 1];
+                lowestModel = typeof lowestObj === 'object' ? lowestObj.name : lowestObj;
+            }
+        }
+
+        selectModel(CDP_PORT, lowestModel).catch(() => {});
+
+        return ctx.reply(t('chat_mode.enabled', { model: lowestModel }), { parse_mode: 'HTML' });
+    } catch (err) {
+        return ctx.reply(t('chat_mode.error', { error: err.message }), { parse_mode: 'HTML' });
+    }
+};
+
+bot.command('chat', handleChat);
+bot.hears(/^chat:stop$/i, async (ctx) => {
+    isChatModeActive = false;
+    return ctx.reply(t('chat_mode.disabled'), { parse_mode: 'HTML' });
+});
+
 bot.command('new', async (ctx) => {
     console.log('[/new] Command triggered');
+    isChatModeActive = false; // Reset chat mode on new chat session
     try {
         const success = await triggerNewChat(CDP_PORT);
         console.log('[/new] triggerNewChat result:', success);
@@ -4215,8 +4473,10 @@ bot.action(/fp_(.+)/, (ctx) => {
 
 function getMenuCommands() {
     const cmds = [
+        { command: 'chat', description: t('menu.chat_desc') || 'Toggle No-Code Chat/Discussion mode' },
         { command: 'help', description: t('menu.help_desc') },
         { command: 'latest', description: t('menu.latest_desc') },
+        { command: 'live', description: t('menu.live_desc') || 'Live active task output & refresh' },
         { command: 'screenshot', description: t('menu.screenshot_desc') },
         { command: 'status', description: t('menu.status_desc') },
         { command: 'start_ide', description: t('menu.start_ide_desc') || 'Start IDE' },
@@ -4639,7 +4899,7 @@ let isAgentBusy = false;
 
     // Default text handler
     const KNOWN_BOT_COMMANDS = new Set([
-        'start', 'help', 'latest', 'screenshot', 'status', 'start_ide', 'start_ag', 'close_ide', 'close_ag',
+        'start', 'help', 'chat', 'latest', 'live', 'screenshot', 'status', 'start_ide', 'start_ag', 'close_ide', 'close_ag',
         'close', 'close_window', 'closeall', 'new', 'agents', 'artifacts', 'skills', 'skill',
         'model', 'workspace', 'memory', 'window', 'lang', 'cmd', 'file', 'stop', 'autoaccept', 'quota', 'update',
         'force_update', 'forceupdate',
@@ -4654,6 +4914,9 @@ let isAgentBusy = false;
             return next();
         }
     let query = ctx.message.text;
+    if (isChatModeActive) {
+        query = "[SYSTEM INSTRUCTION: CHAT/PLANNING MODE IS ACTIVE. YOU MUST NOT CREATE, EDIT, DELETE, OR MODIFY ANY FILES OR CODE. DISCUSS, EXPLAIN, PLAN, AND ANSWER THE USER'S QUERY DIRECTLY IN CHAT ONLY.]\n\n" + query;
+    }
     
     let explicitTargetId = null;
     let explicitThreadName = null;
@@ -4666,6 +4929,66 @@ let isAgentBusy = false;
     }
     if (!explicitTargetId && ctx.message.reply_to_message?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data?.startsWith('focus_')) {
         explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
+    }
+
+    // Check SMART_NLP_ROUTER classification for casual text queries
+    const useSmartNlp = process.env.SMART_NLP_ROUTER !== 'false';
+    if (useSmartNlp && !ctx.message.reply_to_message) {
+        const { intent, matchedCommands } = classifyIntent(query);
+        
+        if (intent === 'CASUAL_GREETING') {
+            const greetingMsg = `👋 <b>${t('menu.welcome') || 'Hello! How can I help you today?'}</b>\n\n` +
+                `Choose what you would like to do:`;
+            const buttons = [
+                [
+                    { text: t('nlp.btn_direct_prompt'), callback_data: `nlp_direct:${encodeURIComponent(query.substring(0, 100))}` },
+                    { text: t('nlp.btn_view_summary'), callback_data: `nlp_cmd:status` }
+                ],
+                [
+                    { text: `❓ ${t('menu.help_desc') || 'Help & Commands'}`, callback_data: `nlp_cmd:help` }
+                ]
+            ];
+            return ctx.reply(greetingMsg, {
+                parse_mode: 'HTML',
+                reply_markup: { inline_keyboard: buttons }
+            });
+        }
+
+        if (intent === 'COMMAND_SUGGESTION' && matchedCommands.length > 0) {
+            const buttons = matchedCommands.map(cmd => [{ text: `/${cmd}`, callback_data: `nlp_cmd:${cmd}` }]);
+            return ctx.reply(t('nlp.suggestion_title'), {
+                parse_mode: 'HTML',
+                reply_markup: { inline_keyboard: buttons }
+            });
+        }
+
+        if (intent === 'PROJECT_TODO_QUERY') {
+            let activeWs = null;
+            try {
+                const info = await getActiveThreadInfo(CDP_PORT, explicitTargetId);
+                if (info && info.workspace) activeWs = info.workspace;
+            } catch (_) {}
+
+            const taskData = inspectWorkspaceTasks(activeWs || process.cwd());
+            let msgText = t('nlp.todo_title');
+            if (taskData.hasTaskData) {
+                msgText += taskData.summaryText;
+            } else {
+                msgText += t('nlp.no_todo_found');
+            }
+
+            const buttons = [
+                [
+                    { text: t('nlp.btn_run_agent'), callback_data: `nlp_todo_run:${encodeURIComponent(query.substring(0, 100))}` },
+                    { text: t('nlp.btn_direct_prompt'), callback_data: `nlp_direct:${encodeURIComponent(query.substring(0, 100))}` }
+                ]
+            ];
+
+            return ctx.reply(msgText, {
+                parse_mode: 'HTML',
+                reply_markup: { inline_keyboard: buttons }
+            });
+        }
     }
 
     // If agent is already processing, just send the follow-up message without starting a new wait loop
@@ -5010,6 +5333,18 @@ async function init() {
     };
     launchBot();
 
+    // Start embedded Web GUI Dashboard (enabled by default, disable with ENABLE_WEB_GUI=false)
+    if (process.env.ENABLE_WEB_GUI !== 'false') {
+        try {
+            startDashboardServer({
+                botContext: { botInfo: bot.botInfo },
+                cdpController: require('./cdp_controller')
+            });
+        } catch (guiErr) {
+            console.error('[WebGUI] Failed to initialize dashboard server:', guiErr.message || guiErr);
+        }
+    }
+
     // Push the main menu keyboard to the user so it's active by default (wait 3s to let IDE/CDP initialize)
     setTimeout(() => {
         const updateFlagPath = path.join(__dirname, '..', '.update_flag');
@@ -5039,21 +5374,34 @@ async function init() {
         onNotification: async ({ conversationId, text, type }) => {
             console.log(`[TaskWatcher] 📬 Proactive notification (${type}, conv: ${conversationId?.substring(0, 8)}, ${text.length} chars)`);
 
-            const header = '🔔 <b>' + t('task_watcher.proactive_msg') + '</b>\n\n';
-            // Truncate for Telegram 4096 char limit
-            const maxLen = 4096 - header.length - 10;
-            const body = text.length > maxLen ? text.substring(0, maxLen) + '…' : text;
-            const fullMsg = header + body;
+            let fullMsg = '';
             const isFeedback = type === 'agent_proactive_feedback';
+
+            if (type === 'ide_user_prompt') {
+                const maxLen = 3800;
+                const body = text.length > maxLen ? text.substring(0, maxLen) + '…' : text;
+                fullMsg = t('ide_activity.user_prompt', { text: body });
+            } else if (type === 'ide_model_response') {
+                const maxLen = 3800;
+                const body = text.length > maxLen ? text.substring(0, maxLen) + '…' : text;
+                fullMsg = t('ide_activity.model_response', { text: body });
+            } else {
+                const header = '🔔 <b>' + t('task_watcher.proactive_msg') + '</b>\n\n';
+                const maxLen = 4096 - header.length - 10;
+                const body = text.length > maxLen ? text.substring(0, maxLen) + '…' : text;
+                fullMsg = header + body;
+            }
 
             for (const chatId of ALLOWED_CHAT_IDS) {
                 try {
                     const existing = proactiveMessageIds.get(chatId);
                     const now = Date.now();
 
+                    const isIdeActivity = type === 'ide_user_prompt' || type === 'ide_model_response';
+
                     // If we have a recent message, try to edit it
-                    // BUT: never overwrite a feedback message (with Proceed/Cancel) with a plain notification
-                    if (existing && (now - existing.timestamp) < PROACTIVE_RESET_MS) {
+                    // BUT: never overwrite a feedback message or edit during IDE activity stream
+                    if (!isIdeActivity && existing && (now - existing.timestamp) < PROACTIVE_RESET_MS) {
                         // If existing has feedback buttons and new is plain, skip edit — send new
                         if (existing.hasFeedback && !isFeedback) {
                             console.log(`[TaskWatcher] Existing msg ${existing.messageId} has Proceed/Cancel buttons — sending new msg instead of overwriting`);

@@ -69,14 +69,32 @@
   },
   "latest": {
     "title": "📝 Dernière Réponse :\n\n",
-    "no_new": "[Aucun nouveau message]",
-    "error": "❌ Erreur : {error}\n(Est-ce que Antigravity est ouvert ?)",
-    "last_agent_reply": "📋 Dernière réponse de l'agent :",
-    "not_found_active": "⚠️ Fenêtre de discussion active introuvable. Veuillez sélectionner une discussion avec la commande /agents ou envoyer un nouveau message."
+    "no_new": "[Pas de nouveaux messages]",
+    "error": "❌ Erreur : {error}\n(Antigravity est-il ouvert ?)",
+    "last_agent_reply": "📋 Dernière Réponse de l'Agent :",
+    "not_found_active": "⚠️ Fenêtre de chat active non trouvée. Veuillez sélectionner un chat avec /agents ou envoyer un nouveau message.",
+    "btn_refresh": "🔄 Rafraîchir",
+    "btn_snap": "📸 Capture d'écran",
+    "btn_stop": "🛑 Arrêter",
+    "updated_at": "⏱️ <i>Mis à jour : {time}</i>",
+    "refreshed": "🔄 Réponse de la tâche active rafraîchie !"
+  },
+  "nlp": {
+    "suggestion_title": "💡 <b>Suggestions intelligentes pour votre requête :</b>\n\nIl semble que vous posiez une question sur les fonctionnalités du bot. Vouliez-vous dire l'une de ces commandes ?",
+    "todo_title": "📋 <b>Aperçu des Tâches et TODO de l'Espace de Travail</b>\n\n",
+    "no_todo_found": "ℹ️ Aucun dossier <code>TODO</code> ni fichier de tâches trouvé dans l'espace de travail actuel.",
+    "btn_run_agent": "🤖 Exécuter avec l'Agent",
+    "btn_view_summary": "📋 Voir le résumé des tâches",
+    "btn_direct_prompt": "✍️ Envoyer directement à l'Agent",
+    "forwarding_agent": "🤖 Transfert de la requête avec le contexte des tâches à l'Agent...",
+    "sent_to_agent": "✍️ Transfert direct de la consigne à l'Agent..."
   },
   "screenshot": {
     "taking": "📸 Capture de l'IDE en cours (via CDP)...",
-    "error": "❌ Erreur : {error}\n(L'IDE est-il ouvert ?)"
+    "error": "❌ Erreur : {error}\n(L'IDE est-il ouvert ?)",
+    "upload_error": "❌ <b>Échec de l'envoi sur Telegram :</b> {error}\n\n💡 <i>Astuce : Le téléversement sur l'API Telegram a expiré. Vous pouvez configurer Google Drive dans <code>.env</code> pour un hébergement cloud fiable.</i>",
+    "gdrive_link": "📸 <b>Capture d'écran de l'IDE (Google Drive) :</b>\n🔗 <a href=\"{link}\">Voir la capture</a>\n\n🕒 <i>Nettoyage automatique activé : suppression dans {days} jours.</i>",
+    "gdrive_fallback": "⚠️ <i>L'envoi direct de la photo a expiré. Enregistré sur Google Drive à la place :</i>\n\n📸 🔗 <a href=\"{link}\">Voir la capture</a>\n\n🕒 <i>Nettoyage automatique : expire dans {days} jours.</i>"
   },
   "ask": {
     "empty": "Veuillez poser une question. Exemple : `/ask Bonjour`",
@@ -136,12 +154,21 @@
     "dir_info": "({count} éléments, page {page}/{totalPages})",
     "expired": "❌ Session expirée, tapez /file pour recommencer."
   },
+  "chat_mode": {
+    "enabled": "💬 <b>Mode Discussion ACTIVÉ !</b>\n\nModèle automatiquement défini sur : <code>{model}</code> (Niveau le plus bas).\nL'Agent est en mode Discussion/Planification. <b>Aucun fichier de code ne sera modifié.</b>",
+    "disabled": "🔴 <b>Mode Discussion DÉSACTIVÉ.</b>\nRetour au mode agent standard.",
+    "status_active": "💬 <b>Statut du Mode Discussion :</b> 🟢 ACTIVÉ (Discussion uniquement — Pas de modification de code)\nModèle actif : <code>{model}</code>",
+    "status_inactive": "💬 <b>Statut du Mode Discussion :</b> 🔴 DÉSACTIVÉ (Mode Agent standard)",
+    "error": "❌ Erreur du Mode Discussion : {error}"
+  },
   "menu": {
     "updated": "✅ Menu mis à jour ! Vous pouvez le voir depuis le menu ☰ en bas à gauche.",
     "help_desc": "Afficher toutes les commandes disponibles",
+    "chat_desc": "Basculer le mode Discussion/Planification sans code",
     "ask_desc": "Poser une question à l'agent",
     "latest_desc": "Obtenir la dernière réponse",
-    "screenshot_desc": "Prendre une capture de l'IDE",
+    "live_desc": "Sortie de tâche en direct et rafraîchissement",
+    "screenshot_desc": "Prendre une capture d'écran de l'IDE",
     "status_desc": "Statut du système (IDE, CDP, PM2)",
     "start_ide_desc": "Démarrer l'IDE",
     "close_desc": "Fermer l'IDE complètement",
@@ -562,5 +589,11 @@
     "close_btn": "❌ Fermer",
     "back_btn": "⬅️ Toutes les Catégories",
     "refresh_btn": "🔄 Actualiser"
+  },
+  "ide_activity": {
+    "user_prompt": "💻 <b>[Prompt de l'IDE Bureau]</b>\n\n{text}",
+    "model_response": "🤖 <b>[Réponse de l'IDE Bureau]</b>\n\n{text}",
+    "status_enabled": "✅ Notification d'activité de l'IDE bureau activée.",
+    "status_disabled": "❌ Notification d'activité de l'IDE bureau désactivée."
   }
 }
