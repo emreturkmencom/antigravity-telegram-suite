@@ -106,14 +106,20 @@ function getActiveClient() {
     return activeClient;
 }
 
-const SCOPES = [
-    'https://www.googleapis.com/auth/cloud-platform',
-    'https://www.googleapis.com/auth/userinfo.email',
-    'https://www.googleapis.com/auth/userinfo.profile',
-    'https://www.googleapis.com/auth/cclog',
-    'https://www.googleapis.com/auth/experimentsandconfigs',
-    'https://www.googleapis.com/auth/aicode',
-].join(' ');
+function getOAuthScopes() {
+    if (process.env.ANTIGRAVITY_OAUTH_SCOPES) {
+        return process.env.ANTIGRAVITY_OAUTH_SCOPES;
+    }
+    // Default public scopes compatible with any standard custom Google OAuth Client ID
+    return [
+        'https://www.googleapis.com/auth/cloud-platform',
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/userinfo.profile',
+        'openid',
+    ].join(' ');
+}
+
+const SCOPES = getOAuthScopes();
 
 const URLS = {
     AUTH:      'https://accounts.google.com/o/oauth2/v2/auth',
@@ -359,7 +365,7 @@ function buildAuthUrl(redirectUri, state) {
     const client = getActiveClient();
     const params = new URLSearchParams({
         access_type: 'offline',
-        scope: SCOPES,
+        scope: getOAuthScopes(),
         prompt: 'consent',
         response_type: 'code',
         client_id: client.client_id,

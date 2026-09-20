@@ -3250,10 +3250,9 @@ async function getQuota(_port, t, returnRaw = false) {
         let lsPid = null;
 
         for (const line of psLines) {
-            if (!line.toLowerCase().includes('antigravity')) continue;
-            if (!line.includes('language_server') && !line.includes('--csrf_token')) continue;
+            if (!line.toLowerCase().includes('antigravity') && !line.includes('--csrf_token')) continue;
             if (line.includes('grep')) continue;
-            const csrfMatch = line.match(/--csrf_token\s+([^\s]+)/);
+            const csrfMatch = line.match(/--csrf_token\s+([^\s]+)/) || line.match(/--csrf-token\s+([^\s]+)/);
             if (csrfMatch) csrfToken = csrfMatch[1];
             const parts = line.trim().split(/\s+/);
             if (parts.length >= 2) lsPid = parseInt(parts[1], 10);
