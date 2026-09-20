@@ -68,11 +68,16 @@
     "preferred_app_status": "🎯 <b>Bevorzugte App:</b> <code>{app}</code>\n\n"
   },
   "latest": {
-    "title": "📝 Letzte Antwort:\n\n",
+    "title": "📝 Neueste Antwort:\n\n",
     "no_new": "[Keine neuen Nachrichten]",
     "error": "❌ Fehler: {error}\n(Ist Antigravity geöffnet?)",
-    "last_agent_reply": "📋 Letzte Antwort des Agenten:",
-    "not_found_active": "⚠️ Aktives Chat-Fenster nicht gefunden. Bitte wählen Sie einen Chat mit dem Befehl /agents oder senden Sie eine neue Nachricht."
+    "last_agent_reply": "📋 Letzte Agent-Antwort:",
+    "not_found_active": "⚠️ Aktives Chat-Fenster nicht gefunden. Bitte wähle einen Chat mit /agents oder sende eine neue Nachricht.",
+    "btn_refresh": "🔄 Aktualisieren",
+    "btn_snap": "📸 Screenshot",
+    "btn_stop": "🛑 Stopp",
+    "updated_at": "⏱️ <i>Aktualisiert: {time}</i>",
+    "refreshed": "🔄 Antworten der aktiven Aufgabe aktualisiert!"
   },
   "screenshot": {
     "taking": "📸 Nehme IDE-Screenshot auf (über CDP)...",
@@ -562,5 +567,11 @@
     "close_btn": "❌ Schließen",
     "back_btn": "⬅️ Alle Kategorien",
     "refresh_btn": "🔄 Aktualisieren"
+  },
+  "ide_activity": {
+    "user_prompt": "💻 <b>[Desktop-IDE-Eingabe]</b>\n\n{text}",
+    "model_response": "🤖 <b>[Desktop-IDE-Antwort]</b>\n\n{text}",
+    "status_enabled": "✅ Desktop-IDE-Aktivitätsbenachrichtigung aktiviert.",
+    "status_disabled": "❌ Desktop-IDE-Aktivitätsbenachrichtigung deaktiviert."
   }
 }

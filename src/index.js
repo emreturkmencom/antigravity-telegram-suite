@@ -1146,24 +1146,90 @@ bot.command('start', async (ctx) => {
     await sendMainMenu(ctx, t('menu.welcome'));
 });
 
-const handleLatest = async (ctx) => {
+const handleLatest = async (ctx, editMessageId = null) => {
     try {
-        // Use the preferred target (set by workspace switch or /window command)
-        // instead of blindly picking candidates[0] which may be the wrong window
         const targetId = getPreferredTargetId() || null;
         let _latestRes = await getFullLatestResponse(CDP_PORT, targetId, null, true);
         let text = typeof _latestRes === 'string' ? _latestRes : _latestRes.text;
         let buttons = typeof _latestRes === 'string' ? null : _latestRes.buttons;
         
+        const nowStr = new Date().toLocaleTimeString();
         const header = await getChatHeader(targetId, t('latest.title'));
-        await sendBotMessage(ctx, text, header, buttons);
+        const footerTime = t('latest.updated_at', { time: nowStr });
+        const fullHeader = `${header}\n${footerTime}`;
+
+        const inlineControls = [
+            [
+                { text: t('latest.btn_refresh'), callback_data: 'latest_refresh' },
+                { text: t('latest.btn_snap'), callback_data: 'latest_snap' },
+                { text: t('latest.btn_stop'), callback_data: 'latest_stop' }
+            ]
+        ];
+
+        let combinedButtons = [];
+        if (buttons) {
+            if (Array.isArray(buttons)) {
+                combinedButtons = [...buttons, ...inlineControls];
+            } else if (buttons.reply_markup && Array.isArray(buttons.reply_markup.inline_keyboard)) {
+                combinedButtons = [...buttons.reply_markup.inline_keyboard, ...inlineControls];
+            } else {
+                combinedButtons = inlineControls;
+            }
+        } else {
+            combinedButtons = inlineControls;
+        }
+
+        if (editMessageId) {
+            const formatted = `${fullHeader}\n\n${markdownToTelegramHtml(text)}`;
+            await ctx.telegram.editMessageText(ctx.chat.id, editMessageId, undefined, formatted, {
+                parse_mode: 'HTML',
+                reply_markup: { inline_keyboard: combinedButtons }
+            }).catch(e => {
+                if (!e.message.includes('message is not modified')) {
+                    console.error('[handleLatest] editMessageText failed:', e.message);
+                }
+            });
+        } else {
+            await sendBotMessage(ctx, text, fullHeader, combinedButtons);
+        }
     } catch (err) {
         ctx.reply(t('latest.error', { error: err.message }));
     }
 };
 
 bot.command('latest', handleLatest);
+bot.command('live', handleLatest);
 bot.hears(/^💬/i, handleLatest);
+
+bot.action('latest_refresh', async (ctx) => {
+    try {
+        await ctx.answerCbQuery(t('latest.refreshed')).catch(() => {});
+        if (ctx.callbackQuery && ctx.callbackQuery.message) {
+            await handleLatest(ctx, ctx.callbackQuery.message.message_id);
+        }
+    } catch (err) {
+        ctx.reply(t('latest.error', { error: err.message }));
+    }
+});
+
+bot.action('latest_snap', async (ctx) => {
+    try {
+        await ctx.answerCbQuery().catch(() => {});
+        const buffer = await captureFullIDEScreenshot(CDP_PORT);
+        await ctx.replyWithPhoto({ source: buffer });
+    } catch (err) {
+        ctx.reply(t('screenshot.error', { error: err.message }));
+    }
+});
+
+bot.action('latest_stop', async (ctx) => {
+    try {
+        await ctx.answerCbQuery().catch(() => {});
+        await handleStop(ctx);
+    } catch (err) {
+        ctx.reply(t('stop.error', { error: err.message }));
+    }
+});
 
 const handleScreenshot = async (ctx) => {
     try {
@@ -5039,21 +5105,34 @@ async function init() {
         onNotification: async ({ conversationId, text, type }) => {
             console.log(`[TaskWatcher] 📬 Proactive notification (${type}, conv: ${conversationId?.substring(0, 8)}, ${text.length} chars)`);
 
-            const header = '🔔 <b>' + t('task_watcher.proactive_msg') + '</b>\n\n';
-            // Truncate for Telegram 4096 char limit
-            const maxLen = 4096 - header.length - 10;
-            const body = text.length > maxLen ? text.substring(0, maxLen) + '…' : text;
-            const fullMsg = header + body;
+            let fullMsg = '';
             const isFeedback = type === 'agent_proactive_feedback';
+
+            if (type === 'ide_user_prompt') {
+                const maxLen = 3800;
+                const body = text.length > maxLen ? text.substring(0, maxLen) + '…' : text;
+                fullMsg = t('ide_activity.user_prompt', { text: body });
+            } else if (type === 'ide_model_response') {
+                const maxLen = 3800;
+                const body = text.length > maxLen ? text.substring(0, maxLen) + '…' : text;
+                fullMsg = t('ide_activity.model_response', { text: body });
+            } else {
+                const header = '🔔 <b>' + t('task_watcher.proactive_msg') + '</b>\n\n';
+                const maxLen = 4096 - header.length - 10;
+                const body = text.length > maxLen ? text.substring(0, maxLen) + '…' : text;
+                fullMsg = header + body;
+            }
 
             for (const chatId of ALLOWED_CHAT_IDS) {
                 try {
                     const existing = proactiveMessageIds.get(chatId);
                     const now = Date.now();
 
+                    const isIdeActivity = type === 'ide_user_prompt' || type === 'ide_model_response';
+
                     // If we have a recent message, try to edit it
-                    // BUT: never overwrite a feedback message (with Proceed/Cancel) with a plain notification
-                    if (existing && (now - existing.timestamp) < PROACTIVE_RESET_MS) {
+                    // BUT: never overwrite a feedback message or edit during IDE activity stream
+                    if (!isIdeActivity && existing && (now - existing.timestamp) < PROACTIVE_RESET_MS) {
                         // If existing has feedback buttons and new is plain, skip edit — send new
                         if (existing.hasFeedback && !isFeedback) {
                             console.log(`[TaskWatcher] Existing msg ${existing.messageId} has Proceed/Cancel buttons — sending new msg instead of overwriting`);

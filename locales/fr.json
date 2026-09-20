@@ -69,10 +69,15 @@
   },
   "latest": {
     "title": "📝 Dernière Réponse :\n\n",
-    "no_new": "[Aucun nouveau message]",
-    "error": "❌ Erreur : {error}\n(Est-ce que Antigravity est ouvert ?)",
-    "last_agent_reply": "📋 Dernière réponse de l'agent :",
-    "not_found_active": "⚠️ Fenêtre de discussion active introuvable. Veuillez sélectionner une discussion avec la commande /agents ou envoyer un nouveau message."
+    "no_new": "[Pas de nouveaux messages]",
+    "error": "❌ Erreur : {error}\n(Antigravity est-il ouvert ?)",
+    "last_agent_reply": "📋 Dernière Réponse de l'Agent :",
+    "not_found_active": "⚠️ Fenêtre de chat active non trouvée. Veuillez sélectionner un chat avec /agents ou envoyer un nouveau message.",
+    "btn_refresh": "🔄 Rafraîchir",
+    "btn_snap": "📸 Capture d'écran",
+    "btn_stop": "🛑 Arrêter",
+    "updated_at": "⏱️ <i>Mis à jour : {time}</i>",
+    "refreshed": "🔄 Réponse de la tâche active rafraîchie !"
   },
   "screenshot": {
     "taking": "📸 Capture de l'IDE en cours (via CDP)...",
@@ -562,5 +567,11 @@
     "close_btn": "❌ Fermer",
     "back_btn": "⬅️ Toutes les Catégories",
     "refresh_btn": "🔄 Actualiser"
+  },
+  "ide_activity": {
+    "user_prompt": "💻 <b>[Prompt de l'IDE Bureau]</b>\n\n{text}",
+    "model_response": "🤖 <b>[Réponse de l'IDE Bureau]</b>\n\n{text}",
+    "status_enabled": "✅ Notification d'activité de l'IDE bureau activée.",
+    "status_disabled": "❌ Notification d'activité de l'IDE bureau désactivée."
   }
 }
