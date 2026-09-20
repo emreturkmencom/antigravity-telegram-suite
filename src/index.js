@@ -852,7 +852,7 @@ bot.command('restart', async (ctx) => {
     process.exit(0);
 });
 
-bot.help((ctx) => {
+const handleHelp = (ctx) => {
     const helpMessage = `
 ${t('help.title')}
 
@@ -874,8 +874,10 @@ ${t('help.chat_text')}
 ${t('help.account_title')}
 ${t('help.account_text')}
     `.trim();
-    ctx.reply(helpMessage, { parse_mode: 'HTML' });
-});
+    return ctx.reply(helpMessage, { parse_mode: 'HTML' });
+};
+bot.help(handleHelp);
+bot.command('help', handleHelp);
 
 bot.command('start_ide', async (ctx) => {
     const app = 'ide';
