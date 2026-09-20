@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Antigravity Telegram Suite | Web Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+            }
+          },
+          fontFamily: {
+            mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+            sans: ['Inter', 'system-ui', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-sidebar {
+      background: rgba(10, 15, 29, 0.95);
+      backdrop-filter: blur(20px);
+      border-right: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #090d16;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.8; }
+    }
+    .animate-glow {
+      animation: pulse-glow 2.5s infinite ease-in-out;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .nav-item.active {
+      background: rgba(6, 182, 212, 0.12);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-cyan-500 selection:text-white">
+
+  <!-- TOP BAR -->
+  <header class="h-16 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md sticky top-0 z-40 flex items-center justify-between px-4 lg:px-6">
+    <div class="flex items-center space-x-3">
+      <!-- Mobile Sidebar Toggle -->
+      <button onclick="toggleMobileSidebar()" class="lg:hidden p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+
+      <!-- App Brand -->
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="font-bold text-sm tracking-tight text-slate-100">Antigravity Suite</h1>
+            <span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">v3.8 SaaS</span>
+          </div>
+          <p class="text-[11px] text-slate-400">Remote Telegram Bridge & Control Plane</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center Connection Health Gauges -->
+    <div class="hidden md:flex items-center space-x-3">
+      <!-- Telegram Bot Badge -->
+      <div id="badge-bot" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800 text-xs shadow-inner">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="text-slate-400 text-[11px]">Bot:</span>
+        <span id="stat-bot-name" class="font-semibold text-slate-200 text-xs">@AntigravityBot</span>
+      </div>
+
+      <!-- IDE CDP Badge -->
+      <div id="badge-ide" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800 text-xs shadow-inner">
+        <span id="dot-ide" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+        <span class="text-slate-400 text-[11px]">IDE (9222):</span>
+        <span id="stat-ide" class="font-semibold text-slate-200 text-xs">Checking...</span>
+      </div>
+
+      <!-- Agent CDP Badge -->
+      <div id="badge-agent" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800 text-xs shadow-inner">
+        <span id="dot-agent" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+        <span class="text-slate-400 text-[11px]">Agent (9223):</span>
+        <span id="stat-agent" class="font-semibold text-slate-200 text-xs">Checking...</span>
+      </div>
+    </div>
+
+    <!-- Quick Action Triggers -->
+    <div class="flex items-center space-x-2">
+      <button onclick="reconnectCDP()" title="Reconnect CDP WebSocket Bridge" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-medium transition flex items-center space-x-1.5 border border-slate-700/80 shadow-sm">
+        <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        <span class="hidden sm:inline">Reconnect CDP</span>
+      </button>
+
+      <button onclick="restartBot()" title="Restart Bot Process" class="px-3 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-300 text-xs font-medium transition flex items-center space-x-1.5 border border-red-800/50 shadow-sm">
+        <svg class="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+        <span class="hidden sm:inline">Restart</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- BODY WITH SIDEBAR AND MAIN CONTENT -->
+  <div class="flex-1 flex overflow-hidden">
+    
+    <!-- SAAS SIDEBAR NAVIGATION -->
+    <aside id="sidebar" class="w-64 glass-sidebar flex-shrink-0 flex flex-col justify-between p-4 hidden lg:flex transition-all z-30">
+      <div class="space-y-6">
+        <div>
+          <p class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Navigation</p>
+          <nav class="space-y-1">
+            <!-- TAB 1: Dashboard & Logs (PRIMARY) -->
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item active w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition text-slate-300 hover:text-white hover:bg-slate-900/60">
+              <div class="flex items-center space-x-3">
+                <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+                </svg>
+                <span>Dashboard & Logs</span>
+              </div>
+              <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+            </button>
+
+            <!-- TAB 2: Live Log Explorer -->
+            <button onclick="switchTab('logs')" id="nav-logs" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition text-slate-300 hover:text-white hover:bg-slate-900/60">
+              <div class="flex items-center space-x-3">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <span>Log Explorer</span>
+              </div>
+              <span id="badge-error-count" class="hidden px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/40">0</span>
+            </button>
+
+            <!-- TAB 3: Telegram Interactions -->
+            <button onclick="switchTab('activity')" id="nav-activity" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition text-slate-300 hover:text-white hover:bg-slate-900/60">
+              <div class="flex items-center space-x-3">
+                <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                </svg>
+                <span>Telegram Activity</span>
+              </div>
+              <span id="badge-activity-count" class="px-2 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-400">0</span>
+            </button>
+
+            <!-- TAB 4: Tools & Diagnostics -->
+            <button onclick="switchTab('tools')" id="nav-tools" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition text-slate-300 hover:text-white hover:bg-slate-900/60">
+              <div class="flex items-center space-x-3">
+                <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                <span>Diagnostics & Tools</span>
+              </div>
+            </button>
+
+            <!-- TAB 5: Settings -->
+            <button onclick="switchTab('settings')" id="nav-settings" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition text-slate-300 hover:text-white hover:bg-slate-900/60">
+              <div class="flex items-center space-x-3">
+                <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+                </svg>
+                <span>Settings</span>
+              </div>
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      <!-- Footer Info -->
+      <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-[11px] space-y-1">
+        <div class="flex justify-between text-slate-400">
+          <span>Node.js</span>
+          <span id="stat-node-ver" class="font-mono text-slate-200">v18+</span>
+        </div>
+        <div class="flex justify-between text-slate-400">
+          <span>SSE Stream</span>
+          <span id="sse-status" class="text-emerald-400 font-semibold">● Active</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN SCROLLABLE CONTENT AREA -->
+    <main class="flex-1 overflow-y-auto p-4 lg:p-6 custom-scrollbar space-y-6">
+
+      <!-- STICKY ERROR BANNER -->
+      <div id="error-banner" class="hidden w-full mb-4">
+        <div class="p-4 rounded-xl bg-red-950/80 border border-red-500/60 flex items-start justify-between shadow-xl shadow-red-950/60 animate-bounce-short">
+          <div class="flex items-start space-x-3">
+            <div class="p-1 rounded-lg bg-red-500/20 text-red-400 mt-0.5">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-xs font-bold text-red-200 uppercase tracking-wider">Live Error Caught</h3>
+              <p id="error-banner-text" class="text-xs text-red-300 font-mono mt-1 break-all"></p>
+            </div>
+          </div>
+          <button onclick="dismissErrorBanner()" class="text-red-400 hover:text-red-200 text-sm p-1">✕</button>
+        </div>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- TAB 1: DASHBOARD & LIVE LOGS (PRIMARY HUB)  -->
+      <!-- ========================================== -->
+      <section id="tab-dashboard" class="tab-content active space-y-6">
+        <!-- KPI METRICS -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="glass-panel p-4 rounded-2xl flex items-center space-x-4">
+            <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Uptime</p>
+              <p id="stat-uptime" class="text-xl font-bold text-slate-100 font-mono">00:00:00</p>
+            </div>
+          </div>
+
+          <div class="glass-panel p-4 rounded-2xl flex items-center space-x-4">
+            <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Memory RSS / Heap</p>
+              <p id="stat-memory" class="text-xl font-bold text-slate-100 font-mono">0 / 0 MB</p>
+            </div>
+          </div>
+
+          <div class="glass-panel p-4 rounded-2xl flex items-center space-x-4">
+            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Authorized Users</p>
+              <p id="stat-allowed-users" class="text-xl font-bold text-slate-100 font-mono">0</p>
+            </div>
+          </div>
+
+          <div class="glass-panel p-4 rounded-2xl flex items-center space-x-4">
+            <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Live Events Dispatched</p>
+              <p id="stat-event-count" class="text-xl font-bold text-slate-100 font-mono">0</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- DUAL COLUMN: LIVE INTERACTIONS + LIVE CONSOLE LOGS -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- LEFT: LIVE TELEGRAM INTERACTIONS (5 COLUMNS) -->
+          <div class="lg:col-span-5 flex flex-col space-y-4">
+            <div class="glass-panel rounded-2xl p-4 flex flex-col h-[560px]">
+              <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div class="flex items-center space-x-2">
+                  <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                  <h2 class="font-bold text-xs uppercase tracking-wider text-slate-200">Telegram Live Stream</h2>
+                </div>
+                <button onclick="switchTab('activity')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium">View All →</button>
+              </div>
+
+              <!-- Stream Container -->
+              <div id="dash-interaction-feed" class="flex-1 overflow-y-auto space-y-3 py-3 pr-1 custom-scrollbar">
+                <div id="dash-feed-empty" class="h-full flex flex-col items-center justify-center text-slate-500 text-center px-4">
+                  <svg class="w-8 h-8 mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                  </svg>
+                  <p class="text-xs">Listening for Telegram messages & prompts...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: LIVE TERMINAL LOG CONSOLE (7 COLUMNS) -->
+          <div class="lg:col-span-7 flex flex-col space-y-4">
+            <div class="glass-panel rounded-2xl p-4 flex flex-col h-[560px]">
+              <!-- Toolbar -->
+              <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                <div class="flex items-center space-x-2">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <h2 class="font-bold text-xs uppercase tracking-wider text-slate-200">Live Console Stream</h2>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                  <!-- Tag Filter -->
+                  <select id="dash-log-filter" onchange="applyDashLogFilter()" class="bg-slate-900 border border-slate-800 text-[11px] text-slate-300 rounded-lg px-2.5 py-1 focus:outline-none focus:border-cyan-500">
+                    <option value="all">All Logs</option>
+                    <option value="error">Errors Only</option>
+                    <option value="warn">Warnings</option>
+                    <option value="cdp">CDP Events</option>
+                    <option value="bot">Telegram</option>
+                    <option value="watcher">Watcher</option>
+                  </select>
+
+                  <!-- Search -->
+                  <input type="text" id="dash-log-search" oninput="applyDashLogFilter()" placeholder="Filter..." class="bg-slate-900 border border-slate-800 text-[11px] text-slate-300 rounded-lg px-2.5 py-1 w-24 focus:w-36 transition-all focus:outline-none focus:border-cyan-500">
+
+                  <!-- Autoscroll Lock -->
+                  <button id="dash-btn-autoscroll" onclick="toggleAutoScroll()" class="p-1 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs" title="Auto-scroll is ON">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+                    </svg>
+                  </button>
+
+                  <button onclick="clearLogs()" class="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs" title="Clear console">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Terminal Output Box -->
+              <div id="dash-log-console" class="flex-1 overflow-y-auto font-mono text-[11px] p-3 space-y-1 bg-slate-950/90 rounded-xl mt-3 border border-slate-900 custom-scrollbar">
+                <!-- Logs rendered here -->
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 2: DEDICATED FULL-SCREEN LOG EXPLORER  -->
+      <!-- ========================================== -->
+      <section id="tab-logs" class="tab-content space-y-4">
+        <div class="glass-panel rounded-2xl p-6 flex flex-col h-[calc(100vh-140px)]">
+          <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+            <div>
+              <h2 class="text-base font-bold text-slate-100 flex items-center space-x-2">
+                <span>📜 Full Log & Error Explorer</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-0.5">Inspect system traces, stack diagnostics, and CDP debug streams</p>
+            </div>
+
+            <div class="flex items-center space-x-3">
+              <select id="full-log-filter" onchange="applyFullLogFilter()" class="bg-slate-900 border border-slate-800 text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-cyan-500">
+                <option value="all">Severity: All</option>
+                <option value="error">Errors & Exceptions</option>
+                <option value="warn">Warnings</option>
+                <option value="cdp">CDP Protocol</option>
+                <option value="bot">Bot Events</option>
+                <option value="watcher">Task Watcher</option>
+              </select>
+
+              <input type="text" id="full-log-search" oninput="applyFullLogFilter()" placeholder="Search logs (regex or string)..." class="bg-slate-900 border border-slate-800 text-xs text-slate-200 rounded-lg px-3 py-1.5 w-64 focus:outline-none focus:border-cyan-500">
+
+              <button onclick="exportLogs()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center space-x-1.5 border border-slate-700">
+                <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                <span>Export</span>
+              </button>
+
+              <button onclick="clearLogs()" class="px-3 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-300 text-xs font-semibold border border-red-800/40">
+                Clear All
+              </button>
+            </div>
+          </div>
+
+          <!-- Expanded Log Body -->
+          <div id="full-log-console" class="flex-1 overflow-y-auto font-mono text-xs p-4 space-y-1.5 bg-slate-950/90 rounded-xl mt-4 border border-slate-900 custom-scrollbar">
+            <!-- Full logs rendered here -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 3: TELEGRAM INTERACTIONS TIMELINE      -->
+      <!-- ========================================== -->
+      <section id="tab-activity" class="tab-content space-y-4">
+        <div class="glass-panel rounded-2xl p-6">
+          <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
+            <div>
+              <h2 class="text-base font-bold text-slate-100 flex items-center space-x-2">
+                <span>👥 Telegram Interactions & Prompts</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-0.5">Real-time chronology of connected users and prompt requests</p>
+            </div>
+            <button onclick="fetchInteractions()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700">
+              Refresh Stream
+            </button>
+          </div>
+
+          <div id="full-activity-feed" class="space-y-4">
+            <!-- Rendered cards -->
+            <div id="activity-empty" class="p-12 text-center text-slate-500">
+              <p class="text-sm">No Telegram interactions recorded yet in this session.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 4: TOOLS & PLAYGROUND                  -->
+      <!-- ========================================== -->
+      <section id="tab-tools" class="tab-content space-y-6">
+        <div class="glass-panel rounded-2xl p-6">
+          <div class="pb-4 border-b border-slate-800 mb-6">
+            <h2 class="text-base font-bold text-slate-100">🛠️ Interactive Tools & Runtime Actions</h2>
+            <p class="text-xs text-slate-400 mt-0.5">Trigger diagnostic health routines, process resets, and test simulations</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Tool 1 -->
+            <div class="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400">CDP Reconnect</h3>
+              <p class="text-xs text-slate-400">Gracefully disconnect and reconnect Chrome DevTools Protocol sessions to Antigravity IDE and Standalone Agent.</p>
+              <button onclick="reconnectCDP()" class="w-full py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition">
+                Trigger CDP Reconnect
+              </button>
+            </div>
+
+            <!-- Tool 2 -->
+            <div class="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-amber-400">Error Simulation</h3>
+              <p class="text-xs text-slate-400">Emit a synthetic exception to test error banner triggers, log color highlights, and stack trace parsing.</p>
+              <button onclick="emitTestError()" class="w-full py-2 rounded-lg bg-amber-600/80 hover:bg-amber-600 text-white font-semibold text-xs transition">
+                Generate Test Error
+              </button>
+            </div>
+
+            <!-- Tool 3 -->
+            <div class="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-red-400">Process Restart</h3>
+              <p class="text-xs text-slate-400">Schedule a soft restart of the Telegram bot process to reload environment variables and flush sessions.</p>
+              <button onclick="restartBot()" class="w-full py-2 rounded-lg bg-red-700/80 hover:bg-red-700 text-white font-semibold text-xs transition">
+                Restart Suite Process
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 5: SAAS SETTINGS & ENVIRONMENT FORM    -->
+      <!-- ========================================== -->
+      <section id="tab-settings" class="tab-content space-y-6">
+        <div class="glass-panel rounded-2xl p-6">
+          <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
+            <div>
+              <h2 class="text-base font-bold text-slate-100 flex items-center space-x-2">
+                <span>⚙️ System Configuration & .env Manager</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-0.5">Parameters are synced directly to your root <code class="text-cyan-400">.env</code> file</p>
+            </div>
+            <button onclick="saveSettings()" class="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-lg shadow-cyan-600/30 transition flex items-center space-x-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span>Save & Hot-Apply</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Col 1: Connection -->
+            <div class="space-y-4">
+              <div class="flex items-center space-x-2 text-cyan-400 pb-1 border-b border-slate-800">
+                <span class="text-xs font-bold uppercase tracking-wider">Connection & Ports</span>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">IDE CDP Port</label>
+                <input type="number" id="cfg-IDE_CDP_PORT" placeholder="9222" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 font-mono">
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Agent CDP Port</label>
+                <input type="number" id="cfg-AGENT_CDP_PORT" placeholder="9223" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 font-mono">
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Web GUI Port</label>
+                <input type="number" id="cfg-WEB_GUI_PORT" placeholder="3000" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 font-mono">
+              </div>
+            </div>
+
+            <!-- Col 2: Telegram & Auth -->
+            <div class="space-y-4">
+              <div class="flex items-center space-x-2 text-purple-400 pb-1 border-b border-slate-800">
+                <span class="text-xs font-bold uppercase tracking-wider">Telegram Bot & Security</span>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Bot Token</label>
+                <div class="relative">
+                  <input type="password" id="cfg-TELEGRAM_BOT_TOKEN" placeholder="Token" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 pr-10 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 font-mono">
+                  <button type="button" onclick="toggleTokenMask()" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-200">
+                    👁️
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Allowed Chat IDs</label>
+                <input type="text" id="cfg-ALLOWED_USERS" placeholder="e.g. 12345678, 87654321" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 font-mono">
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Bot Locale</label>
+                <select id="cfg-BOT_LANGUAGE" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+                  <option value="en">English (en)</option>
+                  <option value="tr">Turkish (tr)</option>
+                  <option value="ko">Korean (ko)</option>
+                  <option value="zh">Chinese (zh)</option>
+                  <option value="de">German (de)</option>
+                  <option value="es">Spanish (es)</option>
+                  <option value="fr">French (fr)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Col 3: AI & Features -->
+            <div class="space-y-4">
+              <div class="flex items-center space-x-2 text-emerald-400 pb-1 border-b border-slate-800">
+                <span class="text-xs font-bold uppercase tracking-wider">AI & Feature Flags</span>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Target Application</label>
+                <select id="cfg-DEFAULT_APP" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+                  <option value="ide">Antigravity IDE</option>
+                  <option value="agent">Standalone Agent</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Auto-Accept Actions</label>
+                <select id="cfg-AUTO_ACCEPT_ENABLED" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+                  <option value="false">Disabled (Require Telegram approval)</option>
+                  <option value="true">Enabled (Auto-accept)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Task Watcher Heartbeat</label>
+                <select id="cfg-ENABLE_TASK_WATCHER" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="fixed bottom-6 right-6 transform transition-all duration-300 translate-y-20 opacity-0 px-4 py-3 rounded-xl bg-slate-900/95 border border-cyan-500/40 text-xs font-medium text-slate-100 shadow-2xl flex items-center space-x-2 z-50">
+    <span id="toast-icon">ℹ️</span>
+    <span id="toast-msg">Notification</span>
+  </div>
+
+  <!-- CLIENT SCRIPTS -->
+  <script>
+    let allLogs = [];
+    let interactions = [];
+    let autoScroll = true;
+    let eventSource = null;
+    let eventCount = 0;
+    let errorCount = 0;
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+
+      const targetTab = document.getElementById('tab-' + tabId);
+      const targetNav = document.getElementById('nav-' + tabId);
+
+      if (targetTab) targetTab.classList.add('active');
+      if (targetNav) targetNav.classList.add('active');
+
+      if (tabId === 'logs') {
+        renderFullLogs();
+      } else if (tabId === 'dashboard') {
+        renderDashLogs();
+      } else if (tabId === 'activity') {
+        renderActivityTimeline();
+      }
+    }
+
+    function toggleMobileSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      sidebar.classList.toggle('hidden');
+    }
+
+    function showToast(msg, icon = 'ℹ️') {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      document.getElementById('toast-icon').textContent = icon;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3500);
+    }
+
+    function toggleAutoScroll() {
+      autoScroll = !autoScroll;
+      const btn = document.getElementById('dash-btn-autoscroll');
+      if (autoScroll) {
+        btn.className = 'p-1 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs';
+        btn.title = 'Auto-scroll is ON';
+      } else {
+        btn.className = 'p-1 rounded-lg bg-slate-800 text-slate-500 border border-slate-700 text-xs';
+        btn.title = 'Auto-scroll is PAUSED';
+      }
+    }
+
+    function toggleTokenMask() {
+      const input = document.getElementById('cfg-TELEGRAM_BOT_TOKEN');
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    function dismissErrorBanner() {
+      document.getElementById('error-banner').classList.add('hidden');
+    }
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        
+        document.getElementById('stat-bot-name').textContent = '@' + data.bot.username;
+        document.getElementById('stat-allowed-users').textContent = data.bot.allowedUsersCount || 0;
+        document.getElementById('stat-node-ver').textContent = data.system.nodeVersion || 'v18+';
+
+        // IDE Status
+        const dotIde = document.getElementById('dot-ide');
+        const statIde = document.getElementById('stat-ide');
+        if (data.cdp.ide.online) {
+          dotIde.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50';
+          statIde.textContent = 'Connected';
+          statIde.className = 'font-semibold text-emerald-400 text-xs';
+        } else {
+          dotIde.className = 'w-2.5 h-2.5 rounded-full bg-slate-600';
+          statIde.textContent = 'Offline';
+          statIde.className = 'font-semibold text-slate-500 text-xs';
+        }
+
+        // Agent Status
+        const dotAgent = document.getElementById('dot-agent');
+        const statAgent = document.getElementById('stat-agent');
+        if (data.cdp.agent.online) {
+          dotAgent.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50';
+          statAgent.textContent = 'Connected';
+          statAgent.className = 'font-semibold text-emerald-400 text-xs';
+        } else {
+          dotAgent.className = 'w-2.5 h-2.5 rounded-full bg-slate-600';
+          statAgent.textContent = 'Offline';
+          statAgent.className = 'font-semibold text-slate-500 text-xs';
+        }
+
+        // Memory & Uptime
+        document.getElementById('stat-memory').textContent = `${data.system.rssMb} / ${data.system.heapUsedMb} MB`;
+        const hrs = Math.floor(data.uptimeSeconds / 3600).toString().padStart(2, '0');
+        const mins = Math.floor((data.uptimeSeconds % 3600) / 60).toString().padStart(2, '0');
+        const secs = (data.uptimeSeconds % 60).toString().padStart(2, '0');
+        document.getElementById('stat-uptime').textContent = `${hrs}:${mins}:${secs}`;
+      } catch (err) {}
+    }
+
+    async function fetchConfig() {
+      try {
+        const res = await fetch('/api/config');
+        const { env } = await res.json();
+        if (!env) return;
+
+        ['IDE_CDP_PORT', 'AGENT_CDP_PORT', 'WEB_GUI_PORT', 'TELEGRAM_BOT_TOKEN', 'ALLOWED_USERS', 'BOT_LANGUAGE', 'DEFAULT_APP', 'AUTO_ACCEPT_ENABLED', 'ENABLE_TASK_WATCHER'].forEach(key => {
+          const el = document.getElementById('cfg-' + key);
+          if (el && env[key] !== undefined) {
+            el.value = env[key];
+          }
+        });
+      } catch (err) {}
+    }
+
+    async function saveSettings() {
+      const updates = {};
+      ['IDE_CDP_PORT', 'AGENT_CDP_PORT', 'WEB_GUI_PORT', 'TELEGRAM_BOT_TOKEN', 'ALLOWED_USERS', 'BOT_LANGUAGE', 'DEFAULT_APP', 'AUTO_ACCEPT_ENABLED', 'ENABLE_TASK_WATCHER'].forEach(key => {
+        const el = document.getElementById('cfg-' + key);
+        if (el && el.value.trim() !== '') {
+          updates[key] = el.value.trim();
+        }
+      });
+
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates)
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Settings saved to .env & applied!', '✅');
+        } else {
+          showToast('Error saving settings', '❌');
+        }
+      } catch (e) {
+        showToast('Save failed: ' + e.message, '❌');
+      }
+    }
+
+    async function reconnectCDP() {
+      try {
+        showToast('Reconnecting CDP bridge...', '🔄');
+        const res = await fetch('/api/actions/reconnect-cdp', { method: 'POST' });
+        const data = await res.json();
+        showToast(data.message || 'Signal sent', '✅');
+      } catch (e) {
+        showToast('Reconnect failed: ' + e.message, '❌');
+      }
+    }
+
+    async function restartBot() {
+      if (!confirm('Restart Antigravity Suite process now?')) return;
+      try {
+        showToast('Process restarting...', '⚠️');
+        await fetch('/api/actions/restart', { method: 'POST' });
+      } catch (e) {}
+    }
+
+    async function emitTestError() {
+      try {
+        await fetch('/api/actions/emit-test-error', { method: 'POST' });
+        showToast('Test error triggered!', '💥');
+      } catch (e) {}
+    }
+
+    async function clearLogs() {
+      try {
+        await fetch('/api/logs/clear', { method: 'POST' });
+        allLogs = [];
+        renderDashLogs();
+        renderFullLogs();
+        showToast('Logs flushed', '🧹');
+      } catch (e) {}
+    }
+
+    function exportLogs() {
+      const blob = new Blob([JSON.stringify(allLogs, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `antigravity-logs-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function renderLogEntry(log) {
+      const el = document.createElement('div');
+      el.className = 'flex items-start space-x-2 py-0.5 px-1.5 rounded transition hover:bg-slate-900/60 ' + 
+        (log.isError ? 'bg-red-950/30 text-red-300 border-l-2 border-red-500 pl-2' : 
+         log.level === 'warn' ? 'bg-amber-950/20 text-amber-300 border-l-2 border-amber-500 pl-2' : 'text-slate-300');
+
+      const time = log.timestamp ? log.timestamp.split('T')[1].split('.')[0] : '--:--:--';
+      
+      let badgeClass = 'bg-slate-800 text-slate-400';
+      if (log.tag === 'ERROR' || log.isError) badgeClass = 'bg-red-500/20 text-red-400 border border-red-500/30';
+      else if (log.tag === 'CDP') badgeClass = 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30';
+      else if (log.tag === 'BOT') badgeClass = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+      else if (log.tag === 'WATCHER') badgeClass = 'bg-purple-500/20 text-purple-400 border border-purple-500/30';
+
+      el.innerHTML = `
+        <span class="text-slate-500 select-none text-[10px] pt-0.5">${time}</span>
+        <span class="px-1.5 py-0.2 rounded text-[10px] font-bold ${badgeClass}">${log.tag || 'SYS'}</span>
+        <span class="flex-1 break-all select-text leading-relaxed whitespace-pre-wrap">${escapeHtml(log.message)}</span>
+      `;
+      return el;
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function renderDashLogs() {
+      const container = document.getElementById('dash-log-console');
+      const filter = document.getElementById('dash-log-filter').value;
+      const search = document.getElementById('dash-log-search').value.toLowerCase();
+      container.innerHTML = '';
+
+      const filtered = filterLogs(allLogs, filter, search);
+      for (const log of filtered.slice(-150)) {
+        container.appendChild(renderLogEntry(log));
+      }
+      if (autoScroll) container.scrollTop = container.scrollHeight;
+    }
+
+    function renderFullLogs() {
+      const container = document.getElementById('full-log-console');
+      const filter = document.getElementById('full-log-filter').value;
+      const search = document.getElementById('full-log-search').value.toLowerCase();
+      container.innerHTML = '';
+
+      const filtered = filterLogs(allLogs, filter, search);
+      for (const log of filtered) {
+        container.appendChild(renderLogEntry(log));
+      }
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function filterLogs(logs, filter, search) {
+      return logs.filter(log => {
+        if (filter !== 'all') {
+          if (filter === 'error' && !log.isError) return false;
+          if (filter === 'warn' && log.level !== 'warn') return false;
+          if (filter === 'cdp' && log.tag !== 'CDP') return false;
+          if (filter === 'bot' && log.tag !== 'BOT') return false;
+          if (filter === 'watcher' && log.tag !== 'WATCHER') return false;
+        }
+        if (search && !log.message.toLowerCase().includes(search)) return false;
+        return true;
+      });
+    }
+
+    function applyDashLogFilter() { renderDashLogs(); }
+    function applyFullLogFilter() { renderFullLogs(); }
+
+    function addInteractionCard(event) {
+      interactions.unshift(event);
+      document.getElementById('badge-activity-count').textContent = interactions.length;
+
+      const emptyDash = document.getElementById('dash-feed-empty');
+      if (emptyDash) emptyDash.remove();
+
+      const feed = document.getElementById('dash-interaction-feed');
+      const card = createInteractionElement(event);
+      feed.insertBefore(card, feed.firstChild);
+
+      renderActivityTimeline();
+    }
+
+    function createInteractionElement(event) {
+      const card = document.createElement('div');
+      card.className = 'p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col space-y-2 shadow-sm hover:border-slate-700 transition';
+      
+      const payload = event.payload || {};
+      const username = payload.username ? `@${payload.username}` : (payload.userId ? `User #${payload.userId}` : 'Telegram User');
+      const promptText = payload.prompt || payload.command || payload.text || 'Action executed';
+      const time = event.timestamp ? event.timestamp.split('T')[1].split('.')[0] : new Date().toLocaleTimeString();
+
+      card.innerHTML = `
+        <div class="flex items-center justify-between text-xs">
+          <div class="flex items-center space-x-2">
+            <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center font-bold text-[10px] text-white">
+              ${username.charAt(1) ? username.charAt(1).toUpperCase() : 'U'}
+            </div>
+            <span class="font-semibold text-slate-200">${escapeHtml(username)}</span>
+          </div>
+          <span class="text-slate-500 text-[10px]">${time}</span>
+        </div>
+        <div class="text-xs text-slate-300 bg-slate-950 p-2 rounded-lg font-mono border border-slate-900 break-all">
+          ${escapeHtml(promptText)}
+        </div>
+      `;
+      return card;
+    }
+
+    function renderActivityTimeline() {
+      const feed = document.getElementById('full-activity-feed');
+      const empty = document.getElementById('activity-empty');
+      if (interactions.length > 0 && empty) empty.remove();
+
+      feed.innerHTML = '';
+      for (const item of interactions) {
+        feed.appendChild(createInteractionElement(item));
+      }
+    }
+
+    function setupSSE() {
+      if (eventSource) eventSource.close();
+      eventSource = new EventSource('/api/events');
+
+      eventSource.onopen = () => {
+        document.getElementById('sse-status').textContent = '● Live';
+        document.getElementById('sse-status').className = 'text-emerald-400 font-semibold';
+      };
+
+      eventSource.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          eventCount++;
+          document.getElementById('stat-event-count').textContent = eventCount;
+
+          if (data.type === 'log') {
+            const log = data.payload;
+            allLogs.push(log);
+            if (allLogs.length > 1000) allLogs.shift();
+
+            if (log.isError) {
+              errorCount++;
+              const badge = document.getElementById('badge-error-count');
+              badge.textContent = errorCount;
+              badge.classList.remove('hidden');
+
+              const banner = document.getElementById('error-banner');
+              const bannerText = document.getElementById('error-banner-text');
+              bannerText.textContent = log.message;
+              banner.classList.remove('hidden');
+            }
+
+            // Append directly to active console if matching
+            const container = document.getElementById('dash-log-console');
+            container.appendChild(renderLogEntry(log));
+            if (autoScroll) container.scrollTop = container.scrollHeight;
+
+          } else if (data.type === 'telegram_interaction') {
+            addInteractionCard(data);
+          }
+        } catch (err) {}
+      };
+
+      eventSource.onerror = () => {
+        document.getElementById('sse-status').textContent = '○ Reconnecting';
+        document.getElementById('sse-status').className = 'text-amber-400';
+      };
+    }
+
+    async function init() {
+      setupSSE();
+      await fetchStatus();
+      await fetchConfig();
+
+      try {
+        const res = await fetch('/api/logs?limit=150');
+        const data = await res.json();
+        allLogs = data.logs || [];
+        renderDashLogs();
+      } catch (e) {}
+
+      setInterval(fetchStatus, 5000);
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

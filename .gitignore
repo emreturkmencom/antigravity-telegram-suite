@@ -71,5 +71,5 @@ scratch/
 
 # AI-agent local findings/data
 .ide_data/
-
+.google-key/*
 

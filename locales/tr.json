@@ -72,11 +72,42 @@
     "no_new": "[Yeni mesaj yok]",
     "error": "❌ Hata: {error}\n(Antigravity açık mı?)",
     "last_agent_reply": "📋 Son Agent Yanıtı:",
-    "not_found_active": "⚠️ Aktif sohbet penceresi bulunamadı. Lütfen /agents komutuyla bir sohbet seçin veya yeni bir mesaj gönderin."
+    "not_found_active": "⚠️ Aktif sohbet penceresi bulunamadı. Lütfen /agents komutuyla bir sohbet seçin veya yeni bir mesaj gönderin.",
+    "btn_refresh": "🔄 Yenile",
+    "btn_snap": "📸 Ekran Görüntüsü",
+    "btn_stop": "🛑 Durdur",
+    "updated_at": "⏱️ <i>Güncellendi: {time}</i>",
+    "refreshed": "🔄 Aktif görev yanıtı yenilendi!"
+  },
+  "nlp": {
+    "suggestion_title": "💡 <b>Sorgunuz için Akıllı Öneriler:</b>\n\nBot özellikleri hakkında bilgi almak istiyor gibisiniz. Bu komutlardan birini mi demek istediniz?",
+    "todo_title": "📋 <b>Çalışma Alanı Görev ve TODO Özeti</b>\n\n",
+    "no_todo_found": "ℹ️ Mevcut çalışma alanında <code>TODO</code> dizini veya görev dosyası bulunamadı.",
+    "btn_run_agent": "🤖 Agent ile Çalıştır",
+    "btn_view_summary": "📋 Görev Özetini Göster",
+    "btn_direct_prompt": "✍️ Doğrudan Agent'a Gönder",
+    "forwarding_agent": "🤖 Sorgu çalışma alanı görev bağlamıyla Agent'a iletiliyor...",
+    "sent_to_agent": "✍️ Komut doğrudan Agent'a iletiliyor..."
   },
   "screenshot": {
     "taking": "📸 IDE ekran görüntüsü alınıyor (CDP üzerinden)...",
-    "error": "❌ Hata: {error}\n(IDE açık mı?)"
+    "error": "❌ Hata: {error}\n(IDE açık mı?)",
+    "upload_error": "❌ <b>Telegram Yükleme Hatası:</b> {error}\n\n💡 <i>İpucu: Telegram API görsel yüklemesinde zaman aşımına uğradı. Kesintisiz bulut yedeklemesi için <code>.env</code> dosyasından Google Drive yapılandırabilirsiniz.</i>",
+    "gdrive_link": "📸 <b>IDE Ekran Görüntüsü (Google Drive):</b>\n🔗 <a href=\"{link}\">Görüntüle</a>\n\n🕒 <i>Otomatik temizleme devrede: {days} gün sonra silinecektir.</i>",
+    "gdrive_fallback": "⚠️ <i>Doğrudan Telegram görsel yüklemesi zaman aşımına uğradı. Görsel Google Drive üzerine yüklendi:</i>\n\n📸 🔗 <a href=\"{link}\">Görüntüle</a>\n\n🕒 <i>Otomatik temizleme: {days} gün geçerli.</i>"
+  },
+  "voice": {
+    "transcribed": "🎤 <i>Ses Metne Dönüştürüldü:</i>\n❝ <b>{text}</b> ❞",
+    "transcribing": "🎙️ Ses kaydı işleniyor ve metne dökülüyor...",
+    "choose_mode": "🎙️ <b>Ses Mesajı Alındı</b>\n\nBu ses mesajı nasıl işlensin?",
+    "choose_settings": "🎙️ <b>Sesli Mesaj Ayarları</b>\n\nGeçerli varsayılan: <b>{current}</b>\n\nTercih ettiğiniz işleme modunu seçin:",
+    "btn_transcribe": "📝 Metne Dönüştür (Whisper STT)",
+    "btn_direct": "🎙️ Ham Sesi Gönder (Antigravity IDE)",
+    "btn_ask": "❓ Her Seferinde Sor",
+    "btn_save_text": "💾 Varsayılan Yap: Metin",
+    "btn_save_direct": "💾 Varsayılan Yap: Doğrudan Ses",
+    "mode_saved": "✅ Ses işleme varsayılan modu ayarlandı: <b>{mode}</b>",
+    "forwarding_direct": "🎙️ Ham ses doğrudan Antigravity IDE'ye iletiliyor..."
   },
   "ask": {
     "empty": "Lütfen bir soru yazın. Örn: /ask Merhaba",
@@ -136,11 +167,21 @@
     "dir_info": "({count} öğe, sayfa {page}/{totalPages})",
     "expired": "❌ Oturum süresi doldu, /file yazarak tekrar başlatın."
   },
+  "chat_mode": {
+    "enabled": "💬 <b>Sohbet Modu ETKİNLEŞTİRİLDİ!</b>\n\nModel otomatik ayarlandı: <code>{model}</code> (En Düşük Seviye).\nAgent Tartışma/Planlama moduna alındı. <b>Kod dosyalarında değişiklik yapılmayacaktır.</b>",
+    "disabled": "🔴 <b>Sohbet Modu DEVRE DIŞI.</b>\nStandart agent moduna dönüldü.",
+    "status_active": "💬 <b>Sohbet Modu Durumu:</b> 🟢 AKTİF (Sadece Tartışma — Kod Değişikliği Yok)\nAktif Model: <code>{model}</code>",
+    "status_inactive": "💬 <b>Sohbet Modu Durumu:</b> 🔴 PASİF (Standart Agent Modu)",
+    "error": "❌ Sohbet Modu Hatası: {error}"
+  },
   "menu": {
     "updated": "✅ Menü güncellendi! Sol alttaki ☰ menüsünden görebilirsiniz.",
-    "help_desc": "Tüm komutların listesini gösterir",
-    "ask_desc": "Sorunuzu ajana iletir",
-    "latest_desc": "Son yanıtı getirir",
+    "help_desc": "Kullanılabilir komutları listeler",
+    "chat_desc": "Kod Yazmayan Sohbet/Tartışma Modunu Aç/Kapat",
+    "voice_desc": "Sesli mesaj işleme modunu yapılandır",
+    "ask_desc": "Agent'a bir soru gönderir",
+    "latest_desc": "Son yanıtı al",
+    "live_desc": "Canlı görev çıktısı ve yenileme",
     "screenshot_desc": "IDE ekran görüntüsü alır",
     "status_desc": "Sistem durumu (IDE, CDP, PM2)",
     "start_ide_desc": "IDE başlatır",
@@ -562,5 +603,11 @@
     "close_btn": "❌ Kapat",
     "back_btn": "⬅️ Tüm Kategoriler",
     "refresh_btn": "🔄 Yenile"
+  },
+  "ide_activity": {
+    "user_prompt": "💻 <b>[Masaüstü IDE İstemı]</b>\n\n{text}",
+    "model_response": "🤖 <b>[Masaüstü IDE Yanıtı]</b>\n\n{text}",
+    "status_enabled": "✅ Masaüstü IDE aktivite bildirimi etkinleştirildi.",
+    "status_disabled": "❌ Masaüstü IDE aktivite bildirimi devre dışı bırakıldı."
   }
 }
