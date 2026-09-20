@@ -91,7 +91,10 @@
   },
   "screenshot": {
     "taking": "📸 Tomando captura de la IDE (vía CDP)...",
-    "error": "❌ Error: {error}\n(¿Está abierta la IDE?)"
+    "error": "❌ Error: {error}\n(¿Está abierta la IDE?)",
+    "upload_error": "❌ <b>Error al subir a Telegram:</b> {error}\n\n💡 <i>Consejo: Tiempo de espera agotado al subir a Telegram API. Puedes configurar Google Drive en <code>.env</code> para almacenamiento en la nube confiable.</i>",
+    "gdrive_link": "📸 <b>Captura del IDE (Google Drive):</b>\n🔗 <a href=\"{link}\">Ver captura</a>\n\n🕒 <i>Limpieza automática activa: se eliminará en {days} días.</i>",
+    "gdrive_fallback": "⚠️ <i>El envío directo a Telegram agotó el tiempo de espera. Se ha subido a Google Drive:</i>\n\n📸 🔗 <a href=\"{link}\">Ver captura</a>\n\n🕒 <i>Limpieza automática: vence en {days} días.</i>"
   },
   "ask": {
     "empty": "Por favor escribe una pregunta. Ejemplo: `/ask Hola`",
@@ -151,9 +154,17 @@
     "dir_info": "({count} elementos, pág {page}/{totalPages})",
     "expired": "❌ La sesión ha expirado, escribe /file para empezar de nuevo."
   },
+  "chat_mode": {
+    "enabled": "💬 <b>¡Modo Chat ACTIVADO!</b>\n\nModelo ajustado automáticamente a: <code>{model}</code> (Nivel más bajo).\nEl agente está en modo Discusión/Planificación. <b>No se modificarán archivos de código.</b>",
+    "disabled": "🔴 <b>Modo Chat DESACTIVADO.</b>\nRegresado al modo agente estándar.",
+    "status_active": "💬 <b>Estado del Modo Chat:</b> 🟢 ACTIVADO (Solo discusión — Sin cambios de código)\nModelo activo: <code>{model}</code>",
+    "status_inactive": "💬 <b>Estado del Modo Chat:</b> 🔴 DESACTIVADO (Modo agente estándar)",
+    "error": "❌ Error del Modo Chat: {error}"
+  },
   "menu": {
-    "updated": "✅ ¡Menú actualizado! Puedes verlo desde el botón ☰ abajo a la izquierda.",
+    "updated": "✅ ¡Menú actualizado! Puedes verlo desde el menú ☰ abajo a la izquierda.",
     "help_desc": "Muestra todos los comandos disponibles",
+    "chat_desc": "Alternar modo Chat/Discusión sin cambios de código",
     "ask_desc": "Enviar una pregunta al agente",
     "latest_desc": "Obtener la última respuesta",
     "live_desc": "Salida de tarea en vivo y actualización",

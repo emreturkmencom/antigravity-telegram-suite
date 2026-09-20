@@ -19,6 +19,7 @@ const accountManager = require('./account_manager');
 const { ensureMemoryConvention } = require('./memory_convention');
 const DriverFactory = require('./drivers');
 const telegraphPublisher = require('./telegraph_publisher');
+const driveUploader = require('./drive_uploader');
 const { classifyIntent, inspectWorkspaceTasks } = require('./nlp_intent_router');
 
 let scheduleClient = null;
@@ -152,7 +153,12 @@ if (ALLOWED_CHAT_IDS.length === 0) {
 const bot = new Telegraf(process.env.BOT_TOKEN, {
     handlerTimeout: 900000,
     telegram: {
-        agent: new https.Agent({ keepAlive: true, timeout: 60000 })
+        agent: new https.Agent({
+            keepAlive: true,
+            keepAliveMsecs: 10000,
+            timeout: 60000,
+            maxSockets: 50
+        })
     }
 }); // 15 minutes timeout to allow long /ask requests
 
@@ -1292,24 +1298,72 @@ bot.action(/^nlp_direct:(.+)$/, async (ctx) => {
     }
 });
 
-const handleScreenshot = async (ctx) => {
+const handleScreenshot = async (ctx, forceDrive = false) => {
+    let buffer = null;
     try {
         setReaction(ctx, REACTION.THINKING);
-        const buffer = await captureFullIDEScreenshot(CDP_PORT);
+        buffer = await captureFullIDEScreenshot(CDP_PORT);
+    } catch (cdpErr) {
+        setReaction(ctx, null);
+        return ctx.reply(t('screenshot.error', { error: cdpErr.message }));
+    }
+
+    const alwaysDrive = forceDrive || process.env.GDRIVE_UPLOAD_ALWAYS === 'true';
+    const filename = `screenshot_${Date.now()}.jpg`;
+
+    if (alwaysDrive && driveUploader.isConfigured()) {
         try {
-            await ctx.replyWithPhoto({ source: buffer });
-        } catch (photoErr) {
-            console.warn('[screenshot] replyWithPhoto failed, retrying as Document stream:', photoErr.message);
-            await ctx.replyWithDocument({ source: buffer, filename: `screenshot_${Date.now()}.jpg` });
+            const gdriveRes = await driveUploader.uploadScreenshot(buffer, filename);
+            const days = process.env.GDRIVE_AUTO_CLEANUP_DAYS || '7';
+            driveUploader.cleanupOldScreenshots(parseInt(days, 10)).catch(e => console.warn('[gdrive] Cleanup error:', e.message));
+            setReaction(ctx, null);
+            return ctx.reply(t('screenshot.gdrive_link', { link: gdriveRes.webViewLink, days }), {
+                parse_mode: 'HTML',
+                disable_web_page_preview: false
+            });
+        } catch (driveErr) {
+            console.warn('[screenshot] Google Drive upload failed, trying Telegram direct:', driveErr.message);
         }
+    }
+
+    try {
+        await ctx.replyWithPhoto({ source: buffer });
         setReaction(ctx, null);
-    } catch (err) {
-        setReaction(ctx, null);
-        ctx.reply(t('screenshot.error', { error: err.message }));
+        return;
+    } catch (photoErr) {
+        console.warn('[screenshot] replyWithPhoto failed, evaluating fallback:', photoErr.message);
+
+        // Fallback 1: Google Drive (if configured)
+        if (driveUploader.isConfigured()) {
+            try {
+                const gdriveRes = await driveUploader.uploadScreenshot(buffer, filename);
+                const days = process.env.GDRIVE_AUTO_CLEANUP_DAYS || '7';
+                driveUploader.cleanupOldScreenshots(parseInt(days, 10)).catch(e => console.warn('[gdrive] Cleanup error:', e.message));
+                setReaction(ctx, null);
+                return ctx.reply(t('screenshot.gdrive_fallback', { link: gdriveRes.webViewLink, days }), {
+                    parse_mode: 'HTML',
+                    disable_web_page_preview: false
+                });
+            } catch (driveErr) {
+                console.warn('[screenshot] Google Drive fallback upload failed:', driveErr.message);
+            }
+        }
+
+        // Fallback 2: Document stream
+        try {
+            await ctx.replyWithDocument({ source: buffer, filename });
+            setReaction(ctx, null);
+            return;
+        } catch (docErr) {
+            console.error('[screenshot] Document upload also failed:', docErr.message);
+            setReaction(ctx, null);
+            return ctx.reply(t('screenshot.upload_error', { error: docErr.message }), { parse_mode: 'HTML' });
+        }
     }
 };
-bot.command('screenshot', handleScreenshot);
-bot.hears(/^📸/i, handleScreenshot);
+bot.command('screenshot', (ctx) => handleScreenshot(ctx, false));
+bot.command('screenshot_drive', (ctx) => handleScreenshot(ctx, true));
+bot.hears(/^📸/i, (ctx) => handleScreenshot(ctx, false));
 
 bot.command('quota', async (ctx) => {
     try {
@@ -1661,8 +1715,55 @@ bot.action(/^sch_del_(.+)$/, async (ctx) => {
     }
 });
 
+let isChatModeActive = false;
+
+const handleChat = async (ctx) => {
+    try {
+        const rawText = ctx.message?.text?.trim() || '';
+        const args = rawText.replace(/^\/chat(?:@[\w_]+)?\s*/i, '').trim().toLowerCase();
+
+        if (args === 'stop' || args === 'off' || args === 'false') {
+            isChatModeActive = false;
+            return ctx.reply(t('chat_mode.disabled'), { parse_mode: 'HTML' });
+        }
+
+        if (args === 'status') {
+            const models = await ensureModelsCache();
+            const lowestModel = models && models.length > 0 ? (models[models.length - 1].name || models[models.length - 1]) : 'Lowest Tier';
+            const msg = isChatModeActive
+                ? t('chat_mode.status_active', { model: lowestModel })
+                : t('chat_mode.status_inactive');
+            return ctx.reply(msg, { parse_mode: 'HTML' });
+        }
+
+        // Enable chat mode (/chat or /chat start)
+        isChatModeActive = true;
+
+        // Switch to lowest tier model to conserve quota
+        const models = await ensureModelsCache();
+        let lowestModel = 'Gemini 3.1 Pro (Low)';
+        if (models && models.length > 0) {
+            const lowestObj = models[models.length - 1];
+            lowestModel = typeof lowestObj === 'object' ? lowestObj.name : lowestObj;
+        }
+
+        selectModel(CDP_PORT, lowestModel).catch(() => {});
+
+        return ctx.reply(t('chat_mode.enabled', { model: lowestModel }), { parse_mode: 'HTML' });
+    } catch (err) {
+        return ctx.reply(t('chat_mode.error', { error: err.message }), { parse_mode: 'HTML' });
+    }
+};
+
+bot.command('chat', handleChat);
+bot.hears(/^chat:stop$/i, async (ctx) => {
+    isChatModeActive = false;
+    return ctx.reply(t('chat_mode.disabled'), { parse_mode: 'HTML' });
+});
+
 bot.command('new', async (ctx) => {
     console.log('[/new] Command triggered');
+    isChatModeActive = false; // Reset chat mode on new chat session
     try {
         const success = await triggerNewChat(CDP_PORT);
         console.log('[/new] triggerNewChat result:', success);
@@ -4347,6 +4448,7 @@ bot.action(/fp_(.+)/, (ctx) => {
 
 function getMenuCommands() {
     const cmds = [
+        { command: 'chat', description: t('menu.chat_desc') || 'Toggle No-Code Chat/Discussion mode' },
         { command: 'help', description: t('menu.help_desc') },
         { command: 'latest', description: t('menu.latest_desc') },
         { command: 'live', description: t('menu.live_desc') || 'Live active task output & refresh' },
@@ -4772,7 +4874,7 @@ let isAgentBusy = false;
 
     // Default text handler
     const KNOWN_BOT_COMMANDS = new Set([
-        'start', 'help', 'latest', 'live', 'screenshot', 'status', 'start_ide', 'start_ag', 'close_ide', 'close_ag',
+        'start', 'help', 'chat', 'latest', 'live', 'screenshot', 'status', 'start_ide', 'start_ag', 'close_ide', 'close_ag',
         'close', 'close_window', 'closeall', 'new', 'agents', 'artifacts', 'skills', 'skill',
         'model', 'workspace', 'memory', 'window', 'lang', 'cmd', 'file', 'stop', 'autoaccept', 'quota', 'update',
         'force_update', 'forceupdate',
@@ -4787,6 +4889,9 @@ let isAgentBusy = false;
             return next();
         }
     let query = ctx.message.text;
+    if (isChatModeActive) {
+        query = "[SYSTEM INSTRUCTION: CHAT/PLANNING MODE IS ACTIVE. YOU MUST NOT CREATE, EDIT, DELETE, OR MODIFY ANY FILES OR CODE. DISCUSS, EXPLAIN, PLAN, AND ANSWER THE USER'S QUERY DIRECTLY IN CHAT ONLY.]\n\n" + query;
+    }
     
     let explicitTargetId = null;
     let explicitThreadName = null;

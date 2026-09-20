@@ -91,7 +91,10 @@
   },
   "screenshot": {
     "taking": "📸 IDE ekran görüntüsü alınıyor (CDP üzerinden)...",
-    "error": "❌ Hata: {error}\n(IDE açık mı?)"
+    "error": "❌ Hata: {error}\n(IDE açık mı?)",
+    "upload_error": "❌ <b>Telegram Yükleme Hatası:</b> {error}\n\n💡 <i>İpucu: Telegram API görsel yüklemesinde zaman aşımına uğradı. Kesintisiz bulut yedeklemesi için <code>.env</code> dosyasından Google Drive yapılandırabilirsiniz.</i>",
+    "gdrive_link": "📸 <b>IDE Ekran Görüntüsü (Google Drive):</b>\n🔗 <a href=\"{link}\">Görüntüle</a>\n\n🕒 <i>Otomatik temizleme devrede: {days} gün sonra silinecektir.</i>",
+    "gdrive_fallback": "⚠️ <i>Doğrudan Telegram görsel yüklemesi zaman aşımına uğradı. Görsel Google Drive üzerine yüklendi:</i>\n\n📸 🔗 <a href=\"{link}\">Görüntüle</a>\n\n🕒 <i>Otomatik temizleme: {days} gün geçerli.</i>"
   },
   "ask": {
     "empty": "Lütfen bir soru yazın. Örn: /ask Merhaba",
@@ -151,9 +154,17 @@
     "dir_info": "({count} öğe, sayfa {page}/{totalPages})",
     "expired": "❌ Oturum süresi doldu, /file yazarak tekrar başlatın."
   },
+  "chat_mode": {
+    "enabled": "💬 <b>Sohbet Modu ETKİNLEŞTİRİLDİ!</b>\n\nModel otomatik ayarlandı: <code>{model}</code> (En Düşük Seviye).\nAgent Tartışma/Planlama moduna alındı. <b>Kod dosyalarında değişiklik yapılmayacaktır.</b>",
+    "disabled": "🔴 <b>Sohbet Modu DEVRE DIŞI.</b>\nStandart agent moduna dönüldü.",
+    "status_active": "💬 <b>Sohbet Modu Durumu:</b> 🟢 AKTİF (Sadece Tartışma — Kod Değişikliği Yok)\nAktif Model: <code>{model}</code>",
+    "status_inactive": "💬 <b>Sohbet Modu Durumu:</b> 🔴 PASİF (Standart Agent Modu)",
+    "error": "❌ Sohbet Modu Hatası: {error}"
+  },
   "menu": {
     "updated": "✅ Menü güncellendi! Sol alttaki ☰ menüsünden görebilirsiniz.",
     "help_desc": "Tüm komutların listesini gösterir",
+    "chat_desc": "Kodsuz Sohbet/Tartışma modunu aç/kapat",
     "ask_desc": "Sorunuzu ajana iletir",
     "latest_desc": "Son yanıtı al",
     "live_desc": "Canlı görev çıktısı ve yenileme",

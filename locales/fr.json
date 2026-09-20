@@ -91,7 +91,10 @@
   },
   "screenshot": {
     "taking": "📸 Capture de l'IDE en cours (via CDP)...",
-    "error": "❌ Erreur : {error}\n(L'IDE est-il ouvert ?)"
+    "error": "❌ Erreur : {error}\n(L'IDE est-il ouvert ?)",
+    "upload_error": "❌ <b>Échec de l'envoi sur Telegram :</b> {error}\n\n💡 <i>Astuce : Le téléversement sur l'API Telegram a expiré. Vous pouvez configurer Google Drive dans <code>.env</code> pour un hébergement cloud fiable.</i>",
+    "gdrive_link": "📸 <b>Capture d'écran de l'IDE (Google Drive) :</b>\n🔗 <a href=\"{link}\">Voir la capture</a>\n\n🕒 <i>Nettoyage automatique activé : suppression dans {days} jours.</i>",
+    "gdrive_fallback": "⚠️ <i>L'envoi direct de la photo a expiré. Enregistré sur Google Drive à la place :</i>\n\n📸 🔗 <a href=\"{link}\">Voir la capture</a>\n\n🕒 <i>Nettoyage automatique : expire dans {days} jours.</i>"
   },
   "ask": {
     "empty": "Veuillez poser une question. Exemple : `/ask Bonjour`",
@@ -151,9 +154,17 @@
     "dir_info": "({count} éléments, page {page}/{totalPages})",
     "expired": "❌ Session expirée, tapez /file pour recommencer."
   },
+  "chat_mode": {
+    "enabled": "💬 <b>Mode Discussion ACTIVÉ !</b>\n\nModèle automatiquement défini sur : <code>{model}</code> (Niveau le plus bas).\nL'Agent est en mode Discussion/Planification. <b>Aucun fichier de code ne sera modifié.</b>",
+    "disabled": "🔴 <b>Mode Discussion DÉSACTIVÉ.</b>\nRetour au mode agent standard.",
+    "status_active": "💬 <b>Statut du Mode Discussion :</b> 🟢 ACTIVÉ (Discussion uniquement — Pas de modification de code)\nModèle actif : <code>{model}</code>",
+    "status_inactive": "💬 <b>Statut du Mode Discussion :</b> 🔴 DÉSACTIVÉ (Mode Agent standard)",
+    "error": "❌ Erreur du Mode Discussion : {error}"
+  },
   "menu": {
     "updated": "✅ Menu mis à jour ! Vous pouvez le voir depuis le menu ☰ en bas à gauche.",
     "help_desc": "Afficher toutes les commandes disponibles",
+    "chat_desc": "Basculer le mode Discussion/Planification sans code",
     "ask_desc": "Poser une question à l'agent",
     "latest_desc": "Obtenir la dernière réponse",
     "live_desc": "Sortie de tâche en direct et rafraîchissement",

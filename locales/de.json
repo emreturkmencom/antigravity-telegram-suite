@@ -91,7 +91,10 @@
   },
   "screenshot": {
     "taking": "📸 Nehme IDE-Screenshot auf (über CDP)...",
-    "error": "❌ Fehler: {error}\n(Ist die IDE geöffnet?)"
+    "error": "❌ Fehler: {error}\n(Ist die IDE geöffnet?)",
+    "upload_error": "❌ <b>Telegram-Upload fehlgeschlagen:</b> {error}\n\n💡 <i>Tipp: Telegram-API-Zeitüberschreitung beim Hochladen. Du kannst Google Drive in der <code>.env</code> für Cloud-Hosting konfigurieren.</i>",
+    "gdrive_link": "📸 <b>IDE-Screenshot (Google Drive):</b>\n🔗 <a href=\"{link}\">Screenshot ansehen</a>\n\n🕒 <i>Automatische Bereinigung aktiv: wird in {days} Tagen gelöscht.</i>",
+    "gdrive_fallback": "⚠️ <i>Direkter Telegram-Fotoupload fehlgeschlagen. Stattdessen auf Google Drive hochgeladen:</i>\n\n📸 🔗 <a href=\"{link}\">Screenshot ansehen</a>\n\n🕒 <i>Automatische Bereinigung: läuft in {days} Tagen ab.</i>"
   },
   "ask": {
     "empty": "Bitte tippe eine Frage ein. Beispiel: `/ask Hallo`",
@@ -151,9 +154,17 @@
     "dir_info": "({count} Elemente, Seite {page}/{totalPages})",
     "expired": "❌ Sitzung abgelaufen, tippe /file, um neu zu starten."
   },
+  "chat_mode": {
+    "enabled": "💬 <b>Chat-Modus AKTIVIERT!</b>\n\nModell automatisch eingestellt auf: <code>{model}</code> (Niedrigste Stufe).\nAgent auf Diskussions-/Planungsmodus gesetzt. <b>Es werden keine Codedateien geändert.</b>",
+    "disabled": "🔴 <b>Chat-Modus DEAKTIVIERT.</b>\nZurück zum Standard-Agent-Modus.",
+    "status_active": "💬 <b>Chat-Modus-Status:</b> 🟢 AKTIV (Nur Diskussion — Keine Codeänderungen)\nAktives Modell: <code>{model}</code>",
+    "status_inactive": "💬 <b>Chat-Modus-Status:</b> 🔴 INAKTIV (Standard-Agent-Modus)",
+    "error": "❌ Chat-Modus Fehler: {error}"
+  },
   "menu": {
     "updated": "✅ Menü aktualisiert! Du findest es über das ☰-Menü unten links.",
     "help_desc": "Zeigt alle verfügbaren Befehle an",
+    "chat_desc": "Codefreien Chat-/Diskussionsmodus umschalten",
     "ask_desc": "Stelle dem Agenten eine Frage",
     "latest_desc": "Hole die neueste Antwort",
     "live_desc": "Live-Aufgaben-Ausgabe & Aktualisierung",
