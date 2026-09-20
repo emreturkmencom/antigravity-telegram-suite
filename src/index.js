@@ -4338,6 +4338,7 @@ function getMenuCommands() {
     const cmds = [
         { command: 'help', description: t('menu.help_desc') },
         { command: 'latest', description: t('menu.latest_desc') },
+        { command: 'live', description: t('menu.live_desc') || 'Live active task output & refresh' },
         { command: 'screenshot', description: t('menu.screenshot_desc') },
         { command: 'status', description: t('menu.status_desc') },
         { command: 'start_ide', description: t('menu.start_ide_desc') || 'Start IDE' },

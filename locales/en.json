@@ -156,6 +156,7 @@
     "help_desc": "Show all available commands",
     "ask_desc": "Send a question to the agent",
     "latest_desc": "Get the latest response",
+    "live_desc": "Live active task output & refresh",
     "screenshot_desc": "Take an IDE screenshot",
     "status_desc": "System status (IDE, CDP, PM2)",
     "start_ide_desc": "Start IDE",

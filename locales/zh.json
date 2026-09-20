@@ -156,6 +156,7 @@
     "help_desc": "显示所有可用命令",
     "ask_desc": "向 Agent 发送问题",
     "latest_desc": "获取最新回复",
+    "live_desc": "实时任务输出与刷新",
     "screenshot_desc": "截取 IDE 屏幕",
     "status_desc": "系统状态（IDE、CDP、PM2）",
     "start_ide_desc": "启动 IDE",
