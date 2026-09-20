@@ -562,5 +562,11 @@
     "close_btn": "❌ 닫기",
     "back_btn": "⬅️ 모든 카테고리",
     "refresh_btn": "🔄 새로고침"
+  },
+  "ide_activity": {
+    "user_prompt": "💻 <b>[데스크톱 IDE 프롬프트]</b>\n\n{text}",
+    "model_response": "🤖 <b>[데스크톱 IDE 응답]</b>\n\n{text}",
+    "status_enabled": "✅ 데스크톱 IDE 활동 알림이 활성화되었습니다.",
+    "status_disabled": "❌ 데스크톱 IDE 활동 알림이 비활성화되었습니다."
   }
 }

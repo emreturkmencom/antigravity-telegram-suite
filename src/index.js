@@ -5039,21 +5039,34 @@ async function init() {
         onNotification: async ({ conversationId, text, type }) => {
             console.log(`[TaskWatcher] 📬 Proactive notification (${type}, conv: ${conversationId?.substring(0, 8)}, ${text.length} chars)`);
 
-            const header = '🔔 <b>' + t('task_watcher.proactive_msg') + '</b>\n\n';
-            // Truncate for Telegram 4096 char limit
-            const maxLen = 4096 - header.length - 10;
-            const body = text.length > maxLen ? text.substring(0, maxLen) + '…' : text;
-            const fullMsg = header + body;
+            let fullMsg = '';
             const isFeedback = type === 'agent_proactive_feedback';
+
+            if (type === 'ide_user_prompt') {
+                const maxLen = 3800;
+                const body = text.length > maxLen ? text.substring(0, maxLen) + '…' : text;
+                fullMsg = t('ide_activity.user_prompt', { text: body });
+            } else if (type === 'ide_model_response') {
+                const maxLen = 3800;
+                const body = text.length > maxLen ? text.substring(0, maxLen) + '…' : text;
+                fullMsg = t('ide_activity.model_response', { text: body });
+            } else {
+                const header = '🔔 <b>' + t('task_watcher.proactive_msg') + '</b>\n\n';
+                const maxLen = 4096 - header.length - 10;
+                const body = text.length > maxLen ? text.substring(0, maxLen) + '…' : text;
+                fullMsg = header + body;
+            }
 
             for (const chatId of ALLOWED_CHAT_IDS) {
                 try {
                     const existing = proactiveMessageIds.get(chatId);
                     const now = Date.now();
 
+                    const isIdeActivity = type === 'ide_user_prompt' || type === 'ide_model_response';
+
                     // If we have a recent message, try to edit it
-                    // BUT: never overwrite a feedback message (with Proceed/Cancel) with a plain notification
-                    if (existing && (now - existing.timestamp) < PROACTIVE_RESET_MS) {
+                    // BUT: never overwrite a feedback message or edit during IDE activity stream
+                    if (!isIdeActivity && existing && (now - existing.timestamp) < PROACTIVE_RESET_MS) {
                         // If existing has feedback buttons and new is plain, skip edit — send new
                         if (existing.hasFeedback && !isFeedback) {
                             console.log(`[TaskWatcher] Existing msg ${existing.messageId} has Proceed/Cancel buttons — sending new msg instead of overwriting`);

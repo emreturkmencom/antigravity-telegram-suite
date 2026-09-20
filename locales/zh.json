@@ -562,5 +562,11 @@
     "close_btn": "❌ 关闭",
     "back_btn": "⬅️ 所有类别",
     "refresh_btn": "🔄 刷新"
+  },
+  "ide_activity": {
+    "user_prompt": "💻 <b>[桌面 IDE 提示词]</b>\n\n{text}",
+    "model_response": "🤖 <b>[桌面 IDE 回复]</b>\n\n{text}",
+    "status_enabled": "✅ 桌面 IDE 活动报告已启用。",
+    "status_disabled": "❌ 桌面 IDE 活动报告已禁用。"
   }
 }

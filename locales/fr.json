@@ -562,5 +562,11 @@
     "close_btn": "❌ Fermer",
     "back_btn": "⬅️ Toutes les Catégories",
     "refresh_btn": "🔄 Actualiser"
+  },
+  "ide_activity": {
+    "user_prompt": "💻 <b>[Prompt de l'IDE Bureau]</b>\n\n{text}",
+    "model_response": "🤖 <b>[Réponse de l'IDE Bureau]</b>\n\n{text}",
+    "status_enabled": "✅ Notification d'activité de l'IDE bureau activée.",
+    "status_disabled": "❌ Notification d'activité de l'IDE bureau désactivée."
   }
 }

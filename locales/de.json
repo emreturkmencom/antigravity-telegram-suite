@@ -562,5 +562,11 @@
     "close_btn": "❌ Schließen",
     "back_btn": "⬅️ Alle Kategorien",
     "refresh_btn": "🔄 Aktualisieren"
+  },
+  "ide_activity": {
+    "user_prompt": "💻 <b>[Desktop-IDE-Eingabe]</b>\n\n{text}",
+    "model_response": "🤖 <b>[Desktop-IDE-Antwort]</b>\n\n{text}",
+    "status_enabled": "✅ Desktop-IDE-Aktivitätsbenachrichtigung aktiviert.",
+    "status_disabled": "❌ Desktop-IDE-Aktivitätsbenachrichtigung deaktiviert."
   }
 }

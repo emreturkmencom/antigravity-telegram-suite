@@ -562,5 +562,11 @@
     "close_btn": "❌ Cerrar",
     "back_btn": "⬅️ Todas las Categorías",
     "refresh_btn": "🔄 Actualizar"
+  },
+  "ide_activity": {
+    "user_prompt": "💻 <b>[Prompt de IDE de Escritorio]</b>\n\n{text}",
+    "model_response": "🤖 <b>[Respuesta de IDE de Escritorio]</b>\n\n{text}",
+    "status_enabled": "✅ Notificación de actividad de IDE de escritorio activada.",
+    "status_disabled": "❌ Notificación de actividad de IDE de escritorio desactivada."
   }
 }

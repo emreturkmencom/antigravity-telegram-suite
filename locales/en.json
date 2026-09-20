@@ -562,5 +562,11 @@
     "close_btn": "❌ Close",
     "back_btn": "⬅️ All Categories",
     "refresh_btn": "🔄 Refresh"
+  },
+  "ide_activity": {
+    "user_prompt": "💻 <b>[Desktop IDE Prompt]</b>\n\n{text}",
+    "model_response": "🤖 <b>[Desktop IDE Response]</b>\n\n{text}",
+    "status_enabled": "✅ Desktop IDE activity reporting enabled.",
+    "status_disabled": "❌ Desktop IDE activity reporting disabled."
   }
 }
