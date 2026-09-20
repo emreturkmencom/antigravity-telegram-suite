@@ -149,7 +149,12 @@ if (ALLOWED_CHAT_IDS.length === 0) {
     }
 }
 
-const bot = new Telegraf(process.env.BOT_TOKEN, { handlerTimeout: 900000 }); // 15 minutes timeout to allow long /ask requests
+const bot = new Telegraf(process.env.BOT_TOKEN, {
+    handlerTimeout: 900000,
+    telegram: {
+        agent: new https.Agent({ keepAlive: true, timeout: 60000 })
+    }
+}); // 15 minutes timeout to allow long /ask requests
 
 const pendingLogins = new Map();
 const lastSentMessageIdMap = new Map(); // conversationId -> { messageId, chatId, baseKeyboard }
@@ -1218,8 +1223,7 @@ bot.action('latest_refresh', async (ctx) => {
 bot.action('latest_snap', async (ctx) => {
     try {
         await ctx.answerCbQuery().catch(() => {});
-        const buffer = await captureFullIDEScreenshot(CDP_PORT);
-        await ctx.replyWithPhoto({ source: buffer });
+        await handleScreenshot(ctx);
     } catch (err) {
         ctx.reply(t('screenshot.error', { error: err.message }));
     }
@@ -1290,7 +1294,12 @@ const handleScreenshot = async (ctx) => {
     try {
         setReaction(ctx, REACTION.THINKING);
         const buffer = await captureFullIDEScreenshot(CDP_PORT);
-        await ctx.replyWithPhoto({ source: buffer });
+        try {
+            await ctx.replyWithPhoto({ source: buffer });
+        } catch (photoErr) {
+            console.warn('[screenshot] replyWithPhoto failed, retrying as Document stream:', photoErr.message);
+            await ctx.replyWithDocument({ source: buffer, filename: `screenshot_${Date.now()}.jpg` });
+        }
         setReaction(ctx, null);
     } catch (err) {
         setReaction(ctx, null);
