@@ -1246,7 +1246,8 @@ async function captureAgentScreenshot(port) {
                 try {
                     screenshotResult = await Page.captureScreenshot({
                         format: 'jpeg',
-                        quality: 85,
+                        quality: 60,
+                        optimizeForSpeed: true,
                         clip: {
                             x: Math.max(0, res.x || 0),
                             y: Math.max(0, res.y || 0),
@@ -1256,7 +1257,7 @@ async function captureAgentScreenshot(port) {
                         }
                     });
                 } catch(e) {
-                    screenshotResult = await Page.captureScreenshot({ format: 'jpeg', quality: 70 });
+                    screenshotResult = await Page.captureScreenshot({ format: 'jpeg', quality: 60, optimizeForSpeed: true });
                 }
                 await client.close();
                 if (screenshotResult && screenshotResult.data) {
@@ -2853,7 +2854,8 @@ async function captureFullIDEScreenshot(port) {
 
             const screenshotResult = await Page.captureScreenshot({
                 format: 'jpeg',
-                quality: 80
+                quality: 60,
+                optimizeForSpeed: true
             });
             await client.close();
             if (screenshotResult && screenshotResult.data) {
