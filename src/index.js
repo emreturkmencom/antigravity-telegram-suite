@@ -1756,12 +1756,20 @@ const handleChat = async (ctx) => {
         // Enable chat mode (/chat or /chat start)
         isChatModeActive = true;
 
-        // Switch to lowest tier model to conserve quota
+        // Switch to lowest tier model (Gemini 3.6 Flash Low) to conserve quota
         const models = await ensureModelsCache();
-        let lowestModel = 'Gemini 3.1 Pro (Low)';
+        let lowestModel = 'Gemini 3.6 Flash (Low)';
         if (models && models.length > 0) {
-            const lowestObj = models[models.length - 1];
-            lowestModel = typeof lowestObj === 'object' ? lowestObj.name : lowestObj;
+            const found36Flash = models.find(m => {
+                const name = typeof m === 'object' ? m.name : m;
+                return name.toLowerCase().includes('3.6') && name.toLowerCase().includes('flash');
+            });
+            if (found36Flash) {
+                lowestModel = typeof found36Flash === 'object' ? (found36Flash.name.includes('Low') ? found36Flash.name : `${found36Flash.baseName || found36Flash.name} (Low)`) : found36Flash;
+            } else {
+                const lowestObj = models[models.length - 1];
+                lowestModel = typeof lowestObj === 'object' ? lowestObj.name : lowestObj;
+            }
         }
 
         selectModel(CDP_PORT, lowestModel).catch(() => {});
