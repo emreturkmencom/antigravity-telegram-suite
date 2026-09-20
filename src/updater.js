@@ -282,6 +282,12 @@ function performForceUpdate(onRestartFail) {
  * @param {Array<string>} chatIds - Array of Chat IDs to send notifications to
  */
 function startUpdateChecker(bot, chatIds) {
+    const isAutoUpdateEnabled = process.env.AUTO_UPDATE_ENABLED !== 'false';
+    if (!isAutoUpdateEnabled) {
+        console.log('[updater] Auto-update check disabled via AUTO_UPDATE_ENABLED=false');
+        return;
+    }
+
     if (!chatIds || chatIds.length === 0) return;
 
     const doCheck = async () => {
