@@ -173,6 +173,44 @@ pm2 startup
 
 ### Automated Setup (Optional)
 
+#### One-Line Install (recommended)
+
+Installs everything in one command — clones the repo, installs dependencies, configures `.env`, and sets up launchers. Works even if you run it from an empty directory.
+
+```bash
+# Linux / macOS / WSL
+curl -fsSL https://raw.githubusercontent.com/emreturkmencom/antigravity-telegram-suite/main/scripts/install.sh | bash
+
+# Windows (PowerShell)
+iwr -useb https://raw.githubusercontent.com/emreturkmencom/antigravity-telegram-suite/main/scripts/install.ps1 | iex
+```
+
+By default, the bot is installed to `~/antigravity-telegram-suite`. To install elsewhere, pass a path:
+
+```bash
+# Linux/macOS — pass as first argument
+curl -fsSL https://raw.githubusercontent.com/emreturkmencom/antigravity-telegram-suite/main/scripts/install.sh | bash -s -- /opt/ag-bot
+
+# Windows — pass as first argument
+iwr -useb https://raw.githubusercontent.com/emreturkmencom/antigravity-telegram-suite/main/scripts/install.ps1 | iex -Args "/d/ag-bot"
+```
+
+You can also set the `AG_INSTALL_DIR` environment variable instead of passing an argument.
+
+**What the one-line installer does:**
+1. Checks for Node.js >= 18 (offers to install via nvm if missing)
+2. Clones the repository (or updates an existing installation if run again)
+3. Runs `npm install`
+4. Creates `.env` from `.env.example` and prompts for your bot token, chat ID, and language
+5. Creates IDE launcher scripts and desktop shortcuts
+6. Optionally installs PM2 for 24/7 operation
+
+> 💡 If you run the one-liner a second time on an existing installation, it will ask whether to upgrade to the latest version.
+
+#### Manual Setup Script (alternative)
+
+If you've already cloned the repo and just want to run the post-clone setup:
+
 ```bash
 # Linux & macOS
 bash scripts/install.sh

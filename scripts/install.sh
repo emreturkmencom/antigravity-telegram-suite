@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # ============================================================
-# Antigravity Bot — Setup Script (Linux & macOS)
+# Antigravity Bot — One-Line Bootstrap Installer (Linux/macOS/WSL)
+# ============================================================
+# Usage: curl -fsSL https://raw.githubusercontent.com/emreturkmencom/antigravity-telegram-suite/main/scripts/install.sh | bash
 # ============================================================
 set -e
 
@@ -11,33 +13,50 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-OS="$(uname -s)"
+REPO_URL="https://github.com/emreturkmencom/antigravity-telegram-suite"
+PROJECT_NAME="antigravity-telegram-suite"
 
 print_header() {
-    echo -e "\n${BLUE}${BOLD}══════════════════════════════════════${NC}"
-    echo -e "${BLUE}${BOLD}  🚀 Antigravity Bot Setup${NC}"
-    echo -e "${BLUE}${BOLD}══════════════════════════════════════${NC}\n"
+    echo -e "\n${BLUE}${BOLD}═══════════════════════════════════════════════════════${NC}"
+    echo -e "${BLUE}${BOLD}  Antigravity Bot — One-Line Install${NC}"
+    echo -e "${BLUE}${BOLD}═══════════════════════════════════════════════════════${NC}\n"
 }
 
 print_step() {
     echo -e "${GREEN}[✓]${NC} $1"
 }
-
 print_warn() {
     echo -e "${YELLOW}[!]${NC} $1"
 }
-
 print_error() {
     echo -e "${RED}[✗]${NC} $1"
 }
 
+# ---- Determine install location ----
+INSTALL_DIR=""
+if [ -n "$1" ]; then
+    INSTALL_DIR="$1"
+elif [ -n "${AG_INSTALL_DIR}" ]; then
+    INSTALL_DIR="${AG_INSTALL_DIR}"
+fi
+
+if [ -z "$INSTALL_DIR" ]; then
+    # Default: ~/antigravity-telegram-suite, or if already inside a clone, stay there
+    if [ -f "package.json" ] && [ -d ".git" ]; then
+        INSTALL_DIR="$(pwd)"
+        print_warn "Already inside a $PROJECT_NAME clone — reinstalling in place."
+    else
+        INSTALL_DIR="$HOME/$PROJECT_NAME"
+    fi
+fi
+
 # ---- Check Node.js ----
 check_node() {
     if command -v node &>/dev/null; then
-        local version=$(node -v | sed 's/v//')
-        local major=$(echo "$version" | cut -d. -f1)
+        local version
+        version=$(node -v | sed 's/v//')
+        local major
+        major=$(echo "$version" | cut -d. -f1)
         if [ "$major" -ge 18 ]; then
             print_step "Node.js v${version} found"
             return 0
@@ -67,9 +86,33 @@ check_node() {
     fi
 }
 
+# ---- Clone or update repo ----
+clone_or_update() {
+    if [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/package.json" ]; then
+        print_step "Existing installation found at $INSTALL_DIR"
+        echo ""
+        read -rp "Upgrade to latest version? [y/N]: " upgrade
+        if [[ "$upgrade" =~ ^[Yy]$ ]]; then
+            cd "$INSTALL_DIR"
+            print_step "Pulling latest changes..."
+            git pull --ff-only origin main || {
+                print_warn "Fast-forward pull failed — pulling with merge..."
+                git pull origin main
+            }
+        else
+            print_step "Keeping current version."
+            cd "$INSTALL_DIR"
+        fi
+    else
+        print_step "Cloning $PROJECT_NAME..."
+        mkdir -p "$INSTALL_DIR"
+        git clone "$REPO_URL" "$INSTALL_DIR"
+        cd "$INSTALL_DIR"
+    fi
+}
+
 # ---- Install npm dependencies ----
 install_deps() {
-    cd "$PROJECT_DIR"
     if [ ! -d "node_modules" ]; then
         echo "Installing npm dependencies..."
         npm install
@@ -80,31 +123,31 @@ install_deps() {
 
 # ---- Configure .env ----
 setup_env() {
-    if [ -f "$PROJECT_DIR/.env" ]; then
+    if [ -f ".env" ]; then
         print_step ".env file already exists"
         return
     fi
 
-    cp "$PROJECT_DIR/.env.example" "$PROJECT_DIR/.env"
+    cp .env.example .env
     echo ""
     echo -e "${BOLD}Configure your bot:${NC}"
-    
+
     read -rp "  Telegram Bot Token (from @BotFather): " bot_token
     if [ -n "$bot_token" ]; then
-        sed -i.bak "s/your_bot_token_here/$bot_token/" "$PROJECT_DIR/.env"
-        rm -f "$PROJECT_DIR/.env.bak"
+        sed -i.bak "s/your_bot_token_here/$bot_token/" .env
+        rm -f .env.bak
     fi
 
     read -rp "  Your Telegram Chat ID (optional, press Enter to skip): " chat_id
     if [ -n "$chat_id" ]; then
-        sed -i.bak "s/^ALLOWED_CHAT_ID=$/ALLOWED_CHAT_ID=$chat_id/" "$PROJECT_DIR/.env"
-        rm -f "$PROJECT_DIR/.env.bak"
+        sed -i.bak "s/^ALLOWED_CHAT_ID=$/ALLOWED_CHAT_ID=$chat_id/" .env
+        rm -f .env.bak
     fi
 
     read -rp "  Language [en/tr] (default: en): " user_lang
     if [ -n "$user_lang" ]; then
-        sed -i.bak "s/^LANGUAGE=en$/LANGUAGE=$user_lang/" "$PROJECT_DIR/.env"
-        rm -f "$PROJECT_DIR/.env.bak"
+        sed -i.bak "s/^LANGUAGE=en$/LANGUAGE=$user_lang/" .env
+        rm -f .env.bak
     fi
 
     print_step ".env configured"
@@ -118,7 +161,6 @@ setup_pm2() {
         if ! command -v pm2 &>/dev/null; then
             npm install -g pm2
         fi
-        cd "$PROJECT_DIR"
         pm2 start src/index.js --name antigravity-bot
         pm2 save
         pm2 startup 2>/dev/null || true
@@ -132,9 +174,10 @@ setup_pm2() {
 setup_launcher() {
     local launcher_dir="$HOME/.local/bin"
     local launcher_path="$launcher_dir/antigravity-launcher.sh"
+    local os_name
+    os_name="$(uname -s)"
 
-    if [ "$OS" = "Darwin" ]; then
-        # macOS launcher
+    if [ "$os_name" = "Darwin" ]; then
         mkdir -p "$launcher_dir"
         cat > "$launcher_path" << 'LAUNCHER_EOF'
 #!/bin/bash
@@ -158,7 +201,7 @@ LAUNCHER_EOF
         chmod +x "$launcher_path"
         print_step "macOS launcher created at $launcher_path"
 
-    elif [ "$OS" = "Linux" ]; then
+    elif [ "$os_name" = "Linux" ]; then
         if [ ! -f "$launcher_path" ]; then
             mkdir -p "$launcher_dir"
             cat > "$launcher_path" << 'LAUNCHER_EOF'
@@ -201,7 +244,7 @@ LAUNCHER_EOF
 [Desktop Entry]
 Name=Antigravity Bot
 Comment=Telegram bot for remote IDE control
-Exec=bash -c "cd $PROJECT_DIR && npm start"
+Exec=bash -c "cd $INSTALL_DIR && npm start"
 Icon=utilities-terminal
 Terminal=true
 Type=Application
@@ -213,9 +256,11 @@ EOF
 
 # ---- Main ----
 print_header
-echo -e "Platform: ${BOLD}${OS}${NC}\n"
 
 check_node
+
+clone_or_update
+
 install_deps
 setup_env
 setup_launcher
@@ -226,9 +271,10 @@ echo -e "${GREEN}${BOLD}══════════════════�
 echo -e "${GREEN}${BOLD}  ✅ Setup Complete!${NC}"
 echo -e "${GREEN}${BOLD}══════════════════════════════════════${NC}"
 echo ""
+echo "Project location: $INSTALL_DIR"
+echo ""
 echo "Quick start:"
-echo "  npm start          # Run the bot"
-echo "  pm2 start src/index.js --name antigravity-bot  # Run with PM2"
+echo "  cd $INSTALL_DIR && npm start"
 echo ""
 echo "Make sure Antigravity IDE is launched with:"
 echo "  antigravity --remote-debugging-port=9333"
