@@ -7,7 +7,10 @@ const http = require('http');
 const https = require('https');
 const { exec } = require('child_process');
 const { loadLocale, t, getLang } = require('./i18n');
-const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, getLastWorkspace, trustWorkspaceViaCDP, PLATFORM } = require('./platform');
+const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, getLastWorkspace, trustWorkspaceViaCDP, initCaffeinate, startCaffeinate, stopCaffeinate, isCaffeinateActive, getCaffeinatePid, PLATFORM } = require('./platform');
+
+// Initialize sleep prevention on macOS if enabled in .env
+initCaffeinate();
 const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, clickArtifactButton, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getPreferredTargetId, getCachedWindows, closeWindow, closeAllEditors, listAgentThreads, switchAgentThread, getActiveThreadId, getActiveThreadInfo, setActiveWorkspace, switchStandaloneWorkspace, getLastResolvedThreadId, setLastResolvedThreadId, setOnThreadResolved } = require('./cdp_controller');
 const autoaccept = require('./autoaccept');
 const updater = require('./updater');
@@ -1029,6 +1032,11 @@ const handleStatus = async (ctx) => {
     }
 
     msg += '\n🛡️ <b>Auto-Accept:</b> ' + (autoaccept.isEnabled ? t('status.autoaccept_on') : t('status.autoaccept_off')) + '\n';
+    if (PLATFORM === 'darwin') {
+        const isCaff = isCaffeinateActive();
+        const pid = getCaffeinatePid();
+        msg += '☕ <b>Caffeinate:</b> ' + (isCaff ? t('status.caffeinate_on', { pid: pid || process.pid }) : t('status.caffeinate_off')) + '\n';
+    }
 
     ctx.reply(msg, { parse_mode: 'HTML' });
 };
@@ -2272,6 +2280,112 @@ bot.action('telegraph_status', async (ctx) => {
         ];
         await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } }).catch(() => {});
     } catch (e) {}
+});
+
+const handleCaffeinate = async (ctx) => {
+    try {
+        if (PLATFORM !== 'darwin') {
+            return ctx.reply(t('caffeinate.macos_only'));
+        }
+        const text = (ctx.message?.text || '').trim();
+        const parts = text.split(/\s+/);
+        if (parts.length > 1) {
+            const arg = parts[1].toLowerCase();
+            if (arg === 'on' || arg === 'enable' || arg === '1' || arg === 'true') {
+                process.env.ENABLE_CAFFEINATE = 'true';
+                startCaffeinate();
+                return ctx.reply(t('caffeinate.activated', { pid: getCaffeinatePid() || process.pid }));
+            } else if (arg === 'off' || arg === 'disable' || arg === '0' || arg === 'false') {
+                process.env.ENABLE_CAFFEINATE = 'false';
+                stopCaffeinate();
+                return ctx.reply(t('caffeinate.deactivated'));
+            }
+        }
+
+        const isActive = isCaffeinateActive();
+        const pid = getCaffeinatePid();
+        const stateStr = isActive ? t('caffeinate.state_on', { pid: pid || process.pid }) : t('caffeinate.state_off');
+        const msg = t('caffeinate.status', { state: stateStr });
+        const buttons = [
+            [
+                {
+                    text: isActive ? t('caffeinate.btn_turn_off') : t('caffeinate.btn_turn_on'),
+                    callback_data: 'caffeinate_toggle'
+                }
+            ],
+            [
+                { text: '🔄 ' + (t('menu.btn_status') || 'Status'), callback_data: 'caffeinate_status' }
+            ]
+        ];
+        return ctx.reply(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } });
+    } catch (e) {
+        ctx.reply('❌ Error: ' + e.message);
+    }
+};
+
+bot.command('caffeinate', handleCaffeinate);
+
+bot.action('caffeinate_toggle', async (ctx) => {
+    try {
+        if (PLATFORM !== 'darwin') {
+            return ctx.answerCbQuery(t('caffeinate.macos_only'));
+        }
+        const currentlyActive = isCaffeinateActive();
+        if (currentlyActive) {
+            process.env.ENABLE_CAFFEINATE = 'false';
+            stopCaffeinate();
+            await ctx.answerCbQuery(t('caffeinate.deactivated_cb'));
+        } else {
+            process.env.ENABLE_CAFFEINATE = 'true';
+            startCaffeinate();
+            await ctx.answerCbQuery(t('caffeinate.activated_cb'));
+        }
+        const isActive = isCaffeinateActive();
+        const pid = getCaffeinatePid();
+        const stateStr = isActive ? t('caffeinate.state_on', { pid: pid || process.pid }) : t('caffeinate.state_off');
+        const msg = t('caffeinate.status', { state: stateStr });
+        const buttons = [
+            [
+                {
+                    text: isActive ? t('caffeinate.btn_turn_off') : t('caffeinate.btn_turn_on'),
+                    callback_data: 'caffeinate_toggle'
+                }
+            ],
+            [
+                { text: '🔄 ' + (t('menu.btn_status') || 'Status'), callback_data: 'caffeinate_status' }
+            ]
+        ];
+        await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } }).catch(() => {});
+    } catch (e) {
+        ctx.reply('❌ Error toggling Caffeinate: ' + e.message);
+    }
+});
+
+bot.action('caffeinate_status', async (ctx) => {
+    try {
+        if (PLATFORM !== 'darwin') {
+            return ctx.answerCbQuery(t('caffeinate.macos_only'));
+        }
+        const isActive = isCaffeinateActive();
+        const pid = getCaffeinatePid();
+        const stateStr = isActive ? t('caffeinate.state_on', { pid: pid || process.pid }) : t('caffeinate.state_off');
+        const msg = t('caffeinate.status', { state: stateStr });
+        const buttons = [
+            [
+                {
+                    text: isActive ? t('caffeinate.btn_turn_off') : t('caffeinate.btn_turn_on'),
+                    callback_data: 'caffeinate_toggle'
+                }
+            ],
+            [
+                { text: '🔄 ' + (t('menu.btn_status') || 'Status'), callback_data: 'caffeinate_status' }
+            ]
+        ];
+        await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } }).catch(() => {});
+        await ctx.answerCbQuery();
+    } catch (e) {
+        ctx.reply('❌ Error: ' + e.message);
+    }
 });
 
 const handleArtifacts = async (ctx) => {
@@ -4263,7 +4377,8 @@ function getMenuCommands() {
         { command: 'getwalk', description: t('menu.getwalk_desc') || 'Get the latest Walkthrough' },
         { command: 'watcher', description: t('menu.watcher_desc') || 'Toggle background Task Watcher' },
         { command: 'telegraph', description: t('menu.telegraph_desc') || 'Toggle Telegraph artifact uploads' },
-        { command: 'cleartelegraph', description: t('menu.cleartelegraph_desc') || 'Wipe published Telegraph pages' }
+        { command: 'cleartelegraph', description: t('menu.cleartelegraph_desc') || 'Wipe published Telegraph pages' },
+        { command: 'caffeinate', description: t('menu.caffeinate_desc') || 'Toggle macOS sleep prevention' }
     ];
 
     return cmds.sort((a, b) => a.command.localeCompare(b.command));

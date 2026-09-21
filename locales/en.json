@@ -65,7 +65,9 @@
     "agent_working": "🔄 Working (Busy)",
     "agent_idle": "💤 Idle",
     "report_title": "📊 <b>Antigravity Bot Status Report</b>\n\n",
-    "preferred_app_status": "🎯 <b>Preferred App:</b> <code>{app}</code>\n\n"
+    "preferred_app_status": "🎯 <b>Preferred App:</b> <code>{app}</code>\n\n",
+    "caffeinate_on": "🟢 ACTIVE (PID: {pid})",
+    "caffeinate_off": "❌ OFF"
   },
   "latest": {
     "title": "📝 Latest Response:\n\n",
@@ -193,7 +195,8 @@
     "watcher_desc": "Toggle background Task Watcher",
     "telegraph_desc": "Toggle Telegraph artifact uploads",
     "cleartelegraph_desc": "Wipe published Telegraph pages",
-    "force_update_desc": "Force update (overwrites local changes)"
+    "force_update_desc": "Force update (overwrites local changes)",
+    "caffeinate_desc": "Toggle macOS sleep prevention"
   },
   "telegraph": {
     "enabled": "🌐 <b>Telegraph Publishing:</b> ENABLED\n\nArtifacts will be published to Telegraph/graph.org with unguessable URLs.",
@@ -562,5 +565,19 @@
     "close_btn": "❌ Close",
     "back_btn": "⬅️ All Categories",
     "refresh_btn": "🔄 Refresh"
+  },
+  "caffeinate": {
+    "enabled": "☕ <b>macOS Sleep Prevention:</b> ENABLED (PID: {pid})\n\nYour Mac will stay awake while the bot is running.",
+    "disabled": "💤 <b>macOS Sleep Prevention:</b> DISABLED\n\nMac will use system power and sleep settings.",
+    "status": "☕ <b>macOS Sleep Prevention (Caffeinate):</b>\n\n• State: <b>{state}</b>\n\n<i>When active, your Mac will stay awake while the bot process is running.</i>",
+    "state_on": "🟢 ACTIVE (PID: {pid})",
+    "state_off": "❌ OFF",
+    "btn_turn_on": "☕ Turn ON",
+    "btn_turn_off": "💤 Turn OFF",
+    "macos_only": "⚠️ Caffeinate (sleep prevention) is only supported on macOS.",
+    "activated": "☕ Sleep prevention (Caffeinate) activated (PID: {pid}). Your Mac will not sleep while the bot is running.",
+    "deactivated": "💤 Sleep prevention (Caffeinate) deactivated.",
+    "activated_cb": "Caffeinate Activated",
+    "deactivated_cb": "Caffeinate Deactivated"
   }
 }

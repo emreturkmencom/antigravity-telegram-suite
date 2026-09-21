@@ -1,7 +1,9 @@
-'use strict';
-
 const assert = require('assert');
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+if (!process.env.GOOGLE_CLIENT_ID) process.env.GOOGLE_CLIENT_ID = 'test-client-id';
+if (!process.env.GOOGLE_CLIENT_SECRET) process.env.GOOGLE_CLIENT_SECRET = 'test-client-secret';
+
 const accountManager = require('../src/account_manager');
 
 console.log('🧪 Testing OAuth scope configuration...');

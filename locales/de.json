@@ -65,7 +65,9 @@
     "agent_working": "🔄 Arbeitet (Beschäftigt)",
     "agent_idle": "💤 Im Leerlauf",
     "report_title": "📊 <b>Antigravity Bot Statusbericht</b>\n\n",
-    "preferred_app_status": "🎯 <b>Bevorzugte App:</b> <code>{app}</code>\n\n"
+    "preferred_app_status": "🎯 <b>Bevorzugte App:</b> <code>{app}</code>\n\n",
+    "caffeinate_on": "🟢 AKTIV (PID: {pid})",
+    "caffeinate_off": "❌ AUS"
   },
   "latest": {
     "title": "📝 Letzte Antwort:\n\n",
@@ -193,7 +195,8 @@
     "watcher_desc": "Hintergrund-Task-Watcher umschalten",
     "telegraph_desc": "Telegraph-Uploads umschalten",
     "cleartelegraph_desc": "Veröffentlichte Telegraph-Seiten löschen",
-    "force_update_desc": "Update erzwingen (lokale Änderungen überschreiben)"
+    "force_update_desc": "Update erzwingen (lokale Änderungen überschreiben)",
+    "caffeinate_desc": "macOS-Ruhezustandsverhinderung umschalten"
   },
   "telegraph": {
     "enabled": "🌐 <b>Telegraph-Veröffentlichung:</b> AKTIVIERT\n\nArtefakte werden auf Telegraph/graph.org mit unerratbaren URLs veröffentlicht.",
@@ -562,5 +565,19 @@
     "close_btn": "❌ Schließen",
     "back_btn": "⬅️ Alle Kategorien",
     "refresh_btn": "🔄 Aktualisieren"
+  },
+  "caffeinate": {
+    "enabled": "☕ <b>macOS Ruhezustandsverhinderung:</b> AKTIVIERT (PID: {pid})\n\nIhr Mac bleibt wach, solange der Bot läuft.",
+    "disabled": "💤 <b>macOS Ruhezustandsverhinderung:</b> DEAKTIVIERT\n\nMac verwendet standardmäßige Energieeinstellungen.",
+    "status": "☕ <b>macOS Ruhezustandsverhinderung (Caffeinate):</b>\n\n• Status: <b>{state}</b>\n\n<i>Wenn aktiv, bleibt Ihr Mac wach, während der Bot-Prozess läuft.</i>",
+    "state_on": "🟢 AKTIV (PID: {pid})",
+    "state_off": "❌ AUS",
+    "btn_turn_on": "☕ Einschalten",
+    "btn_turn_off": "💤 Ausschalten",
+    "macos_only": "⚠️ Caffeinate (Ruhezustandsverhinderung) wird nur unter macOS unterstützt.",
+    "activated": "☕ Ruhezustandsverhinderung (Caffeinate) aktiviert (PID: {pid}). Ihr Mac bleibt wach, solange der Bot läuft.",
+    "deactivated": "💤 Ruhezustandsverhinderung (Caffeinate) deaktiviert.",
+    "activated_cb": "Caffeinate Aktiviert",
+    "deactivated_cb": "Caffeinate Deaktiviert"
   }
 }

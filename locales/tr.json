@@ -65,7 +65,9 @@
     "agent_working": "🔄 Çalışıyor (Meşgul)",
     "agent_idle": "💤 Beklemede (Idle)",
     "report_title": "📊 <b>Antigravity Bot Durum Raporu</b>\n\n",
-    "preferred_app_status": "🎯 <b>Tercih Edilen Uygulama:</b> <code>{app}</code>\n\n"
+    "preferred_app_status": "🎯 <b>Tercih Edilen Uygulama:</b> <code>{app}</code>\n\n",
+    "caffeinate_on": "🟢 AKTİF (PID: {pid})",
+    "caffeinate_off": "❌ KAPALI"
   },
   "latest": {
     "title": "📝 Son Yanıt:\n\n",
@@ -193,7 +195,8 @@
     "watcher_desc": "Arka plan Task Watcher'ı aç/kapat",
     "telegraph_desc": "Telegraph yüklemelerini aç/kapat",
     "cleartelegraph_desc": "Yayınlanan Telegraph sayfalarını temizle",
-    "force_update_desc": "Zorla güncelle (yerel değişiklikleri sıfırlar)"
+    "force_update_desc": "Zorla güncelle (yerel değişiklikleri sıfırlar)",
+    "caffeinate_desc": "macOS uyku önlemeyi (caffeinate) aç/kapat"
   },
   "telegraph": {
     "enabled": "🌐 <b>Telegraph Yayını:</b> AKTİF\n\nArtefaktlar tahmin edilemez URL'ler ile Telegraph/graph.org üzerinde yayınlanacak.",
@@ -562,5 +565,19 @@
     "close_btn": "❌ Kapat",
     "back_btn": "⬅️ Tüm Kategoriler",
     "refresh_btn": "🔄 Yenile"
+  },
+  "caffeinate": {
+    "enabled": "☕ <b>macOS Uyku Önleme:</b> AKTİF (PID: {pid})\n\nBot çalıştığı sürece Mac'iniz uykuya geçmeyecektir.",
+    "disabled": "💤 <b>macOS Uyku Önleme:</b> KAPALI\n\nMac sistem güç ve uyku ayarlarını kullanacaktır.",
+    "status": "☕ <b>macOS Uyku Önleme (Caffeinate):</b>\n\n• Durum: <b>{state}</b>\n\n<i>Aktif olduğunda, bot süreci çalıştığı sürece Mac'inizin uykuya geçmesi engellenir.</i>",
+    "state_on": "🟢 AKTİF (PID: {pid})",
+    "state_off": "❌ KAPALI",
+    "btn_turn_on": "☕ Aç",
+    "btn_turn_off": "💤 Kapat",
+    "macos_only": "⚠️ Caffeinate (uyku önleme) yalnızca macOS sistemlerde desteklenmektedir.",
+    "activated": "☕ Uyku önleme (Caffeinate) aktifleştirildi (PID: {pid}). Bot çalıştığı sürece Mac uykuya geçmeyecektir.",
+    "deactivated": "💤 Uyku önleme (Caffeinate) kapatıldı.",
+    "activated_cb": "Caffeinate Aktifleştirildi",
+    "deactivated_cb": "Caffeinate Kapatıldı"
   }
 }

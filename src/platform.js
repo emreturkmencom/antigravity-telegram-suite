@@ -704,6 +704,108 @@ function trustWorkspaceViaCDP(port = 9333, maxAttempts = 15) {
     });
 }
 
+let caffeinateProcess = null;
+
+/**
+ * Start caffeinate child process to prevent macOS from sleeping.
+ * @returns {boolean} true if started or already active
+ */
+function startCaffeinate() {
+    if (PLATFORM !== 'darwin') {
+        console.log('[platform] Sleep prevention (caffeinate) is only supported on macOS.');
+        return false;
+    }
+    if (caffeinateProcess && !caffeinateProcess.killed) {
+        return true;
+    }
+    try {
+        const { spawn } = require('child_process');
+        // Flags:
+        // -d: Create an assertion to prevent the display from sleeping.
+        // -i: Create an assertion to prevent the system from idle sleeping.
+        // -m: Create an assertion to prevent the disk from idle sleeping.
+        // -s: Create an assertion to prevent the system from sleeping (AC power).
+        // -u: Create an assertion to declare user activity.
+        // -w <pid>: Automatically terminate caffeinate when this process exits.
+        caffeinateProcess = spawn('/usr/bin/caffeinate', ['-dimsu', '-w', String(process.pid)], {
+            stdio: 'ignore',
+            detached: false
+        });
+
+        caffeinateProcess.on('error', (err) => {
+            console.warn('[platform] caffeinate spawn error:', err.message);
+            caffeinateProcess = null;
+        });
+
+        caffeinateProcess.on('exit', (code, signal) => {
+            if (code !== 0 && signal !== 'SIGTERM' && signal !== 'SIGKILL') {
+                console.log(`[platform] caffeinate exited (code: ${code}, signal: ${signal})`);
+            }
+            caffeinateProcess = null;
+        });
+
+        console.log(`[platform] ☕ macOS sleep prevention (caffeinate) activated (PID: ${caffeinateProcess.pid}, Target PID: ${process.pid})`);
+        return true;
+    } catch (err) {
+        console.warn('[platform] Failed to start caffeinate:', err.message);
+        caffeinateProcess = null;
+        return false;
+    }
+}
+
+/**
+ * Stop caffeinate process if running.
+ * @returns {boolean} true if stopped
+ */
+function stopCaffeinate() {
+    if (caffeinateProcess) {
+        try {
+            caffeinateProcess.kill('SIGTERM');
+        } catch (_) {}
+        caffeinateProcess = null;
+        console.log('[platform] ☕ macOS sleep prevention (caffeinate) stopped');
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Check if caffeinate is active.
+ * @returns {boolean}
+ */
+function isCaffeinateActive() {
+    return !!(caffeinateProcess && !caffeinateProcess.killed);
+}
+
+/**
+ * Get caffeinate child process PID.
+ * @returns {number|null}
+ */
+function getCaffeinatePid() {
+    return (caffeinateProcess && !caffeinateProcess.killed) ? caffeinateProcess.pid : null;
+}
+
+/**
+ * Initialize caffeinate based on .env config.
+ * Checks ENABLE_CAFFEINATE, KEEP_AWAKE, or PREVENT_SLEEP.
+ * @returns {boolean}
+ */
+function initCaffeinate() {
+    const enabled = (process.env.ENABLE_CAFFEINATE === 'true' || process.env.KEEP_AWAKE === 'true' || process.env.PREVENT_SLEEP === 'true');
+    if (enabled && PLATFORM === 'darwin') {
+        return startCaffeinate();
+    }
+    return false;
+}
+
+// Clean up caffeinate on process exit
+const cleanupCaffeinate = () => {
+    stopCaffeinate();
+};
+process.on('exit', cleanupCaffeinate);
+process.on('SIGINT', cleanupCaffeinate);
+process.on('SIGTERM', cleanupCaffeinate);
+
 module.exports = {
     config,
     getAppBinary,
@@ -715,5 +817,10 @@ module.exports = {
     launchIDE,
     getLastWorkspace,
     trustWorkspaceViaCDP,
+    startCaffeinate,
+    stopCaffeinate,
+    isCaffeinateActive,
+    getCaffeinatePid,
+    initCaffeinate,
     PLATFORM
 };

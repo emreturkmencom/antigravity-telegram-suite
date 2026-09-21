@@ -65,7 +65,9 @@
     "agent_working": "🔄 Trabajando (Ocupado)",
     "agent_idle": "💤 Inactivo",
     "report_title": "📊 <b>Reporte de Estado del Bot Antigravity</b>\n\n",
-    "preferred_app_status": "🎯 <b>App Preferida:</b> <code>{app}</code>\n\n"
+    "preferred_app_status": "🎯 <b>App Preferida:</b> <code>{app}</code>\n\n",
+    "caffeinate_on": "🟢 ACTIVO (PID: {pid})",
+    "caffeinate_off": "❌ DESACTIVADO"
   },
   "latest": {
     "title": "📝 Última Respuesta:\n\n",
@@ -193,7 +195,8 @@
     "watcher_desc": "Alternar observador de tareas en segundo plano",
     "telegraph_desc": "Alternar subidas a Telegraph",
     "cleartelegraph_desc": "Borrar páginas publicadas en Telegraph",
-    "force_update_desc": "Forzar actualización (sobrescribe cambios locales)"
+    "force_update_desc": "Forzar actualización (sobrescribe cambios locales)",
+    "caffeinate_desc": "Alternar prevención de reposo en macOS"
   },
   "telegraph": {
     "enabled": "🌐 <b>Publicación en Telegraph:</b> HABILITADA\n\nLos artefactos se publicarán en Telegraph/graph.org con URLs indescifrables.",
@@ -562,5 +565,19 @@
     "close_btn": "❌ Cerrar",
     "back_btn": "⬅️ Todas las Categorías",
     "refresh_btn": "🔄 Actualizar"
+  },
+  "caffeinate": {
+    "enabled": "☕ <b>Prevención de reposo macOS:</b> ACTIVADA (PID: {pid})\n\nTu Mac no entrará en reposo mientras el bot esté ejecutándose.",
+    "disabled": "💤 <b>Prevención de reposo macOS:</b> DESACTIVADA\n\nMac usará la configuración de energía habitual.",
+    "status": "☕ <b>Prevención de reposo macOS (Caffeinate):</b>\n\n• Estado: <b>{state}</b>\n\n<i>Cuando está activo, tu Mac permanecerá despierto mientras se ejecute el proceso del bot.</i>",
+    "state_on": "🟢 ACTIVO (PID: {pid})",
+    "state_off": "❌ DESACTIVADO",
+    "btn_turn_on": "☕ Activar",
+    "btn_turn_off": "💤 Desactivar",
+    "macos_only": "⚠️ Caffeinate (prevención de reposo) solo es compatible con macOS.",
+    "activated": "☕ Prevención de reposo (Caffeinate) activada (PID: {pid}). Tu Mac no entrará en reposo mientras el bot esté en ejecución.",
+    "deactivated": "💤 Prevención de reposo (Caffeinate) desactivada.",
+    "activated_cb": "Caffeinate Activado",
+    "deactivated_cb": "Caffeinate Desactivado"
   }
 }

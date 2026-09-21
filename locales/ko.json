@@ -222,7 +222,8 @@
     "watcher_desc": "백그라운드 작업 모니터 전환",
     "telegraph_desc": "Telegraph 아티팩트 업로드 전환",
     "cleartelegraph_desc": "게시된 Telegraph 페이지 삭제",
-    "force_update_desc": "강제 업데이트 (로컬 변경사항 덮어쓰기)"
+    "force_update_desc": "강제 업데이트 (로컬 변경사항 덮어쓰기)",
+    "caffeinate_desc": "macOS 절전 방지 기능 켜기/끄기"
   },
   "telegraph": {
     "enabled": "🌐 <b>Telegraph 게시:</b> 활성화됨\n\n아티팩트가 추측 불가능한 URL과 함께 Telegraph/graph.org에 게시됩니다.",
@@ -394,7 +395,9 @@
     "standalone_running": "🤖 <b>Antigravity Standalone:</b> {status}\n",
     "stopped_status": "🔴 닫힘",
     "telegram_bot": "🤖 <b>Telegram Bot:</b> 🟢 활성\n",
-    "title": "📊 <b>시스템 상태:</b>\n"
+    "title": "📊 <b>시스템 상태:</b>\n",
+    "caffeinate_on": "🟢 활성화됨 (PID: {pid})",
+    "caffeinate_off": "❌ 비활성화됨"
   },
   "stop": {
     "already_stopped": "ℹ️ 에이전트가 이미 중지되었거나 중지 버튼을 찾을 수 없습니다.",
@@ -562,5 +565,19 @@
     "close_btn": "❌ 닫기",
     "back_btn": "⬅️ 모든 카테고리",
     "refresh_btn": "🔄 새로고침"
+  },
+  "caffeinate": {
+    "enabled": "☕ <b>macOS 절전 방지:</b> 활성화됨 (PID: {pid})\n\n봇이 실행되는 동안 Mac이 절전 모드로 들어가지 않습니다.",
+    "disabled": "💤 <b>macOS 절전 방지:</b> 비활성화됨\n\nMac이 시스템 기본 절전 설정을 따릅니다.",
+    "status": "☕ <b>macOS 절전 방지 (Caffeinate):</b>\n\n• 상태: <b>{state}</b>\n\n<i>활성화되면 봇 프로세스가 실행 중인 동안 Mac이 절전 모드로 들어가지 않습니다.</i>",
+    "state_on": "🟢 활성화됨 (PID: {pid})",
+    "state_off": "❌ 비활성화됨",
+    "btn_turn_on": "☕ 켜기",
+    "btn_turn_off": "💤 끄기",
+    "macos_only": "⚠️ Caffeinate (절전 방지) 기능은 macOS에서만 지원됩니다.",
+    "activated": "☕ 절전 방지 (Caffeinate) 기능이 활성화되었습니다 (PID: {pid}). 봇이 실행되는 동안 Mac이 절전 모드로 들어가지 않습니다.",
+    "deactivated": "💤 절전 방지 (Caffeinate) 기능이 비활성화되었습니다.",
+    "activated_cb": "Caffeinate 활성화됨",
+    "deactivated_cb": "Caffeinate 비활성화됨"
   }
 }

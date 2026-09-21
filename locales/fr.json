@@ -65,7 +65,9 @@
     "agent_working": "🔄 En cours (Occupé)",
     "agent_idle": "💤 En attente",
     "report_title": "📊 <b>Rapport de statut du Bot Antigravity</b>\n\n",
-    "preferred_app_status": "🎯 <b>Appli préférée :</b> <code>{app}</code>\n\n"
+    "preferred_app_status": "🎯 <b>Appli préférée :</b> <code>{app}</code>\n\n",
+    "caffeinate_on": "🟢 ACTIF (PID: {pid})",
+    "caffeinate_off": "❌ DÉSACTIVÉ"
   },
   "latest": {
     "title": "📝 Dernière Réponse :\n\n",
@@ -193,7 +195,8 @@
     "watcher_desc": "Activer/désactiver l'observateur de tâches",
     "telegraph_desc": "Basculer les téléversements Telegraph",
     "cleartelegraph_desc": "Effacer les pages Telegraph publiées",
-    "force_update_desc": "Forcer la mise à jour (écrase les modifications locales)"
+    "force_update_desc": "Forcer la mise à jour (écrase les modifications locales)",
+    "caffeinate_desc": "Basculer la prévention de veille macOS"
   },
   "telegraph": {
     "enabled": "🌐 <b>Publication Telegraph :</b> ACTIVÉE\n\nLes artefacts seront publiés sur Telegraph/graph.org avec des URL indéchiffrables.",
@@ -562,5 +565,19 @@
     "close_btn": "❌ Fermer",
     "back_btn": "⬅️ Toutes les Catégories",
     "refresh_btn": "🔄 Actualiser"
+  },
+  "caffeinate": {
+    "enabled": "☕ <b>Prévention de veille macOS :</b> ACTIVÉE (PID: {pid})\n\nVotre Mac ne se mettra pas en veille tant que le bot tourne.",
+    "disabled": "💤 <b>Prévention de veille macOS :</b> DÉSACTIVÉE\n\nMac utilise les paramètres d'alimentation du système.",
+    "status": "☕ <b>Prévention de mise en veille macOS (Caffeinate) :</b>\n\n• État : <b>{state}</b>\n\n<i>Lorsqu'il est actif, votre Mac ne se mettra pas en veille tant que le processus du bot est en cours d'exécution.</i>",
+    "state_on": "🟢 ACTIF (PID: {pid})",
+    "state_off": "❌ DÉSACTIVÉ",
+    "btn_turn_on": "☕ Activer",
+    "btn_turn_off": "💤 Désactiver",
+    "macos_only": "⚠️ Caffeinate (prévention de mise en veille) n'est pris en charge que sur macOS.",
+    "activated": "☕ Prévention de mise en veille (Caffeinate) activée (PID: {pid}). Votre Mac ne se mettra pas en veille tant que le bot tourne.",
+    "deactivated": "💤 Prévention de mise en veille (Caffeinate) désactivée.",
+    "activated_cb": "Caffeinate Activé",
+    "deactivated_cb": "Caffeinate Désactivé"
   }
 }

@@ -65,7 +65,9 @@
     "agent_working": "🔄 工作中（忙碌）",
     "agent_idle": "💤 空闲",
     "report_title": "📊 <b>Antigravity Bot 状态报告</b>\n\n",
-    "preferred_app_status": "🎯 <b>首选应用：</b><code>{app}</code>\n\n"
+    "preferred_app_status": "🎯 <b>首选应用：</b><code>{app}</code>\n\n",
+    "caffeinate_on": "🟢 已激活 (PID: {pid})",
+    "caffeinate_off": "❌ 已关闭"
   },
   "latest": {
     "title": "📝 最新回复：\n\n",
@@ -193,7 +195,8 @@
     "watcher_desc": "切换后台任务监控",
     "telegraph_desc": "切换 Telegraph 文物上传",
     "cleartelegraph_desc": "清空已发布的 Telegraph 页面",
-    "force_update_desc": "强制更新 (覆盖本地修改)"
+    "force_update_desc": "强制更新 (覆盖本地修改)",
+    "caffeinate_desc": "切换 macOS 防睡眠模式"
   },
   "telegraph": {
     "enabled": "🌐 <b>Telegraph 发布：</b>已启用\n\n产物将使用不可猜测的 URL 发布到 Telegraph/graph.org。",
@@ -562,5 +565,19 @@
     "close_btn": "❌ 关闭",
     "back_btn": "⬅️ 所有类别",
     "refresh_btn": "🔄 刷新"
+  },
+  "caffeinate": {
+    "enabled": "☕ <b>macOS 防睡眠模式：</b> 已激活 (PID: {pid})\n\nBot 运行期间您的 Mac 将保持唤醒状态。",
+    "disabled": "💤 <b>macOS 防睡眠模式：</b> 已关闭\n\nMac 将使用系统默认睡眠设置。",
+    "status": "☕ <b>macOS 防睡眠模式 (Caffeinate)：</b>\n\n• 状态：<b>{state}</b>\n\n<i>激活时，只要 Bot 进程在运行，您的 Mac 就不会进入睡眠。</i>",
+    "state_on": "🟢 已激活 (PID: {pid})",
+    "state_off": "❌ 已关闭",
+    "btn_turn_on": "☕ 开启",
+    "btn_turn_off": "💤 关闭",
+    "macos_only": "⚠️ Caffeinate（防睡眠功能）仅在 macOS 系统上受支持。",
+    "activated": "☕ 防睡眠功能 (Caffeinate) 已激活 (PID: {pid})。Bot 运行期间您的 Mac 将不会休眠。",
+    "deactivated": "💤 防睡眠功能 (Caffeinate) 已停用。",
+    "activated_cb": "Caffeinate 已激活",
+    "deactivated_cb": "Caffeinate 已停用"
   }
 }
