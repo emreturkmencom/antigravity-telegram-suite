@@ -123,7 +123,7 @@
     "select_prompt": "Lütfen geçiş yapmak istediğiniz çalışma alanını seçin:",
     "read_error": "❌ Projects dizini okunamadı.",
     "selected": "Workspace seçildi: {project}",
-    "not_found_standalone": "❌ Project '{wsName}' could not be found or opened in Standalone App."
+    "not_found_standalone": "❌ '{wsName}' projesi Standalone uygulamasında bulunamadı veya henüz açılmamış. Lütfen projeyi önce Standalone arayüzünden açın veya /app ile IDE moduna geçin."
   },
   "file": {
     "empty_dir": "📂 Bu dizin boş.",

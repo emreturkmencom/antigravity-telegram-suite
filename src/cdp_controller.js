@@ -2582,14 +2582,15 @@ async function getCurrentModel(port) {
     return lastKnownModel || null;
 }
 
-async function switchStandaloneWorkspace(port, wsName) {
+async function switchStandaloneWorkspace(port, wsName, wsPath = null) {
     if (!wsName) return false;
     const candidates = await resolveTargets(port, false);
     for (const target of candidates) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
-            const { Runtime } = client;
+            const { Runtime, Page } = client;
             await Runtime.enable();
+            await Page.enable();
             
             const rawTargetStr = JSON.stringify(wsName);
             const clickRes = await Runtime.evaluate({
@@ -2676,38 +2677,92 @@ async function switchStandaloneWorkspace(port, wsName) {
                         }
                     } catch (e) {}
 
-                    // Strategy 3: Create New Project if Not Found
-                    try {
-                        const createBtn = document.querySelector('button[aria-label="Create New Project"], [aria-label*="New Project" i]');
-                        if (createBtn) {
-                            createBtn.click();
-                            await new Promise(r => setTimeout(r, 300));
-                            const newProjOpt = Array.from(document.querySelectorAll('button, div[role="dialog"] button, [data-base-ui-focusable]'))
-                                .find(b => (b.textContent || '').trim().toLowerCase() === 'new project');
-                            if (newProjOpt) {
-                                newProjOpt.click();
-                                await new Promise(r => setTimeout(r, 400));
-                                return true;
-                            }
-                        }
-                    } catch (e) {}
-
                     return false;
                 })()`,
                 awaitPromise: true,
                 returnByValue: true
             });
             
-            await client.close();
             if (clickRes.result?.value) {
-                console.log(`[switchStandaloneWorkspace] Successfully switched/created workspace for: ${wsName}`);
+                await client.close();
+                console.log(`[switchStandaloneWorkspace] Successfully switched workspace for: ${wsName}`);
                 return true;
             }
+
+            // Strategy 3: URL Navigation via ?ws= (Registers/creates and opens new project in Standalone App)
+            const targetFolder = wsPath || (wsName.startsWith('/') ? wsName : null);
+            if (targetFolder) {
+                const evalRes = await Runtime.evaluate({ expression: "window.location.origin", returnByValue: true });
+                const origin = evalRes.result?.value;
+                if (origin) {
+                    const targetUrl = `${origin}/?ws=${encodeURIComponent(targetFolder)}`;
+                    console.log(`[switchStandaloneWorkspace] Registering/navigating project in Standalone App: ${targetUrl}`);
+                    await Page.navigate({ url: targetUrl });
+                    await new Promise(r => setTimeout(r, 1500));
+                    await client.close();
+                    return true;
+                }
+            }
+
+            await client.close();
         } catch (e) {
             console.debug(`[switchStandaloneWorkspace] Error focusing workspace ${wsName}: ${e.message}`);
         }
     }
     return false;
+}
+
+async function listStandaloneWorkspaces(port) {
+    const candidates = await resolveTargets(port, false);
+    for (const target of candidates) {
+        try {
+            const client = await CDP({ target: target.webSocketDebuggerUrl });
+            const { Runtime } = client;
+            await Runtime.enable();
+            const res = await Runtime.evaluate({
+                expression: `(async () => {
+                    const scrollEl = document.querySelector(".relative.w-full.h-full.overflow-y-auto.overscroll-none.px-2") ||
+                                     Array.from(document.querySelectorAll("*")).find(el => {
+                                         const s = window.getComputedStyle(el);
+                                         return (s.overflowY === "auto" || s.overflowY === "scroll") && el.scrollHeight > el.clientHeight;
+                                     });
+                    const totalHeight = scrollEl ? scrollEl.scrollHeight : 0;
+                    const step = 250;
+                    const origScroll = scrollEl ? scrollEl.scrollTop : 0;
+                    const allProjects = new Set();
+
+                    if (scrollEl) {
+                        scrollEl.scrollTop = 0;
+                        await new Promise(r => setTimeout(r, 60));
+                    }
+
+                    for (let pos = 0; pos <= totalHeight + step; pos += step) {
+                        if (scrollEl && pos > 0) {
+                            scrollEl.scrollTop = pos;
+                            await new Promise(r => setTimeout(r, 50));
+                        }
+                        const headers = Array.from(document.querySelectorAll("button")).filter(b => (b.className || "").includes("headerbtn"));
+                        headers.forEach(h => {
+                            const name = h.textContent.trim().replace(/\\s+\\d+$/, "");
+                            if (name && !allProjects.has(name)) {
+                                allProjects.add(name);
+                            }
+                        });
+                    }
+
+                    if (scrollEl) scrollEl.scrollTop = origScroll;
+                    return Array.from(allProjects);
+                })()`,
+                awaitPromise: true,
+                returnByValue: true
+            });
+            await client.close();
+            if (Array.isArray(res.result?.value) && res.result.value.length > 0) {
+                return res.result.value;
+            }
+        } catch (e) {}
+    }
+    return [];
 }
 
 /**
@@ -2838,6 +2893,7 @@ module.exports = {
     getActiveThreadInfo,
     setActiveWorkspace,
     switchStandaloneWorkspace,
+    listStandaloneWorkspaces,
     getLastResolvedThreadId, setLastResolvedThreadId,
     setOnThreadResolved
 };

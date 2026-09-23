@@ -123,7 +123,7 @@
     "select_prompt": "Please select the workspace you want to switch to:",
     "read_error": "❌ Could not read projects directory.",
     "selected": "Workspace selected: {project}",
-    "not_found_standalone": "❌ Project '{wsName}' could not be found or opened in Standalone App."
+    "not_found_standalone": "❌ Project '{wsName}' was not found in Standalone App. Please open it in the Standalone UI first or switch to IDE mode with /app."
   },
   "file": {
     "empty_dir": "📂 This directory is empty.",

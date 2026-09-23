@@ -11,7 +11,7 @@ const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, getLastWorkspac
 
 // Initialize sleep prevention on macOS if enabled in .env
 initCaffeinate();
-const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, clickArtifactButton, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getPreferredTargetId, getCachedWindows, closeWindow, closeAllEditors, listAgentThreads, switchAgentThread, getActiveThreadId, getActiveThreadInfo, setActiveWorkspace, switchStandaloneWorkspace, getLastResolvedThreadId, setLastResolvedThreadId, setOnThreadResolved } = require('./cdp_controller');
+const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, clickArtifactButton, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getPreferredTargetId, getCachedWindows, closeWindow, closeAllEditors, listAgentThreads, switchAgentThread, getActiveThreadId, getActiveThreadInfo, setActiveWorkspace, switchStandaloneWorkspace, listStandaloneWorkspaces, getLastResolvedThreadId, setLastResolvedThreadId, setOnThreadResolved } = require('./cdp_controller');
 const autoaccept = require('./autoaccept');
 const updater = require('./updater');
 const { runTurboOrchestration } = require('./turbo_orchestrator');
@@ -3476,12 +3476,12 @@ async function doLaunchWorkspace(ctx, workspace) {
         const wsName = path.basename(workspace);
         
         // Standalone Agent 2.0 Hızlı Geçiş:
-        // Eğer 'agent' aktifse ve çalışıyorsa, sol menüdeki proje kartına tıklayarak 1 saniyede geçiş yapar!
+        // Eğer 'agent' aktifse ve çalışıyorsa, sol menüdeki proje kartına tıklayarak veya ?ws= URL ile projeyi açar/oluşturur!
         if (activeApp === 'agent') {
             const running = await isIDERunning('agent');
             if (running) {
                 try {
-                    const success = await switchStandaloneWorkspace(CDP_PORT, wsName);
+                    const success = await switchStandaloneWorkspace(CDP_PORT, wsName, workspace);
                     if (success) {
                         setActiveWorkspace(wsName);
                         setPreferredWindow(null);
@@ -3503,7 +3503,7 @@ async function doLaunchWorkspace(ctx, workspace) {
                 try {
                     await launchIDE(null, CDP_PORT, 'agent');
                     await new Promise(r => setTimeout(r, 4000));
-                    const success = await switchStandaloneWorkspace(CDP_PORT, wsName);
+                    const success = await switchStandaloneWorkspace(CDP_PORT, wsName, workspace);
                     if (success) {
                         setActiveWorkspace(wsName);
                         setPreferredWindow(null);
@@ -3523,62 +3523,9 @@ async function doLaunchWorkspace(ctx, workspace) {
                 }
             }
 
-            // Fallback: Directly launch the Standalone App pointing to the workspace folder
-            try {
-                await launchIDE(workspace, CDP_PORT, 'agent');
-                setActiveWorkspace(wsName);
-                
-                // Poll CDP until the Standalone App window is responsive (max 30 seconds)
-                let cdpReady = false;
-                for (let i = 0; i < 15; i++) {
-                    await new Promise(r => setTimeout(r, 2000));
-                    try {
-                        const http = require('http');
-                        const targets = await new Promise((resolve, reject) => {
-                            http.get(`http://127.0.0.1:${CDP_PORT}/json`, (res) => {
-                                let data = '';
-                                res.on('data', chunk => data += chunk);
-                                res.on('end', () => {
-                                    try { resolve(JSON.parse(data)); } catch(e) { reject(e); }
-                                });
-                            }).on('error', reject);
-                        });
-                        if (targets && targets.length > 0) {
-                            const targetWsName = wsName.toLowerCase();
-                            const foundNew = targets.some(t => t.title && t.title.toLowerCase().includes(targetWsName));
-                            if (foundNew) {
-                                cdpReady = true;
-                                break;
-                            }
-                        }
-                    } catch (_) {}
-                }
-                
-                if (cdpReady) {
-                    const successMsg = t('workspace.started', { workspace });
-                    if (switchingMsg && switchingMsg.message_id) {
-                        ctx.deleteMessage(switchingMsg.message_id).catch(()=>{});
-                    }
-                    setPreferredWindow(null);
-                    if (autoaccept.isEnabled) {
-                        autoaccept.enable(CDP_PORT).catch(() => {});
-                    }
-                    await triggerNewChat(CDP_PORT);
-                    await sendMainMenu(ctx, successMsg);
-                    return;
-                } else {
-                    const successMsg = (t('workspace.started', { workspace }) || '📁 Workspace switched successfully!') + (t('workspace.cdp_warning') || '\n⚠️ CDP not ready yet, but IDE was started.');
-                    if (switchingMsg && switchingMsg.message_id) {
-                        ctx.deleteMessage(switchingMsg.message_id).catch(()=>{});
-                    }
-                    setPreferredWindow(null);
-                    await sendMainMenu(ctx, successMsg);
-                    return;
-                }
-            } catch (fallbackErr) {
-                console.error('[doLaunchWorkspace] Standalone direct launch fallback failed:', fallbackErr);
+            if (switchingMsg && switchingMsg.message_id) {
+                ctx.deleteMessage(switchingMsg.message_id).catch(()=>{});
             }
-
             await sendMainMenu(ctx, t('workspace.not_found_standalone', { wsName }));
             return;
         }
@@ -3646,7 +3593,7 @@ async function doLaunchWorkspace(ctx, workspace) {
     }
 }
 
-const handleWorkspace = (ctx) => {
+const handleWorkspace = async (ctx) => {
     let workspace = '';
     if (ctx.message && ctx.message.text) {
         let text = ctx.message.text.trim();
@@ -3693,9 +3640,9 @@ bot.command('workspace', handleWorkspace);
 
 bot.action(/ws_(.+)/, (ctx) => {
     const project = ctx.match[1];
-    const wsPath = path.join(config.projectsDir, project);
+    const wsPath = project.startsWith('/') ? project : path.join(config.projectsDir, project);
     currentWorkspaceDir = wsPath;
-    ctx.answerCbQuery(t('workspace.selected', { project }));
+    ctx.answerCbQuery(t('workspace.selected', { project: path.basename(project) }));
     doLaunchWorkspace(ctx, wsPath);
 });
 
