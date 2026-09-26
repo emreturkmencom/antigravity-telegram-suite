@@ -1,18 +1,42 @@
 # ============================================================
-# Antigravity Bot - Setup Script (Windows PowerShell)
+# Antigravity Bot — One-Line Bootstrap Installer (Windows)
 # ============================================================
-# Run: powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+# Usage (PowerShell): iwr -useb https://raw.githubusercontent.com/emreturkmencom/antigravity-telegram-suite/main/scripts/install.ps1 | iex
+# Usage (CMD):        powershell -ExecutionPolicy Bypass -c "iwr -useb https://raw.githubusercontent.com/emreturkmencom/antigravity-telegram-suite/main/scripts/install.ps1 | iex"
+# ============================================================
 
 $ErrorActionPreference = "Stop"
-try {
-    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-} catch {}
-$ProjectDir = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
+
+$RepoUrl = "https://github.com/emreturkmencom/antigravity-telegram-suite"
+$ProjectName = "antigravity-telegram-suite"
+
+# ---- Determine install location ----
+$InstallDir = $null
+if ($args.Count -gt 0) {
+    $InstallDir = $args[0]
+} elseif ($env:AG_INSTALL_DIR) {
+    $InstallDir = $env:AG_INSTALL_DIR
+}
+
+if (-not $InstallDir) {
+    # Default: ~/antigravity-telegram-suite, or if already inside a clone, stay there
+    if (Test-Path (Join-Path (Get-Location) "package.json")) -and (Test-Path (Join-Path (Get-Location) ".git")) {
+        $InstallDir = Get-Location
+        Write-Host "[!] Already inside a $ProjectName clone — reinstalling in place." -ForegroundColor Yellow
+    } else {
+        $InstallDir = Join-Path $HOME $ProjectName
+    }
+}
+
+function Write-Step { param($msg) Write-Host "[+] $msg" -ForegroundColor Green }
+function Write-Warn { param($msg) Write-Host "[!] $msg" -ForegroundColor Yellow }
+function Write-Error { param($msg) Write-Host "[X] $msg" -ForegroundColor Red }
 
 Write-Host ""
-Write-Host "======================================" -ForegroundColor Blue
-Write-Host "  * Antigravity Bot Setup (Windows) *" -ForegroundColor Blue
-Write-Host "======================================" -ForegroundColor Blue
+Write-Host "=======================================" -ForegroundColor Blue
+Write-Host "  * Antigravity Bot — One-Line Install *" -ForegroundColor Blue
+Write-Host "=======================================" -ForegroundColor Blue
 Write-Host ""
 
 # ---- Check Node.js ----
@@ -21,12 +45,12 @@ function Check-Node {
         $version = (node -v) -replace 'v', ''
         $major = [int]($version.Split('.')[0])
         if ($major -ge 18) {
-            Write-Host "[+] Node.js v$version found" -ForegroundColor Green
+            Write-Step "Node.js v$version found"
             return $true
         }
-        Write-Host "[!] Node.js v$version is too old (need >= 18)" -ForegroundColor Yellow
+        Write-Warn "Node.js v$version is too old (need >= 18)"
     } catch {
-        Write-Host "[!] Node.js not found" -ForegroundColor Yellow
+        Write-Warn "Node.js not found"
     }
 
     Write-Host ""
@@ -35,36 +59,64 @@ function Check-Node {
     Write-Host ""
     $choice = Read-Host "Press Enter after installing Node.js, or type 'skip' to exit"
     if ($choice -eq 'skip') {
-        Write-Host "[!] Please install Node.js >= 18 and re-run this script." -ForegroundColor Red
+        Write-Error "Please install Node.js >= 18 and re-run this script."
         exit 1
     }
     return (Check-Node)
 }
 
+# ---- Clone or update repo ----
+function Clone-Or-Update {
+    if ((Test-Path $InstallDir) -and (Test-Path (Join-Path $InstallDir "package.json"))) {
+        Write-Step "Existing installation found at $InstallDir"
+        Write-Host ""
+        $upgrade = Read-Host "Upgrade to latest version? [y/N]"
+        if ($upgrade -match '^[Yy]$') {
+            Set-Location $InstallDir
+            Write-Step "Pulling latest changes..."
+            try {
+                git pull --ff-only origin main
+            } catch {
+                Write-Warn "Fast-forward pull failed — pulling with merge..."
+                git pull origin main
+            }
+        } else {
+            Write-Step "Keeping current version."
+            Set-Location $InstallDir
+        }
+    } else {
+        Write-Step "Cloning $ProjectName..."
+        if (-not (Test-Path $InstallDir)) {
+            New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+        }
+        git clone $RepoUrl $InstallDir
+        Set-Location $InstallDir
+    }
+}
+
 # ---- Install npm dependencies ----
 function Install-Deps {
-    Set-Location $ProjectDir
     if (-not (Test-Path "node_modules")) {
         Write-Host "Installing npm dependencies..."
         npm install
     } else {
-        Write-Host "[+] npm dependencies already installed" -ForegroundColor Green
+        Write-Step "npm dependencies already installed"
     }
 }
 
 # ---- Configure .env ----
 function Setup-Env {
-    $envFile = Join-Path $ProjectDir ".env"
+    $envFile = ".env"
     if (Test-Path $envFile) {
-        Write-Host "[+] .env file already exists" -ForegroundColor Green
+        Write-Step ".env file already exists"
         return
     }
 
-    Copy-Item (Join-Path $ProjectDir ".env.example") $envFile
+    Copy-Item ".env.example" $envFile
 
     Write-Host ""
     Write-Host "Configure your bot:" -ForegroundColor White
-    
+
     $botToken = Read-Host "  Telegram Bot Token (from @BotFather)"
     if ($botToken) {
         (Get-Content $envFile) -replace 'your_bot_token_here', $botToken | Set-Content $envFile
@@ -80,7 +132,7 @@ function Setup-Env {
         (Get-Content $envFile) -replace '^LANGUAGE=en$', "LANGUAGE=$lang" | Set-Content $envFile
     }
 
-    Write-Host "[+] .env configured" -ForegroundColor Green
+    Write-Step ".env configured"
 }
 
 # ---- Create Start Menu shortcuts ----
@@ -91,25 +143,25 @@ function Create-Shortcut {
 
     try {
         $shell = New-Object -ComObject WScript.Shell
-        
+
         # Start Shortcut (Invisible in background)
         $startShortcut = $shell.CreateShortcut($startShortcutPath)
         $startShortcut.TargetPath = "powershell.exe"
-        $startShortcut.Arguments = "-NoProfile -WindowStyle Hidden -Command `"Start-Process node -ArgumentList 'src/watchdog.js' -WindowStyle Hidden -WorkingDirectory '$ProjectDir'`""
-        $startShortcut.WorkingDirectory = $ProjectDir
+        $startShortcut.Arguments = "-NoProfile -WindowStyle Hidden -Command `"Start-Process node -ArgumentList 'src/watchdog.js' -WindowStyle Hidden -WorkingDirectory '$InstallDir'`""
+        $startShortcut.WorkingDirectory = $InstallDir
         $startShortcut.Description = "Start Antigravity Bot in Background"
         $startShortcut.Save()
 
         # Stop Shortcut
         $stopShortcut = $shell.CreateShortcut($stopShortcutPath)
-        $stopShortcut.TargetPath = Join-Path $ProjectDir "stop_bot.bat"
-        $stopShortcut.WorkingDirectory = $ProjectDir
+        $stopShortcut.TargetPath = Join-Path $InstallDir "stop_bot.bat"
+        $stopShortcut.WorkingDirectory = $InstallDir
         $stopShortcut.Description = "Stop Background Antigravity Bot"
         $stopShortcut.Save()
 
-        Write-Host "[+] Start Menu shortcuts created (Start & Stop)" -ForegroundColor Green
+        Write-Step "Start Menu shortcuts created (Start & Stop)"
     } catch {
-        Write-Host "[!] Could not create shortcuts: $_" -ForegroundColor Yellow
+        Write-Warn "Could not create shortcuts: $_"
     }
 }
 
@@ -120,34 +172,37 @@ function Setup-PM2 {
     if ($pm2Choice -match '^[Yy]$') {
         try {
             npm install -g pm2
-            Set-Location $ProjectDir
+            Set-Location $InstallDir
             pm2 start src/index.js --name antigravity-bot
             pm2 save
-            Write-Host "[+] PM2 configured" -ForegroundColor Green
-            Write-Host "[!] For auto-start on boot, see: https://github.com/jessety/pm2-installer" -ForegroundColor Yellow
+            Write-Step "PM2 configured"
+            Write-Warn "For auto-start on boot, see: https://github.com/jessety/pm2-installer"
         } catch {
-            Write-Host "[!] PM2 setup failed: $_" -ForegroundColor Yellow
+            Write-Warn "PM2 setup failed: $_"
         }
     } else {
-        Write-Host "[+] Skipped PM2 setup. Run manually: npm start" -ForegroundColor Green
+        Write-Step "Skipped PM2 setup. Run manually: npm start"
     }
 }
 
 # ---- Main ----
-$null = Check-Node
+Check-Node
+Clone-Or-Update
 Install-Deps
 Setup-Env
 Create-Shortcut
 Setup-PM2
 
 Write-Host ""
-Write-Host "======================================" -ForegroundColor Green
+Write-Host "=======================================" -ForegroundColor Green
 Write-Host "  Setup Complete!" -ForegroundColor Green
-Write-Host "======================================" -ForegroundColor Green
+Write-Host "=======================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "Project location: $InstallDir" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Quick start:"
-Write-Host "  npm start          # Run the bot"
+Write-Host "  cd $InstallDir && npm start" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Make sure Antigravity IDE is launched with:"
-Write-Host "  antigravity.exe --remote-debugging-port=9333"
+Write-Host "Make sure Antigravity IDE is launched with:" -ForegroundColor Yellow
+Write-Host "  antigravity.exe --remote-debugging-port=9333" -ForegroundColor Yellow
 Write-Host ""
