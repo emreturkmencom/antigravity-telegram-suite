@@ -1038,6 +1038,12 @@ async function injectTokenIntoIde(tokenData, app) {
     sqlStatements.push(`DELETE FROM ItemTable WHERE key='google.antigravity';`);
 
     await runSqliteStatements(dbPath, sqlStatements);
+    // Restrict the state DB to the owning user only, since it now holds a plaintext OAuth access token.
+    try {
+        fs.chmodSync(dbPath, 0o600);
+    } catch (e) {
+        // Best-effort hardening; ignore on platforms that don't support POSIX permissions (e.g. Windows).
+    }
     return dbPath;
 }
 
