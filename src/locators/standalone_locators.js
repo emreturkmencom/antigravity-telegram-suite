@@ -4,7 +4,29 @@ const STANDALONE_LOCATORS_SCRIPT = `
         openHistoryPopup: () => "no-icon",
         clickShowMoreInPopup: () => {},
         closeHistoryPopup: () => {},
+        dismissConsentModals: () => {
+            const dialogs = Array.from(document.querySelectorAll('[role="dialog"], .modal'));
+            const consentDialog = dialogs.find(d =>
+                /security notice\\s*&\\s*data use|allow google to collect and use my interactions data/i.test(d.textContent || '')
+            );
+            if (!consentDialog) return false;
+            const cb = consentDialog.querySelector('input[type="checkbox"]');
+            if (cb && cb.checked) {
+                cb.click();
+            }
+            const acceptBtn = Array.from(consentDialog.querySelectorAll('button')).find(b =>
+                /accept and continue|kabul et/i.test((b.textContent || '').trim())
+            );
+            if (acceptBtn) {
+                setTimeout(() => { try { acceptBtn.click(); } catch (_) {} }, 60);
+                if (!cb || !cb.checked) {
+                    try { acceptBtn.click(); } catch (_) {}
+                }
+            }
+            return true;
+        },
         checkForQuestion: () => {
+            if (AG_UI.dismissConsentModals()) return null;
             const isVisible = (el) => {
                 if (!el) return false;
                 const r = el.getBoundingClientRect();

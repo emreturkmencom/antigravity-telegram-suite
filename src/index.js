@@ -434,6 +434,7 @@ function markdownToTelegramHtml(text) {
     if (!text) return '';
     // Strip any accidental compact transcript truncation markers
     let html = text.replace(/<truncated \d+ bytes>/gi, '');
+    html = html.replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n');
     html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     
     // Protect multiline code blocks using safe Unicode Private Use Area tokens
@@ -446,6 +447,20 @@ function markdownToTelegramHtml(text) {
             codeBlocks.push(`<pre>${code}</pre>`);
         }
         return id;
+    });
+
+    // Convert raw Markdown tables (from transcript_full.jsonl / TaskWatcher) into monospace <pre> blocks
+    html = html.replace(/(?:^[ \t]*\|.+\|[ \t]*$\r?\n?){2,}/gm, (tableBlock) => {
+        const lines = tableBlock.trim().split(/\r?\n/);
+        if (lines.length < 2 || !/^[ \t]*\|[\s:|-]+\|[ \t]*$/.test(lines[1])) {
+            return tableBlock;
+        }
+        const cleanedTable = lines
+            .map(l => l.replace(/\*\*([^\*\n]+?)\*\*/g, '$1').replace(/__([^_\n]+?)__/g, '$1').replace(/`([^`\n]+)`/g, '$1'))
+            .join('\n');
+        const id = '\uE000CB' + codeBlocks.length + '\uE001';
+        codeBlocks.push(`<pre><code class="language-text">${cleanedTable}\n</code></pre>`);
+        return id + '\n';
     });
 
     // Protect inline code
@@ -2057,6 +2072,7 @@ function watchArtifacts(conversationId, retry = 0) {
     try {
         const watcher = fs.watch(conversationDir, { recursive: true }, (eventType, filename) => {
             if (!filename) return;
+            if (filename.split(/[/\\]/).some(part => part.startsWith('.') || part === 'scratch')) return;
             const normalizedFilename = filename.split(/[/\\]/).pop();
             if (isWatchable(normalizedFilename)) {
                 let filePath = path.join(conversationDir, filename);

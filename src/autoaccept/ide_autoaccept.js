@@ -223,6 +223,31 @@ function buildIDEObserverScript(buttonTexts, blockedCommands, allowedCommands) {
         var now = Date.now(); var keys = Object.keys(clickCooldowns);
         for (var i = 0; i < keys.length; i++) { if (now - clickCooldowns[keys[i]] > COOLDOWN_MS * 2) delete clickCooldowns[keys[i]]; }
 
+        // Check for "Security Notice & Data Use" consent dialog: uncheck data collection and click Accept and continue
+        var consentDialog = Array.from(document.querySelectorAll('[role="dialog"], .modal')).find(function(d) {
+            return /security notice\\s*&\\s*data use|allow google to collect and use my interactions data/i.test(d.textContent || '');
+        });
+        if (consentDialog) {
+            var consentKey = 'consent:security_notice_data_use';
+            if (!clickCooldowns[consentKey] || (now - clickCooldowns[consentKey] > 2000)) {
+                clickCooldowns[consentKey] = now;
+                var cb = consentDialog.querySelector('input[type="checkbox"]');
+                if (cb && cb.checked) {
+                    cb.click();
+                }
+                var acceptBtn = Array.from(consentDialog.querySelectorAll('button')).find(function(b) {
+                    return /accept and continue|kabul et/i.test((b.textContent || '').trim());
+                });
+                if (acceptBtn) {
+                    setTimeout(function() { try { acceptBtn.click(); } catch (_) {} }, 80);
+                    window.__AA_BOT_CLICK_COUNT = (window.__AA_BOT_CLICK_COUNT || 0) + 1;
+                    window.__AA_BOT_CLICK_LOG.push({ text: 'CONSENT:Accept and continue (opted-out)', tag: 'button', time: now });
+                    if (window.__AA_BOT_CLICK_LOG.length > 20) window.__AA_BOT_CLICK_LOG.shift();
+                    return 'clicked:consent_dialog';
+                }
+            }
+        }
+
         // Check for permission radio groups (e.g. Allow reading URL / Allow domain / Allow running tool)
         for (var pr = 0; pr < roots.length; pr++) {
             var groups = Array.from(roots[pr].querySelectorAll('[role="radiogroup"], fieldset, div.flex-col'));

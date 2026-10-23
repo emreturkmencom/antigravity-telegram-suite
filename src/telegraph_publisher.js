@@ -368,6 +368,27 @@ function mdToNodes(mdText) {
             continue;
         }
 
+        if (trimmed.startsWith('|') && trimmed.endsWith('|') && i + 1 < lines.length && /^\|[\s:|-]+\|$/.test(lines[i + 1].trim())) {
+            const tableLines = [];
+            while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+                const cleanRow = lines[i].trim()
+                    .replace(/\*\*([^*]+)\*\*/g, '$1')
+                    .replace(/__([^_]+)__/g, '$1')
+                    .replace(/`([^`]+)`/g, '$1');
+                tableLines.push(cleanRow);
+                i++;
+            }
+            i--; // step back one since the for-loop will increment i
+            nodes.push({
+                tag: 'pre',
+                children: [{
+                    tag: 'code',
+                    children: [tableLines.join('\n')]
+                }]
+            });
+            continue;
+        }
+
         nodes.push({
             tag: 'p',
             children: parseInline(trimmed)

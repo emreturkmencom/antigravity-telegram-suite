@@ -346,12 +346,18 @@ function getChatExtractExpr() {
                     text = text.replace(/thumb_up/g, '');
                     text = text.replace(/thumb_down/g, '');
                     text = text.replace(/Files Modified[\\s\\n]*(\\d+)[\\s\\n]*([a-zA-Z0-9_\\-\\.]+)[\\s\\n]*\\+([0-9]+)[\\s\\n]*\\-([0-9]+)/gi, "\\n[📦 Files Modified: $2 (+$3, -$4)]\\n");
+                    text = text.replace(/[ \\t]+$/gm, '');
                     text = text.replace(/\\n{3,}/g, '\\n\\n');
                     return text.trim();
                 }
 
                 function nodeToMd(node) {
-                    if (node.nodeType === 3) return node.textContent;
+                    if (node.nodeType === 3) {
+                        if (!/\\S/.test(node.textContent)) {
+                            return node.textContent.includes('\\n') ? '' : ' ';
+                        }
+                        return node.textContent;
+                    }
                     if (node.nodeType !== 1) return '';
                     
                     let tag = node.tagName.toLowerCase();
@@ -391,10 +397,11 @@ function getChatExtractExpr() {
                         return '\`' + node.textContent.trim() + '\`';
                     }
                     if (tag === 'table') {
-                        let md = '\\n\`\`\`text\\n';
                         let rows = Array.from(node.querySelectorAll('tr'));
+                        if (rows.length === 0) return '';
+                        let md = '\\n\`\`\`text\\n';
                         rows.forEach((row, i) => {
-                            let cells = Array.from(row.querySelectorAll('td, th')).map(c => c.textContent.trim().replace(/\\|/g, '\\\\|'));
+                            let cells = Array.from(row.querySelectorAll('td, th')).map(c => c.textContent.replace(/\\s+/g, ' ').trim().replace(/\\|/g, '\\\\|'));
                             md += '| ' + cells.join(' | ') + ' |\\n';
                             if (i === 0 && row.querySelector('th')) {
                                 md += '|' + cells.map(() => '---').join('|') + '|\\n';
@@ -448,7 +455,7 @@ function getChatExtractExpr() {
                     for (let child of messageNodes) {
                         let clone = child.cloneNode(true);
                         
-                        Array.from(clone.querySelectorAll('style, .material-icons, .material-symbols-outlined, .material-symbols-rounded, .google-symbols, .codicon, [class*="icon"]')).forEach(el => el.remove());
+                        Array.from(clone.querySelectorAll('style, .katex-mathml, math, annotation, .material-icons, .material-symbols-outlined, .material-symbols-rounded, .google-symbols, .codicon, [class*="icon"]')).forEach(el => el.remove());
                         
                         // Use centralized logic to remove Thought blocks
                         AG_UI.removeThoughtBlocks(clone);
@@ -472,6 +479,7 @@ function getChatExtractExpr() {
                         });
                         
                         let userNodes = Array.from(clone.querySelectorAll('[role="article"][aria-label="User message"], [aria-label*="User message"], .bg-input, [data-message-author="user"], [class*="group/user-input-step"], .interactive-request, .chat-request'));
+                        userNodes = userNodes.filter((el, _, arr) => !arr.some(other => other !== el && other.contains(el)));
                         if (userNodes.length === 0 && ((clone.getAttribute && (clone.getAttribute('aria-label') === 'User message' || clone.getAttribute('data-message-author') === 'user')) || (clone.className && (clone.className.includes('user-message') || clone.className.includes('interactive-request') || clone.className.includes('chat-request') || clone.className.includes('user-input') || (clone.className.includes('rounded-xl') && clone.className.includes('bg-card-border') && !clone.className.includes('rounded-2xl')))))) {
                             userNodes = [clone];
                         }
@@ -491,14 +499,15 @@ function getChatExtractExpr() {
                                 const agentArticle = clone.querySelector('[role="article"][aria-label="Agent response"], [data-message-author="agent"], [data-message-author="assistant"]');
                                 if (agentArticle) {
                                     // Remove model selectors, thought/tool headers, status spinners
-                                    Array.from(agentArticle.querySelectorAll('style, svg, [data-testid*="worked-for"], [data-testid*="thought"], [data-testid*="model"], [class*="animate-spin"]')).forEach(el => el.remove());
+                                    Array.from(agentArticle.querySelectorAll('style, svg, .katex-mathml, math, annotation, [data-testid*="worked-for"], [data-testid*="thought"], [data-testid*="model"], [class*="animate-spin"]')).forEach(el => el.remove());
                                     AG_UI.removeThoughtBlocks(agentArticle);
 
-                                    const markdownEl = agentArticle.querySelector('.leading-relaxed, .prose, .markdown-body, [class*="rendered-markdown"]');
+                                    const markdownEls = Array.from(agentArticle.querySelectorAll('.leading-relaxed, .prose, .markdown-body, [class*="rendered-markdown"]'))
+                                        .filter((el, _, arr) => !arr.some(other => other !== el && other.contains(el)));
                                     let aText = '';
-                                    if (markdownEl) {
-                                        aText = cleanText(nodeToMd(markdownEl));
-                                        if (!aText) aText = cleanText(markdownEl.innerText || markdownEl.textContent);
+                                    if (markdownEls.length > 0) {
+                                        aText = cleanText(markdownEls.map(el => cleanText(nodeToMd(el))).filter(Boolean).join('\\n\\n'));
+                                        if (!aText) aText = cleanText(markdownEls.map(el => cleanText(el.innerText || el.textContent)).filter(Boolean).join('\\n\\n'));
                                     } else {
                                         Array.from(agentArticle.querySelectorAll('button, [role="button"]')).forEach(el => el.remove());
                                         aText = cleanText(nodeToMd(agentArticle));
@@ -915,7 +924,27 @@ async function getInteractiveModalState(port, specificTargetId = null) {
             const { Runtime } = client;
             await Runtime.enable();
             const res = await Runtime.evaluate({
-                expression: `(() => {
+                expression: `(async () => {
+                    // Auto-dismiss "Security Notice & Data Use" consent dialog by unchecking data collection and clicking "Accept and continue"
+                    const consentDialog = Array.from(document.querySelectorAll('[role="dialog"], .modal')).find(d =>
+                        /security notice\\s*&\\s*data use|allow google to collect and use my interactions data/i.test(d.textContent || '')
+                    );
+                    if (consentDialog) {
+                        const cb = consentDialog.querySelector('input[type="checkbox"]');
+                        if (cb && cb.checked) {
+                            cb.click();
+                            await new Promise(r => setTimeout(r, 80));
+                        }
+                        const acceptBtn = Array.from(consentDialog.querySelectorAll('button')).find(b =>
+                            /accept and continue|kabul et/i.test((b.textContent || '').trim())
+                        );
+                        if (acceptBtn) {
+                            acceptBtn.click();
+                            await new Promise(r => setTimeout(r, 150));
+                        }
+                        return null;
+                    }
+
                     const isVisible = (el) => {
                         if (!el) return false;
                         if (el.classList && el.classList.contains('sr-only') && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'BUTTON')) return true;
@@ -1052,6 +1081,7 @@ async function getInteractiveModalState(port, specificTargetId = null) {
 
                     return { header, options };
                 })()`,
+                awaitPromise: true,
                 returnByValue: true
             });
             await client.close();
@@ -1072,7 +1102,7 @@ async function getFullLatestResponse(port, specificTargetId = null, threadName =
     try {
         const modalState = await getInteractiveModalState(port, targetIdToUse);
         if (modalState) {
-            modalText = `\n\n❓ <b>${escHtml(modalState.header || 'Agent Soru Sordu')}</b>\n`;
+            modalText = `\n\n❓ **${modalState.header || 'Agent Soru Sordu'}**\n`;
             if (modalState.options && modalState.options.length > 0) {
                 modalText += `\n${t('interactive_modal.options_prompt')}`;
                 modalButtons = {
@@ -1596,6 +1626,11 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                                 };
                             };
                             
+                            // Auto-dismiss "Security Notice & Data Use" consent dialog before checking interactive modals
+                            if (AG_UI.dismissConsentModals && AG_UI.dismissConsentModals()) {
+                                await new Promise(r => setTimeout(r, 200));
+                            }
+
                             // Check if an interactive modal / question card is active
                             const isVisible = (el) => {
                                 if (!el) return false;
