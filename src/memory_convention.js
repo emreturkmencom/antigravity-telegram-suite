@@ -5,8 +5,20 @@
 const fs = require('fs');
 const path = require('path');
 
-const MARKER_START = '<!-- agts-memory:v1 -->';
+// v2: v1 metni ajanlari "her gorevden sonra yaz" diye zorluyordu; sonuc dosyanin
+// bir degisiklik gunlugune donmesiydi (yzturkey: 58 KB, %76'si gunluk). v2 yalnizca
+// kalici bilgiyi ister ve bir boyut butcesi koyar. Eski v1 bloklari girdileri
+// korunarak yerinde yukseltilir (bkz. upgradeV1Block).
+const MARKER_START = '<!-- agts-memory:v2 -->';
+const MARKER_START_V1 = '<!-- agts-memory:v1 -->';
 const MARKER_END = '<!-- /agts-memory -->';
+
+const WARNING_START = '<!-- agts-memory-size -->';
+const WARNING_END = '<!-- /agts-memory-size -->';
+
+// Blok butcesi (bayt). Bu dosya her oturumun basinda tamamen okunuyor; butceyi
+// asan her satir her gorevde odeniyor.
+const DEFAULT_MAX_BYTES = 12000;
 
 const POINTER_START = '<!-- agts-pointer:v1 -->';
 const POINTER_END = '<!-- /agts-pointer -->';
@@ -27,56 +39,114 @@ const POINTER_BLOCK = `${POINTER_START}
 ${POINTER_END}
 `;
 
-const BLOCK = `${MARKER_START}
+function maxBytes() {
+    const n = parseInt(process.env.AGTS_MEMORY_MAX_BYTES || '', 10);
+    return Number.isFinite(n) && n > 0 ? n : DEFAULT_MAX_BYTES;
+}
+
+// Instructions only — everything from the start marker up to the first ### heading.
+function header() {
+    return `${MARKER_START}
 ## Project Memory
 
 > [!IMPORTANT]
-> **MANDATORY AGENT ROUTINE**: Every time you complete a task that involves modifying code, you MUST update this file (\`AGENT.md\`) before ending your turn. Do NOT ask for permission.
-> 1. **Decisions**: Add non-obvious design choices.
-> 2. **Gotchas**: Add framework quirks, API weirdness, or system limits you discovered.
-> 3. **Fixes**: Briefly summarize the root cause of hard-to-solve bugs.
-
-> [!WARNING]
-> **WHERE to write — this is the rule agents get wrong.**
-> Write **INSIDE this block**, under the matching \`###\` heading below.
-> Do **NOT** append to the end of the file. Anything placed after
-> \`${MARKER_END}\` sits outside the managed region: tooling that reads this
-> block will not see it, and the headings below will keep claiming they are
-> empty while content piles up underneath.
-> If you find stray entries after the end marker, **move them into the right
-> section** as part of your turn.
+> **This is the project's long-term memory, not a changelog.** Before ending a
+> task, ask: *did I learn something a future agent needs and cannot get from the
+> code or \`git log\`?* If yes, write it here without asking. **Most tasks need
+> no entry.**
+> - **Write:** a non-obvious decision and its reason, a convention, a gotcha
+>   (framework quirk, API limit, trap that cost you time).
+> - **Never write:** what you changed, which files you touched, or the story of
+>   a fix. That is what \`git log\` is for.
 
 **How to write an entry**
-- One line per entry, prefixed with the date: \`- (YYYY-MM-DD) ...\`.
-  Without a date nobody can tell what is stale, and the pruning rule below
-  becomes unenforceable.
-- Write the **rule**, not the story. "Do X because Y fails" beats "on Tuesday
-  we discovered that...". A diary costs context on every single load; a rule
-  earns it.
-- Prefer **editing** an existing line over adding a near-duplicate.
-- If code comments cite this file (\`see AGENT.md\`), make sure the rule they
-  cite actually exists here. A dangling citation is worse than no citation:
-  the reader trusts it and finds nothing.
+- Write **inside this block**, under the matching \`###\` heading — never after
+  \`${MARKER_END}\`. Move stray entries you find there into the right section.
+- One entry = one rule, at most 2 lines: \`- (YYYY-MM-DD) Do X, because Y.\`
+  The date shows what may be stale.
+- **Update or replace** an existing entry instead of adding a near-duplicate.
+  When an entry is no longer true, delete it.
+- If code comments cite this file (\`see AGENT.md\`), the cited rule must exist here.
 
-**Context Window Management**
-This file is loaded in full at the start of every session — every line is paid
-for on every task. Routinely prune outdated info, consolidate long sections,
-and delete anything already enforced by code or tests.
+**Budget: keep this block under ${Math.round(maxBytes() / 1000)} KB.** The whole file is loaded at the start of
+every session, so every line is paid for on every task. Over budget → before
+adding anything, merge duplicates, shorten long entries to the rule itself, and
+delete what code, tests or git already record.
 
-### Decisions
+`;
+}
+
+const SECTIONS = `### Decisions
 
 ### Conventions
 
 ### Gotchas
-
-### Fixes
-${MARKER_END}
 `;
+
+function buildBlock() {
+    return `${header()}${SECTIONS}${MARKER_END}
+`;
+}
+
+// Talimat metni bitis isaretini `backtick` icinde ALINTILIYOR; duz indexOf o alintiyi
+// blogun sonu sanar. Gercek isaret her zaman kendi satirinin basindadir.
+function findBlockEnd(content, from) {
+    let i = content.indexOf(MARKER_END, from);
+    while (i !== -1 && i > 0 && content[i - 1] !== '\n') {
+        i = content.indexOf(MARKER_END, i + 1);
+    }
+    return i;
+}
+
+// v1 -> v2: replace only the instruction header (start marker .. first ###);
+// every section and entry below it is kept byte-for-byte.
+function upgradeV1Block(content) {
+    const s = content.indexOf(MARKER_START_V1);
+    if (s === -1) return content;
+    const e = findBlockEnd(content, s);
+    if (e === -1) return content;
+    const firstSection = content.indexOf('\n### ', s);
+    const bodyStart = firstSection !== -1 && firstSection < e ? firstSection + 1 : e;
+    return content.slice(0, s) + header() + content.slice(bodyStart);
+}
+
+// Blok butceyi asiyorsa basliga gorunur bir uyari koyar, altina dusunce kaldirir.
+// Ajan bunu her oturumda ilk okudugu yerde gorur; "ara sira sadelestir" demekten
+// farkli olarak olculebilir ve kendiliginden kaybolur.
+function refreshSizeWarning(content) {
+    const s = content.indexOf(MARKER_START);
+    if (s === -1) return content;
+    const e = findBlockEnd(content, s);
+    if (e === -1) return content;
+
+    let block = content.slice(s, e);
+    const ws = block.indexOf(WARNING_START);
+    if (ws !== -1) {
+        const we = block.indexOf(WARNING_END, ws);
+        if (we !== -1) block = block.slice(0, ws) + block.slice(we + WARNING_END.length + 1);
+    }
+
+    const size = Buffer.byteLength(block, 'utf8');
+    const limit = maxBytes();
+    if (size > limit) {
+        const warning = `${WARNING_START}
+> [!CAUTION]
+> **Memory is over budget: ${(size / 1000).toFixed(1)} KB / ${(limit / 1000).toFixed(0)} KB.** Before adding anything,
+> consolidate: merge duplicates, cut entries to the rule itself, delete what git or code already records.
+${WARNING_END}
+`;
+        const afterMarker = block.indexOf('\n') + 1;
+        block = block.slice(0, afterMarker) + warning + block.slice(afterMarker);
+    }
+    return content.slice(0, s) + block + content.slice(e);
+}
 
 // Idempotent: no-op if disabled, path invalid. Injects memory block into AGENT.md
 // and pointer blocks into any existing AI config files.
-function ensureMemoryConvention(wsPath) {
-    if (process.env.AUTO_MEMORY_CONVENTION !== 'true') return false;
+function ensureMemoryConvention(wsPath, opts = {}) {
+    // opts.force: Work Orders masalari gibi AGTS'nin kendi olusturdugu klasorlerde
+    // global ayardan bagimsiz calisir (masa hafizasi bu kurala dayaniyor).
+    if (process.env.AUTO_MEMORY_CONVENTION !== 'true' && !opts.force) return false;
     if (!wsPath) return false;
 
     try {
@@ -92,10 +162,15 @@ function ensureMemoryConvention(wsPath) {
         existing = fs.readFileSync(target, 'utf8');
     }
     
-    if (!existing.includes(MARKER_START)) {
-        const separator = existing && !existing.endsWith('\n\n') ? (existing.endsWith('\n') ? '\n' : '\n\n') : '';
-        fs.appendFileSync(target, separator + BLOCK);
+    let next = existing;
+    if (next.includes(MARKER_START_V1)) {
+        next = upgradeV1Block(next);
+    } else if (!next.includes(MARKER_START)) {
+        const separator = next && !next.endsWith('\n\n') ? (next.endsWith('\n') ? '\n' : '\n\n') : '';
+        next = next + separator + buildBlock();
     }
+    next = refreshSizeWarning(next);
+    if (next !== existing) fs.writeFileSync(target, next);
 
     // 2. Ensure other existing agent files have the pointer
     for (const name of POINTER_FILES) {
@@ -118,4 +193,4 @@ function ensureMemoryConvention(wsPath) {
 // Ensure CANDIDATE_FILES is exported for the /memory command
 const CANDIDATE_FILES = [DEFAULT_FILE, ...POINTER_FILES];
 
-module.exports = { ensureMemoryConvention, MARKER_START, MARKER_END, CANDIDATE_FILES };
+module.exports = { ensureMemoryConvention, MARKER_START, MARKER_START_V1, MARKER_END, CANDIDATE_FILES };

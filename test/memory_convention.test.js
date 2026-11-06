@@ -2,7 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { ensureMemoryConvention, MARKER_START } = require('../src/memory_convention');
+const { ensureMemoryConvention, MARKER_START, MARKER_START_V1, MARKER_END } = require('../src/memory_convention');
 
 function withTmpDir(fn) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agts-memory-'));
@@ -51,8 +51,44 @@ function run() {
         const before = fs.readFileSync(path.join(dir, 'AGENT.md'), 'utf8');
         const changed = ensureMemoryConvention(dir);
         const after = fs.readFileSync(path.join(dir, 'AGENT.md'), 'utf8');
-        assert.strictEqual(changed, true, 'returns true because logic is simplified to return true if it ran'); // actually wait, the new logic returns true unconditionally at the end, so let's adjust the test
+        assert.strictEqual(changed, true, 'returns true whenever it ran on a valid workspace');
         assert.strictEqual(before, after, 'file content should be untouched on second call');
+    });
+
+    // v1 -> v2 upgrade: instructions replaced, every existing entry kept.
+    withTmpDir((dir) => {
+        const v1 = '# Rules\n\nkeep me\n\n' + MARKER_START_V1 + '\n## Project Memory\n\n> MANDATORY AGENT ROUTINE: old text\n> Never append after `' + MARKER_END + '` (quoted marker).\n\n### Decisions\n- (2026-01-01) Use X because Y.\n\n### Fixes\n- (2026-01-02) Old fix story.\n' + MARKER_END + '\ntrailer\n';
+        fs.writeFileSync(path.join(dir, 'AGENT.md'), v1);
+        ensureMemoryConvention(dir);
+        const out = fs.readFileSync(path.join(dir, 'AGENT.md'), 'utf8');
+        assert(out.includes(MARKER_START), 'should carry the v2 marker');
+        assert(!out.includes(MARKER_START_V1), 'v1 marker should be gone');
+        assert(!out.includes('MANDATORY AGENT ROUTINE'), 'old instructions should be replaced');
+        assert(out.includes('- (2026-01-01) Use X because Y.'), 'entries must survive');
+        assert(out.includes('### Fixes\n- (2026-01-02) Old fix story.'), 'existing sections must survive');
+        assert(out.startsWith('# Rules\n\nkeep me'), 'content before the block untouched');
+        assert(out.endsWith(MARKER_END + '\ntrailer\n'), 'content after the block untouched');
+        const again = (ensureMemoryConvention(dir), fs.readFileSync(path.join(dir, 'AGENT.md'), 'utf8'));
+        assert.strictEqual(again, out, 'upgrade is idempotent');
+    });
+
+    // Size warning appears over budget and disappears once trimmed.
+    withTmpDir((dir) => {
+        process.env.AGTS_MEMORY_MAX_BYTES = '3000';
+        ensureMemoryConvention(dir);
+        const file = path.join(dir, 'AGENT.md');
+        const big = fs.readFileSync(file, 'utf8').replace('### Gotchas\n', '### Gotchas\n' + '- (2026-01-01) filler entry line.\n'.repeat(200));
+        fs.writeFileSync(file, big);
+        ensureMemoryConvention(dir);
+        const warned = fs.readFileSync(file, 'utf8');
+        assert(warned.includes('Memory is over budget'), 'warning expected over budget');
+        assert.strictEqual(warned.split('agts-memory-size -->').length, 3, 'exactly one warning block');
+        ensureMemoryConvention(dir);
+        assert.strictEqual(fs.readFileSync(file, 'utf8'), warned, 'warning refresh is idempotent');
+        fs.writeFileSync(file, warned.replace(/- \(2026-01-01\) filler entry line\.\n/g, ''));
+        ensureMemoryConvention(dir);
+        assert(!fs.readFileSync(file, 'utf8').includes('Memory is over budget'), 'warning removed under budget');
+        delete process.env.AGTS_MEMORY_MAX_BYTES;
     });
 
     // Invalid path: no-op, does not throw.

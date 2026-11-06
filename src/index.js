@@ -3678,6 +3678,9 @@ bot.action(/ws_(.+)/, (ctx) => {
     doLaunchWorkspace(ctx, wsPath);
 });
 
+// ===== WORK ORDERS (opt-in: WORK_ORDERS_ENABLED=true) =====
+require('./work_orders').startWorkOrders(bot, ALLOWED_CHAT_IDS);
+
 // ===== PROJECT MEMORY =====
 bot.command('memory', async (ctx) => {
     const { CANDIDATE_FILES } = require('./memory_convention');
