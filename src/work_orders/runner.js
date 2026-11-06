@@ -4,7 +4,7 @@
 // whatever app the user prefers). Talks to the parent only over IPC.
 
 const CDP = require('chrome-remote-interface');
-const { resolveTargets, sendViaCDP } = require('../cdp_controller');
+const { resolveTargets, sendViaCDP, isAgentWorking, getFullLatestResponse } = require('../cdp_controller');
 const { launchIDE } = require('../platform');
 const { ensureMemoryConvention } = require('../memory_convention');
 const { WorkOrders } = require('./core');
@@ -45,8 +45,26 @@ async function openDeskWindow(desk, deskDir) {
     throw new Error(`IDE window for desk "${desk}" (${deskFolderName(desk)}) did not appear within 60 s`);
 }
 
+// The chat input drops newlines (Input.insertText), which glued the result path
+// to the next word ("<id>.mdFirst line"). Send one line with visible separators.
+function flattenForChat(text) {
+    return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean).join(' | ');
+}
+
 async function sendToWindow(win, text) {
-    await sendViaCDP(text, port, win.targetId);
+    await sendViaCDP(flattenForChat(text), port, win.targetId);
+}
+
+// Used by core to notice an agent that stopped without writing its result.
+async function checkAgent(win) {
+    const working = await isAgentWorking(port, win.targetId);
+    if (working) return { working: true };
+    let lastText = '';
+    try {
+        const r = await getFullLatestResponse(port, win.targetId);
+        lastText = typeof r === 'string' ? r : (r && r.text) || '';
+    } catch (_) { /* best effort */ }
+    return { working: false, lastText };
 }
 
 // window.close() lets Electron flush chat history to disk; same reasoning as
@@ -68,6 +86,7 @@ const wo = new WorkOrders({
         openDeskWindow,
         sendToWindow,
         closeWindow,
+        checkAgent,
         notify,
         sleep,
         ensureDeskMemory: (p) => ensureMemoryConvention(p, { force: true }),

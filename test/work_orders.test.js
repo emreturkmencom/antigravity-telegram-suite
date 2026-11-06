@@ -27,7 +27,7 @@ function makeEnv({ agent, options } = {}) {
         },
         sendToWindow: async (w, text) => {
             sent.push({ desk: w.desk, text });
-            const m = text.match(/write your final answer to: (\S+)/);
+            const m = text.match(/write your final answer to this file: `([^`]+)`/);
             if (agent && m) agent(m[1], w, text);
         },
         notify: (msg) => notes.push(msg),
@@ -134,6 +134,32 @@ async function run() {
         await e.settle();
         const h = require('../src/work_orders/desks').readHistory(e.dir);
         assert(h.some(x => x.id === 'd2' && x.status === 'done'), 'finished orders go to history');
+    }
+
+    // A stalled agent (stopped without a result) fails early with its last message.
+    {
+        const e = makeEnv({ options: { stallGraceMs: 60000, stallIdleMs: 120000 } });
+        e.wo.deps.checkAgent = async () => ({ working: false, lastText: 'Agent execution terminated due to error.' });
+        e.drop('s1.md', '---\ndesk: broken\ntimeout: 60\n---\nanything');
+        await e.wo.tick();
+        await e.settle();
+        const o = e.wo.orders.get('s1');
+        assert.strictEqual(o.status, 'failed');
+        assert(/stopped without writing/.test(o.reason));
+        assert(e.notes.some(n => n.text.includes('Agent execution terminated')), 'last agent message reported');
+        assert(o.finishedAt - o.startedAt < 10 * 60000, 'fails in minutes, not after the 60 min timeout');
+    }
+
+    // A working agent is not treated as stalled.
+    {
+        let calls = 0;
+        const e = makeEnv({ options: { stallGraceMs: 60000, stallIdleMs: 120000 } });
+        e.wo.deps.checkAgent = async () => { calls += 1; return { working: true }; };
+        e.drop('w1.md', '---\ndesk: busy\ntimeout: 5\n---\nlong task');
+        await e.wo.tick();
+        await e.settle();
+        assert(calls > 0);
+        assert(/no result file/.test(e.wo.orders.get('w1').reason), 'only the timeout ends a busy agent');
     }
 
     // Invalid order is rejected and moved to failed/.

@@ -19,6 +19,11 @@ const DEFAULTS = {
     timeoutMin: 60,
     pollSec: 10,
     resultSettleMs: 5000,
+    // An agent that stops (error, crash, waiting on a dialog) without writing the
+    // result would otherwise hold the desk until the timeout. After the grace
+    // period, this much continuous idle time fails the order early.
+    stallGraceMs: 60000,
+    stallIdleMs: 120000,
 };
 
 function parseOrder(text) {
@@ -194,7 +199,7 @@ Read AGENT.md in this workspace first; it holds this desk's rules.
 
 ${order.body}
 
-When you are done, write your final answer to: ${resultFile}
+When you are done, write your final answer to this file: \`${resultFile}\` .
 First line: "STATUS: done" or "STATUS: failed". Write it even if the order failed.`;
     }
 
@@ -207,7 +212,12 @@ First line: "STATUS: done" or "STATUS: failed". Write it even if the order faile
             this.deps.notify({ text: `▶️ Work order ${order.id} started on desk ${order.desk}.` });
 
             const timeoutMs = (order.timeoutMin || this.opt.timeoutMin) * 60000;
-            const result = await this._waitForResult(order, timeoutMs);
+            const result = await this._waitForResult(order, timeoutMs, win);
+            if (result && result.stalled) {
+                const last = (result.lastText || '').trim().slice(0, 1500);
+                this._finish(order, 'failed', 'the agent stopped without writing the result file', true, last ? `Agent's last message:\n${last}` : null);
+                return;
+            }
             if (!result) {
                 this._finish(order, 'failed', `no result file after ${Math.round(timeoutMs / 60000)} min`);
                 return;
@@ -222,8 +232,10 @@ First line: "STATUS: done" or "STATUS: failed". Write it even if the order faile
         }
     }
 
-    async _waitForResult(order, timeoutMs) {
-        const deadline = this.now() + timeoutMs;
+    async _waitForResult(order, timeoutMs, win = null) {
+        const start = this.now();
+        const deadline = start + timeoutMs;
+        let idleSince = null;
         const resultFile = this.resultPath(order.id);
         const expects = order.expects
             ? (path.isAbsolute(order.expects) ? order.expects : path.join(this.deskPath(order.desk), order.expects))
@@ -235,6 +247,14 @@ First line: "STATUS: done" or "STATUS: failed". Write it even if the order faile
                 // The agent may still be writing: accept once the size stops changing.
                 if (size > 0 && size === lastSize) return fs.readFileSync(resultFile, 'utf8');
                 lastSize = size;
+            } else if (win && this.deps.checkAgent && this.now() - start >= this.opt.stallGraceMs) {
+                const st = await this.deps.checkAgent(win).catch(() => null);
+                if (st && !st.working) {
+                    if (idleSince === null) idleSince = this.now();
+                    if (this.now() - idleSince >= this.opt.stallIdleMs) return { stalled: true, lastText: st.lastText };
+                } else {
+                    idleSince = null;
+                }
             }
             await this.deps.sleep(this.opt.resultSettleMs);
         }
