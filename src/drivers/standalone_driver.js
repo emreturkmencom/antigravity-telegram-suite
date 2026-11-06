@@ -210,7 +210,12 @@ class StandaloneDriver extends BaseDriver {
 
                 const origScroll = scrollEl ? scrollEl.scrollTop : 0;
                 const totalHeight = scrollEl ? scrollEl.scrollHeight : 0;
-                const step = 250;
+                // 2.29 groups conversations under Projects: the sidebar can be
+                // ~18 000 px tall, and 250 px steps overran the 12 s CDP evaluate
+                // timeout -> empty list ("no recent threads"). Step a viewport at
+                // a time and stop after a time budget.
+                const step = Math.max(250, Math.floor((scrollEl ? scrollEl.clientHeight : 0) * 0.9));
+                const scanStart = performance.now();
 
                 if (scrollEl) {
                     scrollEl.scrollTop = 0;
@@ -221,6 +226,7 @@ class StandaloneDriver extends BaseDriver {
                 let lastKnownWs = "Default";
 
                 for (let pos = 0; pos <= totalHeight + step; pos += step) {
+                    if (performance.now() - scanStart > 9000) break;
                     if (scrollEl && pos > 0) {
                         scrollEl.scrollTop = pos;
                         await new Promise(r => setTimeout(r, 70));

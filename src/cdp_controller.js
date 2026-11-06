@@ -3125,7 +3125,30 @@ async function clickArtifactButton(buttonLabel, port, specificTargetId = null) {
     throw new Error(`Could not find or click "${buttonLabel}" button in any IDE target`);
 }
 
+// Announcement/tip cards and first-run panels pile up after every app update and
+// block clicks. Sweep them on all app windows (see AG_UI.dismissTipCards).
+async function dismissPopups(port) {
+    let total = 0;
+    let candidates = [];
+    try { candidates = await resolveTargets(port, true); } catch (_) { return 0; }
+    const script = DriverFactory.getDriver().getLocatorsScript();
+    for (const t of candidates) {
+        if (!/127\.0\.0\.1/.test(t.url || '')) continue;
+        try {
+            const client = await CDP({ target: t.webSocketDebuggerUrl });
+            const r = await client.Runtime.evaluate({
+                expression: `(() => { ${script}; try { AG_UI.dismissConsentModals && AG_UI.dismissConsentModals(); } catch (_) {} return AG_UI.dismissTipCards ? AG_UI.dismissTipCards() : 0; })()`,
+                returnByValue: true,
+            });
+            total += Number(r.result && r.result.value) || 0;
+            await client.close();
+        } catch (_) { /* window busy or gone */ }
+    }
+    return total;
+}
+
 module.exports = {
+    dismissPopups,
     PENDING_ACTION_TEXTS,
     SUBMIT_ACTION_TEXTS,
     getSelectableSlashCommandForTarget,

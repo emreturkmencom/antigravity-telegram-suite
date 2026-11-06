@@ -4,7 +4,40 @@ const STANDALONE_LOCATORS_SCRIPT = `
         openHistoryPopup: () => "no-icon",
         clickShowMoreInPopup: () => {},
         closeHistoryPopup: () => {},
+        // Announcement / tip cards ("Introducing Remote Agents", "Search Across
+        // Conversations", ...) and the first-run "One last thing before getting
+        // started" panel. Opt-in checkboxes there are left/turned OFF (no data
+        // sharing, no newsletter) before Continue. Never touches error cards
+        // ("Agent terminated due to error ... Dismiss / Retry").
+        dismissTipCards: () => {
+            let n = 0;
+            const txt = (el) => (el && (el.innerText || el.textContent) || '');
+            for (const b of Array.from(document.querySelectorAll('button'))) {
+                const label = txt(b).trim();
+                if (!/^(dismiss|kapat|got it|anladım)$/i.test(label)) continue;
+                let card = b.parentElement;
+                for (let i = 0; i < 4 && card && txt(card).length < 40; i++) card = card.parentElement;
+                const body = txt(card);
+                if (/error|terminated|retry|failed|hata/i.test(body)) continue;
+                try { b.click(); n++; } catch (_) {}
+            }
+            const onboarding = Array.from(document.querySelectorAll('div, section')).find(el =>
+                /one last thing before getting started/i.test(txt(el)) && el.querySelector('button')
+                && txt(el).length < 3000
+            );
+            if (onboarding) {
+                for (const cb of Array.from(onboarding.querySelectorAll('input[type="checkbox"]'))) {
+                    if (cb.checked) { try { cb.click(); } catch (_) {} }
+                }
+                const cont = Array.from(onboarding.querySelectorAll('button')).find(x => /^(continue|devam)/i.test(txt(x).trim()));
+                if (cont && !Array.from(onboarding.querySelectorAll('input[type="checkbox"]')).some(c => c.checked)) {
+                    try { cont.click(); n++; } catch (_) {}
+                }
+            }
+            return n;
+        },
         dismissConsentModals: () => {
+            try { AG_UI.dismissTipCards(); } catch (_) {}
             const dialogs = Array.from(document.querySelectorAll('[role="dialog"], .modal'));
             const consentDialog = dialogs.find(d =>
                 /security notice\\s*&\\s*data use|allow google to collect and use my interactions data/i.test(d.textContent || '')

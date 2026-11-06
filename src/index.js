@@ -5141,6 +5141,12 @@ async function init() {
     // Start periodic update checker (notifies via Telegram when update is available)
     updater.startUpdateChecker(bot, ALLOWED_CHAT_IDS);
 
+    // App updates bring announcement/tip cards and first-run panels that block
+    // clicks; sweep them shortly after start and every 2 minutes.
+    const { dismissPopups } = require('./cdp_controller');
+    setTimeout(() => dismissPopups(CDP_PORT).catch(() => {}), 15000);
+    setInterval(() => dismissPopups(CDP_PORT).catch(() => {}), 120000);
+
     // Initialize Task Watcher — monitors agent's proactive notifications
     const preferredApp = (process.env.ANTIGRAVITY_PREFERRED_APP || 'ide').toLowerCase();
     const appDataName = preferredApp === 'agent' ? 'antigravity' : 'antigravity-ide';
