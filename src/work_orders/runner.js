@@ -3,16 +3,15 @@
 // (the driver is chosen once per process from that env var; the main bot keeps
 // whatever app the user prefers). Talks to the parent only over IPC.
 
-const os = require('os');
-const path = require('path');
 const CDP = require('chrome-remote-interface');
 const { resolveTargets, sendViaCDP } = require('../cdp_controller');
 const { launchIDE } = require('../platform');
 const { ensureMemoryConvention } = require('../memory_convention');
-const { WorkOrders, deskFolderName } = require('./core');
+const { WorkOrders } = require('./core');
+const { deskFolderName, defaultDir } = require('./desks');
 
 const port = parseInt(process.env.IDE_CDP_PORT || '9334', 10);
-const dir = (process.env.WORK_ORDERS_DIR || path.join(os.homedir(), 'agts-work-orders')).replace(/^~(?=$|\/)/, os.homedir());
+const dir = defaultDir(); // parent passes WORK_ORDERS_DIR; default <PROJECTS_DIR>/.agts-work-orders
 const num = (v, d) => (Number.isFinite(parseInt(v, 10)) && parseInt(v, 10) > 0 ? parseInt(v, 10) : d);
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));

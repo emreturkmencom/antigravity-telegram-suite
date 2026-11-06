@@ -4326,6 +4326,7 @@ function getMenuCommands() {
         { command: 'model', description: t('menu.model_desc') },
         { command: 'workspace', description: t('menu.workspace_desc') },
         { command: 'memory', description: 'Check or toggle Project Memory' },
+        { command: 'wo', description: 'Work Orders: desks and jobs for your agents' },
         { command: 'window', description: t('menu.window_desc') || 'Select IDE window' },
         { command: 'close_window', description: t('menu.close_window_desc') || 'Close current window' },
         { command: 'closeall', description: t('menu.closeall_desc') || 'Close all open file tabs' },

@@ -1,79 +1,83 @@
 # Work Orders
 
-Give Antigravity jobs from scripts, cron or other tools, without typing them in Telegram,
-and still see every result in Telegram.
+Give your Antigravity agents jobs from Telegram, then get the results back in Telegram.
 
-A **work order** is a markdown file. A **desk** is a folder with its own `AGENT.md`, and it
-opens in its own Antigravity IDE window. Each kind of recurring job gets its own desk,
-for example `comments`, `video-qa` or `weekly-report`. That desk's agent keeps its rules
-and what it has learned in its `AGENT.md`, the same way a person keeps one chat per topic.
+A **desk** is one agent for one kind of job, for example `comments`, `video-qa` or
+`weekly-report`. Each desk has its own folder and `AGENT.md` for rules and memory, and it
+runs in its own Antigravity IDE window. Like a person who keeps one chat per topic, each
+desk keeps its own context, and the agent records what it learns in its `AGENT.md`.
 
-Work Orders are off by default.
+## Use it from Telegram
 
-## Enable
+Send `/wo` to open the panel:
+
+- **➕ New desk** walks you through it, step by step:
+  1. **Name.** Free text is fine: "Yorum Masası" becomes `yorum-masasi`.
+  2. **Instructions.** What this agent does and the rules it follows.
+  3. **Approval.** Choose whether orders run automatically or wait for you to approve them in Telegram.
+- **✉️ New order:** pick a desk, then send the job as a message. Several lines are fine.
+- **🗂 Desks:** open a desk to send an order, edit its instructions, switch approval, see its last result, or archive it. Archiving moves the desk folder to `archive/`; nothing is deleted.
+- **📊 Status:** what is waiting, queued or running, plus the last few results.
+
+Shortcut: `/wo <desk> <order text>` sends an order in one message.
+
+When an order finishes, the result arrives in the chat. If the desk asks for approval,
+Approve / Reject buttons appear first. `/cancel` stops any step-by-step flow.
+
+## Setup
+
+Work Orders is on by default and needs the **Antigravity IDE** (`IDE_CDP_PORT`, default 9334).
+On first start the bot creates `<PROJECTS_DIR>/.agts-work-orders/`. `/workspace` hides
+folders whose names start with a dot, so this one stays out of your project list.
 
 ```env
-WORK_ORDERS_ENABLED=true
-IDE_CDP_PORT=9334            # the Antigravity IDE must be installed
-# WORK_ORDERS_DIR=~/agts-work-orders
-# WORK_ORDERS_MAX_WINDOWS=3
-# WORK_ORDERS_IDLE_CLOSE_MIN=15
-# WORK_ORDERS_TIMEOUT_MIN=60
+# WORK_ORDERS_ENABLED=false        # turn it off
+# WORK_ORDERS_DIR=~/Projects/.agts-work-orders
+# WORK_ORDERS_MAX_WINDOWS=3        # desk windows open at once (~1–1.5 GB RAM each)
+# WORK_ORDERS_IDLE_CLOSE_MIN=15    # close idle desk windows
+# WORK_ORDERS_TIMEOUT_MIN=60       # default per-order timeout
 ```
 
-Restart the bot. Work Orders runs as a child process that uses the **IDE** driver.
-Your normal Telegram chat keeps using `ANTIGRAVITY_PREFERRED_APP` as before.
+Work Orders runs as a child process that uses the **IDE** driver. Your normal Telegram chat
+keeps using `ANTIGRAVITY_PREFERRED_APP` as before.
 
-## Write an order
+## How an order runs
 
-Save a file such as `~/agts-work-orders/inbox/2026-11-06-comments.md`:
-
-```markdown
----
-desk: comments          # required: lowercase letters, digits, . _ -
-approval: auto          # auto | telegram (Telegram shows Approve / Reject buttons)
-timeout: 30             # minutes (default WORK_ORDERS_TIMEOUT_MIN)
-mode: plain             # plain | goal | plan (goal/plan send as /goal or /plan)
-expects: out/replies.json   # optional: also wait for this file (path relative to the desk)
----
-The new comments are in /home/me/exports/comments.json.
-Draft a reply for each one, following the rules in AGENT.md,
-and write them to out/replies.json.
-```
-
-The file name without `.md` becomes the order id.
-
-## What happens
-
-1. **Pick-up.** The bot moves the order from `inbox/` to `running/`. If the order says `approval: telegram`, it waits for your button press.
-2. **Desk set-up.** The desk folder `desks/wo-<desk>/` is created on first use. It gets a starter `AGENT.md` and the memory block, so the agent records what it learns there.
-3. **Window.** The desk opens as its own IDE window, or the bot reuses that window if it is already open.
-4. **Sending.** The bot sends the order with a header, `[AGTS Work Order <id>]`. It tells the agent to write its answer to `results/<id>.md`, and that file's first line must be `STATUS: done` or `STATUS: failed`.
-5. **Finishing.** When that file appears and stops changing, the bot sends the result to Telegram and moves the order to `done/` or `failed/`.
+1. **The order is saved.** The order is written to `inbox/` and then moved to `running/`. If the desk asks for approval, it waits there for your button press.
+2. **The desk window opens.** The desk window opens, or the bot reuses it if it is already open. The order is sent to its agent with the header `[AGTS Work Order <id>]`.
+3. **The agent writes its answer.** The agent writes its answer to `results/<id>.md`. The first line is `STATUS: done` or `STATUS: failed`.
+4. **The result is sent to you.** When that file stops changing, the result goes to Telegram and the order is moved to `done/` or `failed/`.
 
 Scheduling rules:
 
-- **One desk, one order.** Each desk runs one order at a time. Different desks run in parallel.
-- **Window limit.** At most `WORK_ORDERS_MAX_WINDOWS` desk windows stay open. When the limit is hit, the desk window that has been idle longest is closed to make room. A desk that is still working is never closed.
-- **Idle close.** A desk window closes after `WORK_ORDERS_IDLE_CLOSE_MIN` idle minutes. Its `AGENT.md` and chat history stay on disk.
-- **Bot restart.** If the bot restarts while an order is running, that order is marked failed and is not sent again. Nobody can know what the agent had already done, so you decide whether to re-run it.
+- **One order per desk.** A desk runs one order at a time. Different desks run in parallel.
+- **Window limit.** At most `WORK_ORDERS_MAX_WINDOWS` desk windows are open at once. When the limit is hit, the desk window that has been idle longest is closed. A desk that is still working is never closed.
+- **Idle windows close.** Idle desk windows close after `WORK_ORDERS_IDLE_CLOSE_MIN` minutes. A desk's `AGENT.md` and chat history stay on disk.
+- **Restarts.** If the bot restarts while an order is running, that order is marked failed and is not sent again.
 
-`/wo` in Telegram shows what is waiting, queued and running.
+## Orders from scripts
+
+Scripts and cron jobs can send orders too. Drop a markdown file into `inbox/`. Write it to a temporary name first, then rename it, so the bot never reads a half-written file:
+
+```markdown
+---
+desk: comments          # required
+approval: auto          # optional: auto | telegram (default: the desk's setting)
+timeout: 30             # optional, minutes
+mode: plain             # optional: plain | goal | plan
+expects: out/replies.json   # optional: also wait for this file (relative to the desk)
+---
+The new comments are in /home/me/exports/comments.json.
+Draft a reply for each one and write them to out/replies.json.
+```
 
 ## Folder layout
 
 ```
-~/agts-work-orders/
-  inbox/        drop orders here
-  running/      orders being worked on (or waiting for approval)
-  done/ failed/ archived orders
-  results/      <id>.md written by the agent
-  desks/wo-<desk>/AGENT.md   desk rules + memory
-  state.json
+.agts-work-orders/
+  inbox/  running/  done/  failed/  results/
+  desks/wo-<desk>/AGENT.md   desk rules, instructions and memory
+  desks/wo-<desk>/desk.json  desk settings (approval)
+  archive/                   archived desks
+  history.json  state.json
 ```
-
-## Tips
-
-- Put the standing instructions of a desk in its `AGENT.md` under *Desk instructions*. Keep the order itself short.
-- **Code changes.** An order that changes code in another project should say where that project is. The desk rules already tell the agent to read that project's `AGENT.md` first. Use `approval: telegram` for these orders.
-- **Memory.** Every Antigravity IDE window uses about 1–1.5 GB of RAM. Keep `WORK_ORDERS_MAX_WINDOWS` low on laptops.

@@ -122,6 +122,20 @@ async function run() {
         assert(e.notes.some(n => n.text.includes('missing input')));
     }
 
+    // No approval in the order: the desk's default (desk.json) decides.
+    {
+        const e = makeEnv({ agent: doneAgent });
+        require('../src/work_orders/desks').ensureDesk(e.dir, 'careful', { approval: 'telegram' });
+        e.drop('d1.md', '---\ndesk: careful\n---\nTouch prod.');
+        e.drop('d2.md', '---\ndesk: careful\napproval: auto\n---\nOverride.');
+        await e.wo.tick();
+        assert.strictEqual(e.wo.orders.get('d1').status, 'awaiting_approval');
+        assert.notStrictEqual(e.wo.orders.get('d2').status, 'awaiting_approval', 'explicit approval wins');
+        await e.settle();
+        const h = require('../src/work_orders/desks').readHistory(e.dir);
+        assert(h.some(x => x.id === 'd2' && x.status === 'done'), 'finished orders go to history');
+    }
+
     // Invalid order is rejected and moved to failed/.
     {
         const e = makeEnv();

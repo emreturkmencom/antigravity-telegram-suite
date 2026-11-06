@@ -11,6 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const desks = require('./desks');
 
 const DEFAULTS = {
     maxWindows: 3,
@@ -19,8 +20,6 @@ const DEFAULTS = {
     pollSec: 10,
     resultSettleMs: 5000,
 };
-
-const DESK_RE = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 
 function parseOrder(text) {
     const meta = {};
@@ -36,11 +35,12 @@ function parseOrder(text) {
     body = body.trim();
 
     const desk = (meta.desk || '').toLowerCase();
-    if (!DESK_RE.test(desk)) throw new Error(`invalid or missing "desk" (got "${meta.desk || ''}"); use lowercase letters, digits, . _ -`);
+    if (!desks.DESK_RE.test(desk)) throw new Error(`invalid or missing "desk" (got "${meta.desk || ''}"); use lowercase letters, digits, . _ -`);
     if (!body) throw new Error('empty order body');
 
-    const approval = (meta.approval || 'auto').toLowerCase();
-    if (!['auto', 'telegram'].includes(approval)) throw new Error(`approval must be auto or telegram (got "${meta.approval}")`);
+    // null = not set in the order: the desk's own default (desk.json) decides.
+    const approval = meta.approval ? meta.approval.toLowerCase() : null;
+    if (approval && !['auto', 'telegram'].includes(approval)) throw new Error(`approval must be auto or telegram (got "${meta.approval}")`);
 
     const mode = (meta.mode || 'plain').toLowerCase();
     if (!['plain', 'goal', 'plan'].includes(mode)) throw new Error(`mode must be plain, goal or plan (got "${meta.mode}")`);
@@ -51,31 +51,6 @@ function parseOrder(text) {
     return { desk, approval, mode, timeoutMin, expects: meta.expects || null, body };
 }
 
-function deskFolderName(desk) {
-    return `wo-${desk}`;
-}
-
-function deskSeed(desk) {
-    return `# Desk: ${desk}
-
-This folder is an **AGTS Work Orders desk**. Orders arrive in the chat as messages
-that start with \`[AGTS Work Order <id>]\`.
-
-## Rules for every order
-- Read this file before working on an order.
-- If an order points at another project folder, read that project's \`AGENT.md\`
-  before touching it, and follow its rules.
-- Always finish by writing the result file named at the end of the order — also
-  when the order failed. Its first line is \`STATUS: done\` or \`STATUS: failed\`.
-  The order counts as finished only when that file exists.
-- Do not ask questions in the chat; nobody is watching it live. If something is
-  unclear, make the safest reasonable choice and say so in the result file.
-
-## Desk instructions
-<!-- Standing instructions for this desk go here (written by the user). -->
-`;
-}
-
 class WorkOrders {
     constructor({ dir, deps, options = {} }) {
         this.dir = dir;
@@ -84,9 +59,7 @@ class WorkOrders {
         this.orders = new Map(); // id -> order record
         this.deskState = new Map(); // desk -> { busyWith, lastActive }
         this.running = new Set();
-        for (const sub of ['inbox', 'running', 'done', 'failed', 'results', 'desks']) {
-            fs.mkdirSync(path.join(dir, sub), { recursive: true });
-        }
+        desks.ensureLayout(dir);
         this.statePath = path.join(dir, 'state.json');
         this._loadState();
     }
@@ -113,7 +86,7 @@ class WorkOrders {
     }
 
     deskPath(desk) {
-        return path.join(this.dir, 'desks', deskFolderName(desk));
+        return desks.deskPath(this.dir, desk);
     }
 
     resultPath(id) {
@@ -121,12 +94,7 @@ class WorkOrders {
     }
 
     ensureDesk(desk) {
-        const p = this.deskPath(desk);
-        if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
-        const agentMd = path.join(p, 'AGENT.md');
-        if (!fs.existsSync(agentMd)) fs.writeFileSync(agentMd, deskSeed(desk));
-        if (this.deps.ensureDeskMemory) this.deps.ensureDeskMemory(p);
-        return p;
+        return desks.ensureDesk(this.dir, desk, { ensureMemory: this.deps.ensureDeskMemory });
     }
 
     // Pick up new files from inbox/.
@@ -145,6 +113,7 @@ class WorkOrders {
                 this.deps.notify({ text: `❌ Work order ${id} rejected: ${e.message}` });
                 continue;
             }
+            if (!parsed.approval) parsed.approval = desks.readDeskConfig(this.dir, parsed.desk).approval || 'auto';
             const finalId = this.orders.has(id) ? `${id}-${this.now()}` : id;
             const runningFile = path.join(this.dir, 'running', `${finalId}.md`);
             fs.renameSync(src, runningFile);
@@ -282,6 +251,9 @@ First line: "STATUS: done" or "STATUS: failed". Write it even if the order faile
             order.file = dest;
         } catch (_) { /* keep going: state is what matters */ }
         this._saveState();
+        try {
+            desks.appendHistory(this.dir, { id: order.id, desk: order.desk, status, reason: order.reason, finishedAt: new Date(order.finishedAt).toISOString() });
+        } catch (_) { /* history is best-effort */ }
         if (!notify) return;
         if (status === 'done') {
             const text = (result || '').trim();
@@ -322,4 +294,4 @@ First line: "STATUS: done" or "STATUS: failed". Write it even if the order faile
     }
 }
 
-module.exports = { WorkOrders, parseOrder, deskFolderName, DEFAULTS };
+module.exports = { WorkOrders, parseOrder, DEFAULTS };

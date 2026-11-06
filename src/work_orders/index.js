@@ -1,14 +1,25 @@
-// AGTS Work Orders — parent side, runs inside the main bot. Opt-in with
-// WORK_ORDERS_ENABLED=true. Forks runner.js with the IDE driver, relays its
-// notifications to Telegram, and owns the approve/reject buttons and /wo command
+// AGTS Work Orders — parent side, runs inside the main bot. On by default
+// (WORK_ORDERS_ENABLED=false turns it off). Creates <PROJECTS_DIR>/.agts-work-orders,
+// forks runner.js with the IDE driver, relays its notifications to Telegram and
+// owns every Telegram interaction: /wo panel, flows, approve/reject buttons
 // (only one process may poll a bot token, so all Telegram I/O stays here).
 
 const path = require('path');
 const { fork } = require('child_process');
 const { Markup } = require('telegraf');
+const desks = require('./desks');
+const { registerWorkOrdersUI } = require('./telegram');
 
 function startWorkOrders(bot, chatIds) {
-    if (process.env.WORK_ORDERS_ENABLED !== 'true') return null;
+    if (process.env.WORK_ORDERS_ENABLED === 'false') return null;
+
+    const dir = desks.defaultDir();
+    try {
+        desks.ensureLayout(dir);
+    } catch (e) {
+        console.error(`[work-orders] cannot create ${dir}: ${e.message} — Work Orders disabled`);
+        return null;
+    }
 
     let child = null;
     let restarts = 0;
@@ -34,7 +45,7 @@ function startWorkOrders(bot, chatIds) {
 
     const spawn = () => {
         child = fork(path.join(__dirname, 'runner.js'), [], {
-            env: { ...process.env, ANTIGRAVITY_PREFERRED_APP: 'ide' },
+            env: { ...process.env, ANTIGRAVITY_PREFERRED_APP: 'ide', WORK_ORDERS_DIR: dir },
         });
         child.on('message', (msg) => {
             if (!msg || typeof msg !== 'object') return;
@@ -65,12 +76,9 @@ function startWorkOrders(bot, chatIds) {
         }
     });
 
-    bot.command('wo', async (ctx) => {
-        const res = await request({ type: 'status' });
-        await ctx.reply(res ? res.text : 'Work orders runner is not running.');
-    });
+    registerWorkOrdersUI(bot, { dir });
 
-    return { stop: () => { restarts = 99; if (child) child.kill(); } };
+    return { dir, stop: () => { restarts = 99; if (child) child.kill(); } };
 }
 
 module.exports = { startWorkOrders };
