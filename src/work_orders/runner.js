@@ -1,10 +1,12 @@
-// AGTS Work Orders — child process. Forked by work_orders/index.js with
-// ANTIGRAVITY_PREFERRED_APP=ide so the CDP controller loads the IDE driver
-// (the driver is chosen once per process from that env var; the main bot keeps
-// whatever app the user prefers). Talks to the parent only over IPC.
+// AGTS Work Orders — child process, forked by work_orders/index.js. Talks to the
+// parent only over IPC. Desks open as Antigravity IDE windows; since IDE 2.6 the
+// agent panel inside each window is the same web UI as the standalone app,
+// served in an iframe (http://127.0.0.1:<port>/?extensionView=true). The parent
+// therefore forks this process with the standalone ('agent') UI driver, and
+// orders are typed into that iframe, found through the target parentId chain.
 
 const CDP = require('chrome-remote-interface');
-const { resolveTargets, sendViaCDP, isAgentWorking, getFullLatestResponse } = require('../cdp_controller');
+const { resolveTargets, sendViaCDP, getFullLatestResponse } = require('../cdp_controller');
 const { launchIDE } = require('../platform');
 const { ensureMemoryConvention } = require('../memory_convention');
 const { WorkOrders } = require('./core');
@@ -30,16 +32,43 @@ async function listDeskWindows() {
     return out;
 }
 
+// The agent panel iframe that belongs to this window: walk each iframe's
+// parentId chain up to the window's page target.
+async function findPanel(win) {
+    let raw;
+    try { raw = JSON.parse(await (await fetch(`http://127.0.0.1:${port}/json`)).text()); } catch (_) { return null; }
+    const parent = new Map(raw.map(t => [t.id, t.parentId]));
+    for (const t of raw) {
+        if (!/extensionView=true/.test(t.url || '')) continue;
+        let p = parent.get(t.id);
+        for (let hops = 0; p && hops < 5; hops++) {
+            if (p === win.targetId) return t.id;
+            p = parent.get(p);
+        }
+    }
+    return null;
+}
+
+async function withPanel(win) {
+    for (let i = 0; i < 40; i++) {
+        const panelId = await findPanel(win);
+        if (panelId) return { ...win, panelId };
+        await sleep(1500);
+    }
+    throw new Error(`agent panel of desk "${win.desk}" did not load within 60 s (Antigravity IDE 2.6+ required)`);
+}
+
 async function openDeskWindow(desk, deskDir) {
     const existing = (await listDeskWindows()).find(w => w.desk === desk);
-    if (existing) return existing;
+    if (existing) return withPanel(existing);
     await launchIDE(deskDir, port, 'ide');
     for (let i = 0; i < 40; i++) {
         await sleep(1500);
         const w = (await listDeskWindows()).find(x => x.desk === desk);
         if (w) {
-            await sleep(4000); // let the agent panel finish loading before typing
-            return w;
+            const ready = await withPanel(w);
+            await sleep(4000); // let the panel finish rendering before typing
+            return ready;
         }
     }
     throw new Error(`IDE window for desk "${desk}" (${deskFolderName(desk)}) did not appear within 60 s`);
@@ -52,19 +81,23 @@ function flattenForChat(text) {
 }
 
 async function sendToWindow(win, text) {
-    await sendViaCDP(flattenForChat(text), port, win.targetId);
+    await sendViaCDP(flattenForChat(text), port, win.panelId || win.targetId);
 }
 
 // Used by core to notice an agent that stopped without writing its result.
+// isAgentWorking() is not reliable on the IDE 2.6 panel (it reported idle while
+// the panel showed "Working"), so an order is only treated as stalled when the
+// agent's last message is an explicit error; otherwise it runs to its timeout.
+const AGENT_ERROR_RE = /terminated due to error|Agent terminated|Error ID:/i;
+
 async function checkAgent(win) {
-    const working = await isAgentWorking(port, win.targetId);
-    if (working) return { working: true };
+    const id = win.panelId || win.targetId;
     let lastText = '';
     try {
-        const r = await getFullLatestResponse(port, win.targetId);
+        const r = await getFullLatestResponse(port, id);
         lastText = typeof r === 'string' ? r : (r && r.text) || '';
-    } catch (_) { /* best effort */ }
-    return { working: false, lastText };
+    } catch (_) { return { working: true }; }
+    return { working: !AGENT_ERROR_RE.test(lastText), lastText };
 }
 
 // window.close() lets Electron flush chat history to disk; same reasoning as

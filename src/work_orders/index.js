@@ -1,6 +1,6 @@
 // AGTS Work Orders — parent side, runs inside the main bot. On by default
 // (WORK_ORDERS_ENABLED=false turns it off). Creates <PROJECTS_DIR>/.agts-work-orders,
-// forks runner.js with the IDE driver, relays its notifications to Telegram and
+// forks runner.js with the agent-panel UI driver (see runner.js), relays its notifications to Telegram and
 // owns every Telegram interaction: /wo panel, flows, approve/reject buttons
 // (only one process may poll a bot token, so all Telegram I/O stays here).
 
@@ -45,7 +45,7 @@ function startWorkOrders(bot, chatIds) {
 
     const spawn = () => {
         child = fork(path.join(__dirname, 'runner.js'), [], {
-            env: { ...process.env, ANTIGRAVITY_PREFERRED_APP: 'ide', WORK_ORDERS_DIR: dir },
+            env: { ...process.env, ANTIGRAVITY_PREFERRED_APP: process.env.WORK_ORDERS_UI_DRIVER || 'agent', WORK_ORDERS_DIR: dir },
         });
         child.on('message', (msg) => {
             if (!msg || typeof msg !== 'object') return;
