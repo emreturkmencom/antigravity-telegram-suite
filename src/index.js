@@ -3679,7 +3679,7 @@ bot.action(/ws_(.+)/, (ctx) => {
 });
 
 // ===== WORK ORDERS (opt-in: WORK_ORDERS_ENABLED=true) =====
-require('./work_orders').startWorkOrders(bot, ALLOWED_CHAT_IDS);
+let workOrdersManager = require('./work_orders').startWorkOrders(bot, ALLOWED_CHAT_IDS);
 
 // ===== PROJECT MEMORY =====
 bot.command('memory', async (ctx) => {
@@ -4786,7 +4786,8 @@ let isAgentBusy = false;
         'force_update', 'forceupdate',
         'version', 'menu', 'app', 'fix_shortcuts', 'restart', 'goal', 'plan', 'schedule_task', 'schedule_setup',
         'schedule_list', 'schedule_add', 'schedule_del', 'schedule_status', 'login', 'logincode', 'accounts',
-        'switchacc', 'getinfo', 'delacc', 'gettask', 'getplan', 'getwalk', 'watcher', 'turbo', 'mode', 'permissions', 'panel', 'ask'
+        'switchacc', 'getinfo', 'delacc', 'gettask', 'getplan', 'getwalk', 'watcher', 'turbo', 'mode', 'permissions', 'panel', 'ask',
+        'wo', 'wo_stop'
     ]);
 
     bot.on('text', async (ctx, next) => {
@@ -4807,6 +4808,23 @@ let isAgentBusy = false;
     }
     if (!explicitTargetId && ctx.message.reply_to_message?.reply_markup?.inline_keyboard?.[0]?.[0]?.callback_data?.startsWith('focus_')) {
         explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
+    }
+
+    // Work Orders: check user activity and queue if an order is running
+    if (workOrdersManager) {
+        workOrdersManager.recordUserActivity();
+        if (workOrdersManager.isOrderRunning()) {
+            workOrdersManager.queueUserMessage({
+                ctx,
+                query,
+                explicitTargetId,
+                explicitThreadName,
+            });
+            const running = workOrdersManager.getActiveOrder();
+            const desk = running ? running.desk : '';
+            const { s } = require('./work_orders/strings');
+            return ctx.reply(s('order_running_queued', { desk }));
+        }
     }
 
     // If agent is already processing, just send the follow-up message without starting a new wait loop
@@ -4949,6 +4967,16 @@ async function processAgentRequest(ctx, query, explicitTargetId, explicitThreadN
             global.__taskWatcher.syncBaseline();
         }
     }
+}
+
+if (workOrdersManager) {
+    workOrdersManager.setMessageProcessor(async (item) => {
+        try {
+            await processAgentRequest(item.ctx, item.query, item.explicitTargetId, item.explicitThreadName, null);
+        } catch (err) {
+            console.error('[work-orders] failed to process queued message:', err.message);
+        }
+    });
 }
 
 async function processMediaGroup(group) {

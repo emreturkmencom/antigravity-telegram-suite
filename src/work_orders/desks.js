@@ -74,6 +74,13 @@ function writeDeskConfig(dir, desk, cfg) {
     fs.writeFileSync(path.join(deskPath(dir, desk), 'desk.json'), JSON.stringify(cfg, null, 2));
 }
 
+function setDeskThreadId(dir, desk, threadId) {
+    const cfg = readDeskConfig(dir, desk);
+    cfg.threadId = threadId;
+    writeDeskConfig(dir, desk, cfg);
+    return cfg;
+}
+
 // Idempotent: creates the folder/AGENT.md/desk.json only if missing.
 function ensureDesk(dir, desk, { instructions = '', approval, ensureMemory } = {}) {
     const p = deskPath(dir, desk);
@@ -198,6 +205,7 @@ module.exports = {
     listDesks,
     readDeskConfig,
     writeDeskConfig,
+    setDeskThreadId,
     getInstructions,
     setInstructions,
     archiveDesk,

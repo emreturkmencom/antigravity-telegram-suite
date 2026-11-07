@@ -9,6 +9,7 @@ const { fork } = require('child_process');
 const { Markup } = require('telegraf');
 const desks = require('./desks');
 const { registerWorkOrdersUI } = require('./telegram');
+const { s } = require('./strings');
 
 function startWorkOrders(bot, chatIds) {
     if (process.env.WORK_ORDERS_ENABLED === 'false') return null;
@@ -25,6 +26,11 @@ function startWorkOrders(bot, chatIds) {
     let restarts = 0;
     let reqSeq = 0;
     const pending = new Map(); // requestId -> resolve
+
+    let activeOrder = null;
+    const queuedUserMessages = [];
+    let userMessageProcessor = null;
+    let lastUserActivityAt = 0;
 
     const send = async (msg) => {
         const extra = msg.buttons && msg.buttons.length
@@ -43,18 +49,48 @@ function startWorkOrders(bot, chatIds) {
         setTimeout(() => { if (pending.delete(requestId)) resolve(null); }, 10000);
     });
 
+    const flushQueue = async () => {
+        if (!userMessageProcessor) return;
+        while (queuedUserMessages.length > 0) {
+            const item = queuedUserMessages.shift();
+            try {
+                await userMessageProcessor(item);
+            } catch (e) {
+                console.error('[work-orders] failed to process queued user message:', e.message);
+            }
+        }
+    };
+
     const spawn = () => {
         child = fork(path.join(__dirname, 'runner.js'), [], {
-            env: { ...process.env, ANTIGRAVITY_PREFERRED_APP: process.env.WORK_ORDERS_UI_DRIVER || 'agent', WORK_ORDERS_DIR: dir },
+            env: {
+                ...process.env,
+                ANTIGRAVITY_PREFERRED_APP: process.env.WORK_ORDERS_UI_DRIVER || 'agent',
+                WORK_ORDERS_DIR: dir,
+                WORK_ORDERS_BACKEND: process.env.WORK_ORDERS_BACKEND || 'standalone',
+            },
         });
+        if (lastUserActivityAt > 0) {
+            child.send({ type: 'user_activity', timestamp: lastUserActivityAt });
+        }
         child.on('message', (msg) => {
             if (!msg || typeof msg !== 'object') return;
             if (msg.type === 'notify') return send(msg);
+            if (msg.type === 'order_started') {
+                activeOrder = msg.order;
+                return;
+            }
+            if (msg.type === 'order_finished') {
+                activeOrder = null;
+                flushQueue().catch(() => {});
+                return;
+            }
             const resolve = pending.get(msg.requestId);
             if (resolve) { pending.delete(msg.requestId); resolve(msg); }
         });
         child.on('exit', (code) => {
             child = null;
+            activeOrder = null;
             if (restarts >= 5) {
                 send({ text: `❌ Work orders runner stopped (exit ${code}) after 5 restarts. Check the bot logs.` });
                 return;
@@ -76,9 +112,37 @@ function startWorkOrders(bot, chatIds) {
         }
     });
 
+    bot.command('wo_stop', async (ctx) => {
+        if (!activeOrder) {
+            return ctx.reply(s('no_running_order'));
+        }
+        await ctx.reply(s('wo_stopping'));
+        const res = await request({ type: 'stop_order' });
+        if (res && res.stopped) {
+            await ctx.reply(s('wo_stopped'));
+        } else {
+            await ctx.reply(s('wo_stop_failed'));
+        }
+    });
+
     registerWorkOrdersUI(bot, { dir });
 
-    return { dir, stop: () => { restarts = 99; if (child) child.kill(); } };
+    return {
+        dir,
+        stop: () => { restarts = 99; if (child) child.kill(); },
+        isOrderRunning: () => !!activeOrder,
+        getActiveOrder: () => activeOrder,
+        queueUserMessage: (msg) => { queuedUserMessages.push(msg); },
+        recordUserActivity: () => {
+            lastUserActivityAt = Date.now();
+            if (child && child.connected) {
+                child.send({ type: 'user_activity', timestamp: lastUserActivityAt });
+            }
+        },
+        setMessageProcessor: (fn) => { userMessageProcessor = fn; },
+        getQueuedCount: () => queuedUserMessages.length,
+        stopActiveOrder: () => request({ type: 'stop_order' }),
+    };
 }
 
 module.exports = { startWorkOrders };

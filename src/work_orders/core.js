@@ -15,6 +15,7 @@ const desks = require('./desks');
 
 const DEFAULTS = {
     maxWindows: 3,
+    maxConcurrent: null,
     idleCloseMin: 15,
     timeoutMin: 60,
     pollSec: 10,
@@ -162,12 +163,26 @@ class WorkOrders {
         return this.deskState.get(desk);
     }
 
+    stopActiveOrder(reason = 'stopped by user') {
+        const order = [...this.orders.values()].find(o => o.status === 'running');
+        if (!order) return null;
+        order.aborted = true;
+        order.abortReason = reason;
+        if (this.deps.stopAgent) {
+            this.deps.stopAgent(order).catch(() => {});
+        }
+        return order;
+    }
+
     // Start every queued order whose desk is free and whose window fits the budget.
     async dispatch() {
+        if (this.opt.maxConcurrent && this.running.size >= this.opt.maxConcurrent) return;
         const queued = [...this.orders.values()].filter(o => o.status === 'queued').sort((a, b) => a.createdAt - b.createdAt);
         for (const order of queued) {
+            if (this.opt.maxConcurrent && this.running.size >= this.opt.maxConcurrent) break;
             const ds = this._desk(order.desk);
             if (ds.busyWith) continue;
+            if (this.deps.canDispatch && !(await this.deps.canDispatch(order))) break;
             const open = await this.deps.listDeskWindows();
             const isOpen = open.some(w => w.desk === order.desk);
             if (!isOpen && open.length >= this.opt.maxWindows) {
@@ -180,6 +195,9 @@ class WorkOrders {
             order.status = 'running';
             order.startedAt = this.now();
             this._saveState();
+            if (this.deps.onOrderStarted) {
+                try { this.deps.onOrderStarted(order); } catch (_) {}
+            }
             const p = this._runOrder(order).finally(() => this.running.delete(p));
             this.running.add(p);
         }
@@ -205,14 +223,19 @@ First line: "STATUS: done" or "STATUS: failed". Write it even if the order faile
 
     async _runOrder(order) {
         const ds = this._desk(order.desk);
+        let win = null;
         try {
             const deskDir = this.ensureDesk(order.desk);
-            const win = await this.deps.openDeskWindow(order.desk, deskDir);
+            win = await this.deps.openDeskWindow(order.desk, deskDir);
             await this.deps.sendToWindow(win, this.buildPrompt(order));
             this.deps.notify({ text: `▶️ Work order ${order.id} started on desk ${order.desk}.` });
 
             const timeoutMs = (order.timeoutMin || this.opt.timeoutMin) * 60000;
             const result = await this._waitForResult(order, timeoutMs, win);
+            if (result && result.aborted) {
+                this._finish(order, 'failed', result.reason || 'stopped by user');
+                return;
+            }
             if (result && result.stalled) {
                 const last = (result.lastText || '').trim().slice(0, 1500);
                 this._finish(order, 'failed', 'the agent stopped without writing the result file', true, last ? `Agent's last message:\n${last}` : null);
@@ -227,6 +250,14 @@ First line: "STATUS: done" or "STATUS: failed". Write it even if the order faile
         } catch (e) {
             this._finish(order, 'failed', e.message);
         } finally {
+            if (this.deps.afterOrder) {
+                try { await this.deps.afterOrder(order, win); } catch (err) {
+                    console.error('[work-orders] afterOrder error:', err.message);
+                }
+            }
+            if (this.deps.onOrderFinished) {
+                try { this.deps.onOrderFinished(order); } catch (_) {}
+            }
             ds.busyWith = null;
             ds.lastActive = this.now();
         }
@@ -242,6 +273,7 @@ First line: "STATUS: done" or "STATUS: failed". Write it even if the order faile
             : null;
         let lastSize = -1;
         while (this.now() < deadline) {
+            if (order.aborted) return { aborted: true, reason: order.abortReason };
             if (fs.existsSync(resultFile) && (!expects || fs.existsSync(expects))) {
                 const size = fs.statSync(resultFile).size;
                 // The agent may still be writing: accept once the size stops changing.
