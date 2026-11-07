@@ -218,11 +218,14 @@ const STANDALONE_LOCATORS_SCRIPT = `
                 return false;
             };
 
-            // 1. If currently inside a project section (?section=<id>), prefer the New Conversation button for that section
+            // 1. If currently inside a project section (?project=<id> or ?section=<id>), prefer the New Conversation button for that project
             try {
-                const sectionId = new URLSearchParams(window.location.search).get('section');
+                const params = new URLSearchParams(window.location.search);
+                const sectionId = params.get('project') || params.get('section');
                 if (sectionId) {
-                    const sectionBtn = document.querySelector('a[href="/?section=' + sectionId + '"], a[href*="section=' + sectionId + '"]');
+                    const sectionBtn = document.querySelector(
+                        'a[href="/?project=' + sectionId + '"], a[href*="project=' + sectionId + '"], a[href="/?section=' + sectionId + '"], a[href*="section=' + sectionId + '"]'
+                    );
                     if (sectionBtn && !isInvalidNewChatEl(sectionBtn)) return sectionBtn;
                 }
             } catch (e) {}
@@ -238,15 +241,16 @@ const STANDALONE_LOCATORS_SCRIPT = `
                 if (btn && !isInvalidNewChatEl(btn)) return btn;
             }
             
-            // 4. Icon selectors (excluding input box, add-project buttons, and other projects' section links)
+            // 4. Icon selectors (excluding input box, add-project buttons, and other projects' section/project links)
             const iconSelectors = 'svg.lucide-plus, svg.lucide-square-pen, svg.lucide-message-square-plus';
             const icons = Array.from(document.querySelectorAll(iconSelectors));
             for (const icon of icons) {
                 const btn = icon.closest('button, a, [role="button"]');
-                if (btn && !isInvalidNewChatEl(btn) && !(btn.getAttribute('href') || '').includes('section=')) return btn;
+                const href = (btn && btn.getAttribute('href')) || '';
+                if (btn && !isInvalidNewChatEl(btn) && !href.includes('section=') && !href.includes('project=')) return btn;
             }
             
-            // 5. Attribute selectors (excluding /c/ conversation links and other projects' section links)
+            // 5. Attribute selectors (excluding /c/ conversation links and other projects' section/project links)
             const selectors = [
                 '[aria-label="New Conversation" i]',
                 '[aria-label="New Chat" i]',
@@ -257,7 +261,10 @@ const STANDALONE_LOCATORS_SCRIPT = `
                 '[class*="new-chat"]',
                 '[data-tooltip-id*="new-conversation" i]'
             ];
-            const attrBtns = Array.from(document.querySelectorAll(selectors.join(', '))).filter(b => !isInvalidNewChatEl(b) && !(b.getAttribute('href') || '').includes('section='));
+            const attrBtns = Array.from(document.querySelectorAll(selectors.join(', '))).filter(b => {
+                const href = b.getAttribute('href') || '';
+                return !isInvalidNewChatEl(b) && !href.includes('section=') && !href.includes('project=');
+            });
             if (attrBtns.length > 0) return attrBtns[0];
             
             const allBtns = Array.from(document.querySelectorAll('button, a, [role="button"]')).filter(b => !isInvalidNewChatEl(b));

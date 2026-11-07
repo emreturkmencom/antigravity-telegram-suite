@@ -9,6 +9,7 @@ const CDP = require('chrome-remote-interface');
 const {
     resolveTargets,
     sendViaCDP,
+    verifyChatMessageSent,
     getFullLatestResponse,
     isAgentWorking,
     getActiveThreadInfo,
@@ -40,6 +41,14 @@ let lastUserMessageAt = 0;
 
 function flattenForChat(text) {
     return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean).join(' | ');
+}
+
+function extractVerificationSnippet(flattenedText) {
+    const cleaned = String(flattenedText || '').replace(/^\/(goal|plan)\s+/i, '').trim();
+    const headerMatch = cleaned.match(/^(\[AGTS Work Order [^\]]+\])/);
+    if (headerMatch) return headerMatch[1];
+    const firstSegment = cleaned.split(' | ')[0] || cleaned;
+    return firstSegment.slice(0, 64).trim();
 }
 
 const AGENT_ERROR_RE = /terminated due to error|Agent terminated|Error ID:/i;
@@ -121,122 +130,212 @@ async function closeWindow(win) {
 }
 
 // ==================== STANDALONE BACKEND ====================
-async function openStandaloneDesk(desk, deskDir) {
-    // 1. Record current active thread and workspace before switching
-    let originalThread = null;
-    try {
-        originalThread = await getActiveThreadInfo(port);
-    } catch (e) {
-        console.debug('[work-orders] failed to read active thread info before switch:', e.message);
-    }
+function createStandaloneHandlers({
+    dir: baseDir = dir,
+    port: cdpPort = port,
+    getActiveThreadInfo: getThreadInfo = getActiveThreadInfo,
+    switchStandaloneWorkspace: switchWorkspace = switchStandaloneWorkspace,
+    switchAgentThread: switchThread = switchAgentThread,
+    triggerNewChat: openNewChat = triggerNewChat,
+    dismissPopups: clearPopups = dismissPopups,
+    sendViaCDP: sendPrompt = sendViaCDP,
+    verifyChatMessageSent: verifyMessage = verifyChatMessageSent,
+    getFullLatestResponse: getLatestResponse = getFullLatestResponse,
+    notify: notifyFn = notify,
+    sleep: sleepFn = sleep,
+    verifyAttempts = 12,
+    verifyIntervalMs = 1000,
+} = {}) {
+    let lastOriginalThread = null;
 
-    // 2. Switch workspace to desk's folder
-    const wsName = deskFolderName(desk);
-    await switchStandaloneWorkspace(port, wsName, deskDir);
-    await sleep(1500);
-
-    // 3. Check desk.json for persistent threadId
-    const cfg = readDeskConfig(dir, desk);
-    let threadId = cfg.threadId || null;
-    let switched = false;
-
-    if (threadId) {
+    async function openStandaloneDesk(desk, deskDir) {
+        // 1. Record current active thread and workspace before switching
+        let originalThread = null;
         try {
-            const res = await switchAgentThread(port, null, wsName, threadId);
-            if (res) {
-                await sleep(1200);
-                const info = await getActiveThreadInfo(port);
-                if (info && info.id === threadId) {
-                    switched = true;
+            originalThread = await getThreadInfo(cdpPort);
+        } catch (e) {
+            console.debug('[work-orders] failed to read active thread info before switch:', e.message);
+        }
+        lastOriginalThread = originalThread;
+
+        // 2. Switch workspace to desk's folder
+        const wsName = deskFolderName(desk);
+        await switchWorkspace(cdpPort, wsName, deskDir);
+        await sleepFn(1500);
+
+        // 3. Check desk.json for persistent threadId
+        const cfg = readDeskConfig(baseDir, desk);
+        const previousDeskThreadId = cfg.threadId || null;
+        let threadId = previousDeskThreadId;
+        let switched = false;
+
+        if (threadId) {
+            try {
+                const res = await switchThread(cdpPort, null, wsName, threadId);
+                if (res) {
+                    await sleepFn(1200);
+                    const info = await getThreadInfo(cdpPort);
+                    if (info && info.id === threadId) {
+                        switched = true;
+                    }
+                }
+            } catch (e) {
+                console.debug('[work-orders] switch to desk thread failed:', e.message);
+            }
+        }
+
+        if (!switched) {
+            if (threadId) {
+                notifyFn({ text: s('thread_lost_new', { desk }) });
+            }
+            await openNewChat(cdpPort, wsName);
+            await sleepFn(1500);
+
+            // Verify we actually left any previous conversation before typing
+            const staleIds = new Set([originalThread?.id, previousDeskThreadId].filter(Boolean));
+            if (staleIds.size > 0) {
+                let postNewInfo = null;
+                try { postNewInfo = await getThreadInfo(cdpPort); } catch (_) {}
+                if (postNewInfo && postNewInfo.id && staleIds.has(postNewInfo.id)) {
+                    await switchWorkspace(cdpPort, wsName, deskDir);
+                    await sleepFn(1000);
+                    await openNewChat(cdpPort, wsName);
+                    await sleepFn(1200);
+                    try { postNewInfo = await getThreadInfo(cdpPort); } catch (_) {}
+                    if (postNewInfo && postNewInfo.id && staleIds.has(postNewInfo.id)) {
+                        throw new Error(`new chat could not be opened for desk "${desk}" (active thread remained ${postNewInfo.id})`);
+                    }
                 }
             }
-        } catch (e) {
-            console.debug('[work-orders] switch to desk thread failed:', e.message);
+            threadId = null;
         }
+
+        // 4. Dismiss popups
+        await clearPopups(cdpPort).catch(() => {});
+
+        return {
+            desk,
+            deskDir,
+            port: cdpPort,
+            originalThread,
+            previousDeskThreadId,
+            threadId,
+            isNewThread: !switched,
+        };
     }
 
-    if (!switched) {
-        if (threadId) {
-            notify({ text: s('thread_lost_new', { desk }) });
-        }
-        await triggerNewChat(port);
-        await sleep(1500);
-        threadId = null;
-    }
+    async function sendToStandaloneWindow(win, text) {
+        const targetPort = (win && win.port) || cdpPort;
+        await clearPopups(targetPort).catch(() => {});
+        const flattened = flattenForChat(text);
+        const snippet = extractVerificationSnippet(flattened);
+        await sendPrompt(flattened, targetPort);
 
-    // 4. Dismiss popups
-    await dismissPopups(port).catch(() => {});
+        const staleIds = new Set([win.originalThread?.id, win.previousDeskThreadId].filter(Boolean));
+        const expectNewThread = Boolean(win.isNewThread || !win.threadId);
+        let verifiedThreadId = null;
+        let verifiedMessage = false;
+        let lastSeenThreadId = null;
 
-    return {
-        desk,
-        deskDir,
-        port,
-        originalThread,
-        threadId,
-        isNewThread: !switched,
-    };
-}
-
-async function sendToStandaloneWindow(win, text) {
-    await dismissPopups(win.port).catch(() => {});
-    await sendViaCDP(flattenForChat(text), win.port);
-
-    // If new thread or threadId not yet saved in desk.json, capture it
-    if (win.isNewThread || !win.threadId) {
-        for (let i = 0; i < 8; i++) {
-            await sleep(1000);
+        for (let i = 0; i < verifyAttempts; i++) {
+            await sleepFn(verifyIntervalMs);
             try {
-                const info = await getActiveThreadInfo(win.port);
-                if (info && info.id) {
-                    win.threadId = info.id;
-                    win.isNewThread = false;
-                    const cfg = readDeskConfig(dir, win.desk);
-                    cfg.threadId = info.id;
-                    writeDeskConfig(dir, win.desk, cfg);
+                const info = await getThreadInfo(targetPort);
+                const currentId = info && info.id ? info.id : null;
+                if (currentId) lastSeenThreadId = currentId;
+
+                const threadOk = expectNewThread
+                    ? Boolean(currentId && !staleIds.has(currentId))
+                    : Boolean(currentId && currentId === win.threadId);
+
+                if (!threadOk) continue;
+                verifiedThreadId = currentId;
+
+                const msgOk = await verifyMessage(targetPort, snippet, currentId);
+                if (msgOk) {
+                    verifiedMessage = true;
                     break;
                 }
             } catch (_) {}
         }
-    }
-}
 
-async function checkStandaloneAgent(win) {
-    let lastText = '';
-    try {
-        const r = await getFullLatestResponse(win.port);
-        lastText = typeof r === 'string' ? r : (r && r.text) || '';
-    } catch (_) { return { working: true }; }
-    return { working: !AGENT_ERROR_RE.test(lastText), lastText };
-}
-
-async function afterStandaloneOrder(order, win) {
-    if (!win || !win.originalThread) return;
-    const { id, name, workspace } = win.originalThread;
-    if (!id && !workspace) return;
-
-    let restored = false;
-    try {
-        if (id) {
-            const res = await switchAgentThread(win.port, name, workspace, id);
-            if (res) {
-                await sleep(1000);
-                const info = await getActiveThreadInfo(win.port);
-                if (info && info.id === id) {
-                    restored = true;
-                }
-            }
-        } else if (workspace) {
-            await switchStandaloneWorkspace(win.port, workspace);
-            restored = true;
+        if (!verifiedThreadId) {
+            const detail = lastSeenThreadId
+                ? `active thread remained ${lastSeenThreadId}`
+                : 'no new conversation ID was created';
+            throw new Error(`chat thread verification failed on desk "${win.desk}": ${detail}`);
         }
-    } catch (e) {
-        console.debug('[work-orders] failed to restore chat:', e.message);
+
+        if (!verifiedMessage) {
+            throw new Error(`sent work order message did not appear in chat ${verifiedThreadId} on desk "${win.desk}"`);
+        }
+
+        if (expectNewThread) {
+            win.threadId = verifiedThreadId;
+            win.isNewThread = false;
+            const cfg = readDeskConfig(baseDir, win.desk);
+            cfg.threadId = verifiedThreadId;
+            writeDeskConfig(baseDir, win.desk, cfg);
+        }
     }
 
-    if (!restored) {
-        notify({ text: s('cant_return_chat') });
+    async function checkStandaloneAgent(win) {
+        const targetPort = (win && win.port) || cdpPort;
+        let lastText = '';
+        try {
+            const r = await getLatestResponse(targetPort);
+            lastText = typeof r === 'string' ? r : (r && r.text) || '';
+        } catch (_) { return { working: true }; }
+        return { working: !AGENT_ERROR_RE.test(lastText), lastText };
     }
+
+    async function afterStandaloneOrder(order, win) {
+        const orig = (win && win.originalThread) || lastOriginalThread;
+        lastOriginalThread = null;
+        if (!orig) return;
+        const { id, name, workspace } = orig;
+        if (!id && !workspace) return;
+
+        const targetPort = (win && win.port) || cdpPort;
+        let restored = false;
+        try {
+            if (id) {
+                const res = await switchThread(targetPort, name, workspace, id);
+                if (res) {
+                    await sleepFn(1000);
+                    const info = await getThreadInfo(targetPort);
+                    if (info && info.id === id) {
+                        restored = true;
+                    }
+                }
+            } else if (workspace) {
+                await switchWorkspace(targetPort, workspace);
+                restored = true;
+            }
+        } catch (e) {
+            console.debug('[work-orders] failed to restore chat:', e.message);
+        }
+
+        if (!restored) {
+            notifyFn({ text: s('cant_return_chat') });
+        }
+    }
+
+    return {
+        openStandaloneDesk,
+        sendToStandaloneWindow,
+        checkStandaloneAgent,
+        afterStandaloneOrder,
+    };
 }
+
+const standaloneHandlers = createStandaloneHandlers();
+const {
+    openStandaloneDesk,
+    sendToStandaloneWindow,
+    checkStandaloneAgent,
+    afterStandaloneOrder,
+} = standaloneHandlers;
 
 async function canDispatchStandalone(order) {
     // Condition 1: Standalone'da agent çalışmıyor (isAgentWorking false)
@@ -253,84 +352,92 @@ async function canDispatchStandalone(order) {
     return true;
 }
 
-const deps = isStandalone ? {
-    listDeskWindows: async () => [],
-    openDeskWindow: (desk, deskDir) => openStandaloneDesk(desk, deskDir),
-    sendToWindow: (win, text) => sendToStandaloneWindow(win, text),
-    closeWindow: async () => {},
-    checkAgent: (win) => checkStandaloneAgent(win),
-    stopAgent: async () => { await stopAgent(port).catch(() => {}); },
-    canDispatch: (order) => canDispatchStandalone(order),
-    afterOrder: (order, win) => afterStandaloneOrder(order, win),
-    onOrderStarted: (order) => {
-        if (process.send) process.send({ type: 'order_started', order: { id: order.id, desk: order.desk } });
-    },
-    onOrderFinished: (order) => {
-        if (process.send) process.send({ type: 'order_finished', order: { id: order.id, desk: order.desk, status: order.status } });
-    },
-    notify,
-    sleep,
-    ensureDeskMemory: (p) => ensureMemoryConvention(p, { force: true }),
-} : {
-    listDeskWindows,
-    openDeskWindow,
-    sendToWindow,
-    closeWindow,
-    checkAgent,
-    stopAgent: async () => {},
-    onOrderStarted: (order) => {
-        if (process.send) process.send({ type: 'order_started', order: { id: order.id, desk: order.desk } });
-    },
-    onOrderFinished: (order) => {
-        if (process.send) process.send({ type: 'order_finished', order: { id: order.id, desk: order.desk, status: order.status } });
-    },
-    notify,
-    sleep,
-    ensureDeskMemory: (p) => ensureMemoryConvention(p, { force: true }),
+if (require.main === module) {
+    const deps = isStandalone ? {
+        listDeskWindows: async () => [],
+        openDeskWindow: (desk, deskDir) => openStandaloneDesk(desk, deskDir),
+        sendToWindow: (win, text) => sendToStandaloneWindow(win, text),
+        closeWindow: async () => {},
+        checkAgent: (win) => checkStandaloneAgent(win),
+        stopAgent: async () => { await stopAgent(port).catch(() => {}); },
+        canDispatch: (order) => canDispatchStandalone(order),
+        afterOrder: (order, win) => afterStandaloneOrder(order, win),
+        onOrderStarted: (order) => {
+            if (process.send) process.send({ type: 'order_started', order: { id: order.id, desk: order.desk } });
+        },
+        onOrderFinished: (order) => {
+            if (process.send) process.send({ type: 'order_finished', order: { id: order.id, desk: order.desk, status: order.status } });
+        },
+        notify,
+        sleep,
+        ensureDeskMemory: (p) => ensureMemoryConvention(p, { force: true }),
+    } : {
+        listDeskWindows,
+        openDeskWindow,
+        sendToWindow,
+        closeWindow,
+        checkAgent,
+        stopAgent: async () => {},
+        onOrderStarted: (order) => {
+            if (process.send) process.send({ type: 'order_started', order: { id: order.id, desk: order.desk } });
+        },
+        onOrderFinished: (order) => {
+            if (process.send) process.send({ type: 'order_finished', order: { id: order.id, desk: order.desk, status: order.status } });
+        },
+        notify,
+        sleep,
+        ensureDeskMemory: (p) => ensureMemoryConvention(p, { force: true }),
+    };
+
+    const wo = new WorkOrders({
+        dir,
+        deps,
+        options: {
+            maxConcurrent: isStandalone ? 1 : null,
+            maxWindows: num(process.env.WORK_ORDERS_MAX_WINDOWS, 3),
+            idleCloseMin: num(process.env.WORK_ORDERS_IDLE_CLOSE_MIN, 15),
+            timeoutMin: num(process.env.WORK_ORDERS_TIMEOUT_MIN, 60),
+        },
+    });
+
+    process.on('message', async (msg) => {
+        if (!msg || typeof msg !== 'object') return;
+        if (msg.type === 'approval') {
+            const order = wo.approve(msg.shortId, msg.approved);
+            if (process.send) process.send({ type: 'approval_result', requestId: msg.requestId, order: order ? { id: order.id, desk: order.desk, status: order.status } : null });
+        } else if (msg.type === 'status') {
+            if (process.send) process.send({ type: 'status_result', requestId: msg.requestId, text: wo.statusText() });
+        } else if (msg.type === 'user_activity') {
+            lastUserMessageAt = msg.timestamp || Date.now();
+        } else if (msg.type === 'stop_order') {
+            const stopped = wo.stopActiveOrder('stopped by user via /wo_stop');
+            if (process.send) process.send({
+                type: 'stop_order_result',
+                requestId: msg.requestId,
+                stopped: !!stopped,
+                order: stopped ? { id: stopped.id, desk: stopped.desk } : null,
+            });
+        }
+    });
+
+    const exit = () => process.exit(0);
+    process.on('SIGTERM', exit);
+    process.on('SIGINT', exit);
+    process.on('disconnect', exit);
+
+    let ticking = false;
+    setInterval(async () => {
+        if (ticking) return;
+        ticking = true;
+        try { await wo.tick(); } catch (e) { console.error('[work-orders] tick error:', e.message); }
+        ticking = false;
+    }, num(process.env.WORK_ORDERS_POLL_SEC, 10) * 1000);
+
+    console.log(`[work-orders] runner started: backend=${BACKEND}, dir=${dir}, CDP port=${port}`);
+}
+
+module.exports = {
+    createStandaloneHandlers,
+    flattenForChat,
+    extractVerificationSnippet,
 };
-
-const wo = new WorkOrders({
-    dir,
-    deps,
-    options: {
-        maxConcurrent: isStandalone ? 1 : null,
-        maxWindows: num(process.env.WORK_ORDERS_MAX_WINDOWS, 3),
-        idleCloseMin: num(process.env.WORK_ORDERS_IDLE_CLOSE_MIN, 15),
-        timeoutMin: num(process.env.WORK_ORDERS_TIMEOUT_MIN, 60),
-    },
-});
-
-process.on('message', async (msg) => {
-    if (!msg || typeof msg !== 'object') return;
-    if (msg.type === 'approval') {
-        const order = wo.approve(msg.shortId, msg.approved);
-        if (process.send) process.send({ type: 'approval_result', requestId: msg.requestId, order: order ? { id: order.id, desk: order.desk, status: order.status } : null });
-    } else if (msg.type === 'status') {
-        if (process.send) process.send({ type: 'status_result', requestId: msg.requestId, text: wo.statusText() });
-    } else if (msg.type === 'user_activity') {
-        lastUserMessageAt = msg.timestamp || Date.now();
-    } else if (msg.type === 'stop_order') {
-        const stopped = wo.stopActiveOrder('stopped by user via /wo_stop');
-        if (process.send) process.send({
-            type: 'stop_order_result',
-            requestId: msg.requestId,
-            stopped: !!stopped,
-            order: stopped ? { id: stopped.id, desk: stopped.desk } : null,
-        });
-    }
-});
-
-const exit = () => process.exit(0);
-process.on('SIGTERM', exit);
-process.on('SIGINT', exit);
-process.on('disconnect', exit);
-
-let ticking = false;
-setInterval(async () => {
-    if (ticking) return;
-    ticking = true;
-    try { await wo.tick(); } catch (e) { console.error('[work-orders] tick error:', e.message); }
-    ticking = false;
-}, num(process.env.WORK_ORDERS_POLL_SEC, 10) * 1000);
-
-console.log(`[work-orders] runner started: backend=${BACKEND}, dir=${dir}, CDP port=${port}`);

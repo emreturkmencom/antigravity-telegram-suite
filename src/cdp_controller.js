@@ -1814,7 +1814,22 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                             if (slashCommand && preparedSlashCommand && preparedSlashCommand.chipInserted) {
                                 // The chip was already created and any args typed into the composer by preparedSlashCommand!
                             } else {
+                                if (editor.__lexicalEditor && typeof editor.__lexicalEditor.focus === 'function') {
+                                    try { editor.__lexicalEditor.focus(); } catch (_) {}
+                                }
                                 editor.focus();
+                                try {
+                                    const sel = window.getSelection();
+                                    if (sel && (!sel.rangeCount || !editor.contains(sel.anchorNode))) {
+                                        const range = document.createRange();
+                                        range.selectNodeContents(editor);
+                                        range.collapse(false);
+                                        sel.removeAllRanges();
+                                        sel.addRange(range);
+                                    }
+                                } catch (_) {}
+                                await new Promise(r => setTimeout(r, 50));
+
                                 try {
                                     document.execCommand("selectAll", false, null);
                                     document.execCommand("delete", false, null);
@@ -1822,8 +1837,19 @@ async function sendViaCDP(text, port, specificTargetId = null) {
 
                                 let inserted = false;
                                 try { inserted = !!document.execCommand("insertText", false, escapedText); } catch(e) {}
-                                
-                                if (!inserted) {
+                                const currentEditorText = () => ((editor.value !== undefined ? editor.value : (editor.innerText || editor.textContent)) || '').trim();
+
+                                if (!inserted || !currentEditorText()) {
+                                    try {
+                                        const dt = new DataTransfer();
+                                        dt.setData('text/plain', escapedText);
+                                        const pasteEvt = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+                                        editor.dispatchEvent(pasteEvt);
+                                    } catch (_) {}
+                                    await new Promise(r => setTimeout(r, 50));
+                                }
+
+                                if (!currentEditorText()) {
                                     if (editor.tagName === 'TEXTAREA') {
                                         const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
                                         if (setter) setter.call(editor, escapedText);
@@ -1848,23 +1874,30 @@ async function sendViaCDP(text, port, specificTargetId = null) {
 
                             // Find the submit button near the editor (within same panel)
                             const panelContainer = editor.closest('#antigravity') || editor.closest('#conversation') || document;
-                            // Primary: aria-label based search (most reliable in newer IDE)
                             const submitTexts = ${JSON.stringify(SUBMIT_ACTION_TEXTS)};
-                            let submit = Array.from(panelContainer.querySelectorAll('button')).find(b => {
-                                if (b.offsetParent === null) return false;
-                                const label = ((b.getAttribute('aria-label') || '') + ' ' + (b.getAttribute('title') || '') + ' ' + (b.textContent || '')).trim().toLowerCase();
-                                return submitTexts.some(text => label === text || label.includes(text));
-                            });
-                            // Secondary: SVG icon search
-                            if (!submit) {
-                                submit = panelContainer.querySelector("svg.lucide-arrow-right, svg.lucide-arrow-up, svg[class*='arrow-right'], svg[class*='arrow-up'], svg[class*='send']")?.closest("button");
-                            }
-                            if (!submit) {
-                                const allBtns = Array.from(panelContainer.querySelectorAll('button')).filter(b => b.offsetParent !== null);
-                                submit = allBtns.find(b => {
-                                    const text = (b.textContent || '').trim().toLowerCase();
-                                    return submitTexts.some(action => text === action || text.startsWith(action + ' '));
+                            const findSubmitBtn = () => {
+                                let btn = Array.from(panelContainer.querySelectorAll('button')).find(b => {
+                                    if (b.offsetParent === null) return false;
+                                    const label = ((b.getAttribute('aria-label') || '') + ' ' + (b.getAttribute('title') || '') + ' ' + (b.textContent || '')).trim().toLowerCase();
+                                    return submitTexts.some(text => label === text || label.includes(text));
                                 });
+                                if (!btn) {
+                                    btn = panelContainer.querySelector("svg.lucide-arrow-right, svg.lucide-arrow-up, svg[class*='arrow-right'], svg[class*='arrow-up'], svg[class*='send']")?.closest("button");
+                                }
+                                if (!btn) {
+                                    const allBtns = Array.from(panelContainer.querySelectorAll('button')).filter(b => b.offsetParent !== null);
+                                    btn = allBtns.find(b => {
+                                        const text = (b.textContent || '').trim().toLowerCase();
+                                        return submitTexts.some(action => text === action || text.startsWith(action + ' '));
+                                    });
+                                }
+                                return btn && !btn.disabled ? btn : null;
+                            };
+
+                            let submit = findSubmitBtn();
+                            for (let waitBtn = 0; !submit && waitBtn < 6; waitBtn++) {
+                                await new Promise(r => setTimeout(r, 50));
+                                submit = findSubmitBtn();
                             }
                             
                             if (submit && !submit.disabled) {
@@ -1945,9 +1978,10 @@ async function sendViaCDP(text, port, specificTargetId = null) {
     throw new Error("no_chat_input");
 }
 
-async function triggerNewChat(port) {
+async function triggerNewChat(port, wsName = null) {
     const candidates = await resolveTargets(port, false);
-    const activeWsStr = activeWorkspaceName ? JSON.stringify(activeWorkspaceName.toLowerCase()) : 'null';
+    const effectiveWs = wsName || activeWorkspaceName;
+    const activeWsStr = effectiveWs ? JSON.stringify(effectiveWs.toLowerCase()) : 'null';
 
     for (const target of candidates) {
         try {
@@ -1989,7 +2023,7 @@ async function triggerNewChat(port) {
                                 if (!targetCard) return null;
 
                                 const headerWrapper = targetCard.closest('.group\\\\/header') || targetCard.parentElement?.parentElement || targetCard.parentElement;
-                                const newConvLink = headerWrapper ? headerWrapper.querySelector('a[aria-label*="New Conversation" i], a[href*="section="]') : null;
+                                const newConvLink = headerWrapper ? headerWrapper.querySelector('a[aria-label*="New Conversation" i], a[href*="project="], a[href*="section="]') : null;
                                 if (newConvLink && typeof newConvLink.click === 'function') {
                                     newConvLink.click();
                                     return { clicked: true, tag: newConvLink.tagName, type: 'workspace-specific-link', href: newConvLink.getAttribute('href') };
@@ -2019,7 +2053,7 @@ async function triggerNewChat(port) {
                             if (scrollEl) {
                                 const origScroll = scrollEl.scrollTop;
                                 const totalHeight = scrollEl.scrollHeight;
-                                const step = 250;
+                                const step = Math.max(250, Math.floor((scrollEl.clientHeight || 0) * 0.85));
                                 scrollEl.scrollTop = 0;
                                 await new Promise(r => setTimeout(r, 60));
                                 for (let pos = 0; pos <= totalHeight + step; pos += step) {
@@ -2044,6 +2078,9 @@ async function triggerNewChat(port) {
                             await new Promise(r => setTimeout(r, 350));
                             return { clicked: true, tag: btn.tagName, type: 'generic', href: btn.getAttribute('href') };
                         }
+                        if (!window.location.pathname.includes('/c/') && AG_UI.getChatInput()) {
+                            return { clicked: true, tag: 'COMPOSER', type: 'already-new-chat', href: window.location.pathname + window.location.search };
+                        }
                         return { clicked: false };
                     })()
                 `,
@@ -2060,6 +2097,90 @@ async function triggerNewChat(port) {
             console.log('[triggerNewChat] Error on target:', e.message);
         }
     }
+    return false;
+}
+
+async function verifyChatMessageSent(port, snippet, expectedThreadId = null) {
+    const cleanSnippet = String(snippet || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    if (!cleanSnippet) return false;
+
+    const candidates = await resolveTargets(port, false);
+    const snippetStr = JSON.stringify(cleanSnippet);
+    const expectedIdStr = JSON.stringify(expectedThreadId || null);
+
+    for (const target of candidates) {
+        let client;
+        try {
+            client = await withTimeout(CDP({ target: target.webSocketDebuggerUrl }), 2000, "CDP timeout");
+            const { Runtime } = client;
+            await Runtime.enable();
+            const res = await withTimeout(Runtime.evaluate({
+                expression: `
+                    ${DriverFactory.getDriver().getLocatorsScript()}
+                    (() => {
+                        const needle = ${snippetStr};
+                        const expectedId = ${expectedIdStr};
+                        const norm = (s) => (s || '').replace(/\\s+/g, ' ').trim();
+
+                        const urlMatch = window.location.pathname.match(/\\/c\\/([0-9a-f-]{36})/i);
+                        const urlThreadId = urlMatch ? urlMatch[1] : null;
+                        if (expectedId && urlThreadId && urlThreadId !== expectedId) {
+                            return { verified: false, reason: 'thread_mismatch', urlThreadId };
+                        }
+
+                        // 1. Check explicit user message elements first
+                        const userBubbles = Array.from(document.querySelectorAll(
+                            '[role="article"][aria-label*="User" i], [data-testid*="user-message" i], [data-message-author="user"], .user-message'
+                        ));
+                        for (const b of userBubbles) {
+                            if (norm(b.textContent).includes(needle)) {
+                                return { verified: true, source: 'user_bubble', urlThreadId };
+                            }
+                        }
+
+                        // 2. Check visible chat container excluding composer input and sidebar
+                        const chatRoot = AG_UI.getVisibleChatContainer() || document.querySelector('main') || document.body;
+                        if (chatRoot) {
+                            const clone = chatRoot.cloneNode(true);
+                            clone.querySelectorAll(
+                                '[data-testid="agent-input-box"], [contenteditable="true"], textarea, input, aside, nav, [role="navigation"]'
+                            ).forEach(el => el.remove());
+                            if (norm(clone.textContent).includes(needle)) {
+                                return { verified: true, source: 'chat_container', urlThreadId };
+                            }
+                        }
+
+                        return { verified: false, reason: 'not_found_in_dom', urlThreadId };
+                    })()
+                `,
+                returnByValue: true
+            }), 3000, "Evaluate timeout");
+            await client.close();
+            if (res?.result?.value?.verified) {
+                return true;
+            }
+        } catch (e) {
+            try { if (client) await client.close(); } catch (_) {}
+        }
+    }
+
+    // Fallback: check transcript file for expectedThreadId if it was just created
+    if (expectedThreadId) {
+        try {
+            const appDataName = DriverFactory.getDriver().appDataName;
+            const logsDir = path.join(os.homedir(), '.gemini', appDataName, 'brain', expectedThreadId, '.system_generated', 'logs');
+            for (const fname of ['transcript_full.jsonl', 'transcript.jsonl']) {
+                const fpath = path.join(logsDir, fname);
+                if (!fs.existsSync(fpath)) continue;
+                const content = fs.readFileSync(fpath, 'utf8');
+                const normContent = content.replace(/\s+/g, ' ');
+                if (normContent.includes(cleanSnippet)) {
+                    return true;
+                }
+            }
+        } catch (_) {}
+    }
+
     return false;
 }
 
@@ -2517,6 +2638,8 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
     let threadId = null;
     let threadName = null;
     let workspaceName = null;
+    let standaloneTargetResponded = false;
+    const driver = DriverFactory.getDriver();
 
     let candidates = await resolveTargets(port, false);
     if (specificTargetId) {
@@ -2528,7 +2651,6 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
             const client = await withTimeout(CDP({ target: target.webSocketDebuggerUrl }), 2000, "CDP timeout");
             const { Runtime } = client;
             await Runtime.enable();
-            const driver = DriverFactory.getDriver();
             const res = await withTimeout(Runtime.evaluate({
                 expression: driver.getActiveThreadInfoScript(),
                 awaitPromise: true,
@@ -2536,6 +2658,9 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
             }), 3000, "Evaluate timeout");
             await client.close();
             if (res.result?.value) {
+                if (driver.appType === 'agent' && /127\.0\.0\.1/.test(target.url || '')) {
+                    standaloneTargetResponded = true;
+                }
                 if (res.result.value.name && !threadName) threadName = res.result.value.name;
                 if (res.result.value.threadId && !threadId) threadId = res.result.value.threadId;
                 
@@ -2545,9 +2670,12 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
                     if (!workspaceName) workspaceName = wsName;
                 }
                 if (threadName) {
-                    threadName = threadName.replace(/\s+-\s+Antigravity$/i, '').trim();
+                    threadName = threadName.replace(/\s+-\s+Antigravity$/i, '').replace(/^Antigravity$/i, '').trim();
                     if (workspaceName && threadName.toLowerCase().endsWith(' - ' + workspaceName.toLowerCase())) {
                         threadName = threadName.slice(0, -(' - ' + workspaceName).length).trim();
+                    }
+                    if (!threadName || (workspaceName && threadName.toLowerCase() === workspaceName.toLowerCase())) {
+                        threadName = null;
                     }
                 }
                 
@@ -2559,85 +2687,88 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
         } catch(e) { console.debug(`[getActiveThreadInfo] target error: ${e.message}`); }
     }
 
-    if (!threadId && threadName) {
-        threadId = findConversationIdByTitle(threadName);
-    }
+    // In Standalone App, open conversations always have /c/<uuid> in the URL.
+    // When on the New Conversation composer screen (/?project=...), threadId is null
+    // and we must NOT fall back to matching old conversations on disk.
+    if (!standaloneTargetResponded) {
+        if (!threadId && threadName) {
+            threadId = findConversationIdByTitle(threadName);
+        }
 
-    // 2. Fallback: Get Thread ID via file-system logs of the app
-    // New IDE uses transcript.jsonl, legacy used overview.txt — check both
-    // If activeWorkspaceName is set or specificTargetId provides a workspace, filter by it.
-    if (!threadId) {
-        try {
-            const appDataName = DriverFactory.getDriver().appDataName;
-            const brainPath = path.join(os.homedir(), '.gemini', appDataName, 'brain');
-            if (fs.existsSync(brainPath)) {
-                const dirs = fs.readdirSync(brainPath, { withFileTypes: true });
-                let latestTime = 0;
-                
-                let filterWorkspace = null;
-                if (specificTargetId) {
-                    const c = candidates.find(t => t.id === specificTargetId);
-                    if (c && c.title) filterWorkspace = c.title.split(' - ')[0].trim();
-                } else if (activeWorkspaceName) {
-                    filterWorkspace = activeWorkspaceName;
-                }
-                
-                for (const dir of dirs) {
-                    if (!dir.isDirectory()) continue;
-                    const logsDir = path.join(brainPath, dir.name, '.system_generated', 'logs');
-                    const transcriptPath = path.join(logsDir, 'transcript.jsonl');
-                    const overviewPath = path.join(logsDir, 'overview.txt');
+        // 2. Fallback: Get Thread ID via file-system logs of the app (Classic IDE)
+        // New IDE uses transcript.jsonl, legacy used overview.txt — check both
+        // If activeWorkspaceName is set or specificTargetId provides a workspace, filter by it.
+        if (!threadId) {
+            try {
+                const appDataName = driver.appDataName;
+                const brainPath = path.join(os.homedir(), '.gemini', appDataName, 'brain');
+                if (fs.existsSync(brainPath)) {
+                    const dirs = fs.readdirSync(brainPath, { withFileTypes: true });
+                    let latestTime = 0;
                     
-                    let bestMtime = 0;
-                    try { if (fs.existsSync(transcriptPath)) bestMtime = Math.max(bestMtime, fs.statSync(transcriptPath).mtimeMs); } catch (_) {}
-                    try { if (fs.existsSync(overviewPath)) bestMtime = Math.max(bestMtime, fs.statSync(overviewPath).mtimeMs); } catch (_) {}
+                    let filterWorkspace = null;
+                    if (specificTargetId) {
+                        const c = candidates.find(t => t.id === specificTargetId);
+                        if (c && c.title) filterWorkspace = c.title.split(' - ')[0].trim();
+                    } else if (activeWorkspaceName) {
+                        filterWorkspace = activeWorkspaceName;
+                    }
                     
-                    if (bestMtime > latestTime) {
-                        // Apply workspace filtering if required
-                        let match = true;
-                        if (filterWorkspace) {
-                            match = false;
-                            const logPath = fs.existsSync(transcriptPath) ? transcriptPath : (fs.existsSync(overviewPath) ? overviewPath : null);
-                            if (logPath) {
-                                try {
-                                    const stats = fs.statSync(logPath);
-                                    const head = fs.readFileSync(logPath, 'utf8').substring(0, 8000);
-                                    const normalize = (s) => (s || '').toLowerCase().replace(/[-_]/g, ' ');
-                                    const workspaceNameNormalized = normalize(filterWorkspace);
-                                    
-                                    let foundInUserInfo = false;
-                                    const userInfoMatch = head.match(/<user_information>([\s\S]*?)<\/user_information>/);
-                                    if (userInfoMatch) {
-                                        const userInfo = userInfoMatch[1];
-                                        // Match format: /path/to/workspace -> workspaceName
-                                        foundInUserInfo = userInfo.includes(`/${filterWorkspace} ->`) || 
-                                                          userInfo.includes(`\\\\${filterWorkspace} ->`) ||
-                                                          userInfo.includes(`/${filterWorkspace}`) ||
-                                                          userInfo.includes(`-> ${filterWorkspace}`);
-                                    }
-
-                                    if (foundInUserInfo) {
-                                        match = true;
-                                    } else {
-                                        // Allow extremely recent new threads (modified within last 90 seconds, size under 8KB)
-                                        // since new threads won't contain workspace path references yet in their first user step.
-                                        const ageMs = Date.now() - stats.mtimeMs;
-                                        if (ageMs < 90000 && stats.size < 8000) {
-                                            match = true;
-                                        }
-                                    }
-                                } catch (_) {}
-                            }
-                        }
+                    for (const dir of dirs) {
+                        if (!dir.isDirectory()) continue;
+                        const logsDir = path.join(brainPath, dir.name, '.system_generated', 'logs');
+                        const transcriptPath = path.join(logsDir, 'transcript.jsonl');
+                        const overviewPath = path.join(logsDir, 'overview.txt');
                         
-                        if (match) {
-                            latestTime = bestMtime;
-                            threadId = dir.name;
+                        let bestMtime = 0;
+                        try { if (fs.existsSync(transcriptPath)) bestMtime = Math.max(bestMtime, fs.statSync(transcriptPath).mtimeMs); } catch (_) {}
+                        try { if (fs.existsSync(overviewPath)) bestMtime = Math.max(bestMtime, fs.statSync(overviewPath).mtimeMs); } catch (_) {}
+                        
+                        if (bestMtime > latestTime) {
+                            // Apply workspace filtering if required
+                            let match = true;
+                            if (filterWorkspace) {
+                                match = false;
+                                const logPath = fs.existsSync(transcriptPath) ? transcriptPath : (fs.existsSync(overviewPath) ? overviewPath : null);
+                                if (logPath) {
+                                    try {
+                                        const stats = fs.statSync(logPath);
+                                        const head = fs.readFileSync(logPath, 'utf8').substring(0, 8000);
+                                        
+                                        let foundInUserInfo = false;
+                                        const userInfoMatch = head.match(/<user_information>([\s\S]*?)<\/user_information>/);
+                                        if (userInfoMatch) {
+                                            const userInfo = userInfoMatch[1];
+                                            // Match format: /path/to/workspace -> workspaceName
+                                            foundInUserInfo = userInfo.includes(`/${filterWorkspace} ->`) || 
+                                                              userInfo.includes(`\\\\${filterWorkspace} ->`) ||
+                                                              userInfo.includes(`/${filterWorkspace}`) ||
+                                                              userInfo.includes(`-> ${filterWorkspace}`);
+                                        }
+
+                                        if (foundInUserInfo) {
+                                            match = true;
+                                        } else {
+                                            // Allow extremely recent new threads (modified within last 90 seconds, size under 8KB)
+                                            // since new threads won't contain workspace path references yet in their first user step.
+                                            const ageMs = Date.now() - stats.mtimeMs;
+                                            if (ageMs < 90000 && stats.size < 8000) {
+                                                match = true;
+                                            }
+                                        }
+                                    } catch (_) {}
+                                }
+                            }
+                            
+                            if (match) {
+                                latestTime = bestMtime;
+                                threadId = dir.name;
+                            }
                         }
                     }
                 }
-            }
-        } catch(e) { console.debug(`[getActiveThreadInfo] fallback error: ${e.message}`); }
+            } catch(e) { console.debug(`[getActiveThreadInfo] fallback error: ${e.message}`); }
+        }
     }
 
     if (!workspaceName && activeWorkspaceName) {
@@ -2840,6 +2971,7 @@ async function selectPermissionMode(port, modeInput) {
 async function switchStandaloneWorkspace(port, wsName, wsPath = null) {
     if (!wsName) return false;
     const candidates = await resolveTargets(port, false);
+    const targetFolder = wsPath || (wsName.startsWith('/') ? wsName : null);
     for (const target of candidates) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
@@ -2848,9 +2980,11 @@ async function switchStandaloneWorkspace(port, wsName, wsPath = null) {
             await Page.enable();
             
             const rawTargetStr = JSON.stringify(wsName);
+            const targetFolderStr = JSON.stringify(targetFolder);
             const clickRes = await Runtime.evaluate({
                 expression: `(async () => {
                     const rawTarget = ${rawTargetStr};
+                    const targetFolder = ${targetFolderStr};
                     const normalize = s => (s || '').toLowerCase().replace(/[^\\p{L}\\p{N}]/gu, '');
                     const targetNorm = normalize(rawTarget);
                     const baseNorm = normalize(rawTarget.split('/').filter(Boolean).pop() || rawTarget);
@@ -2861,13 +2995,20 @@ async function switchStandaloneWorkspace(port, wsName, wsPath = null) {
                         return norm && (norm === targetNorm || norm === baseNorm || norm.includes(targetNorm) || targetNorm.includes(norm) || norm.includes(baseNorm) || baseNorm.includes(norm));
                     };
 
-                    const findAndClickProjectInSidebar = () => {
+                    const findAndClickProjectInSidebar = (projectId = null) => {
+                        if (projectId) {
+                            const byId = document.querySelector('a[href*="project=' + projectId + '"], a[href*="section=' + projectId + '"]');
+                            if (byId) {
+                                byId.click();
+                                return true;
+                            }
+                        }
                         const headers = Array.from(document.querySelectorAll('button[data-testid="project-header"], [data-project-card="true"], button[class*="headerbtn"]'));
                         for (const h of headers) {
                             const label = h.getAttribute('data-project-label') || h.textContent;
                             if (isMatch(label)) {
                                 const container = h.closest('.group\\\\/header') || h.parentElement?.parentElement || h.parentElement;
-                                const newConvBtn = container ? container.querySelector('a[aria-label*="New Conversation" i], a[href*="section="]') : null;
+                                const newConvBtn = container ? container.querySelector('a[aria-label*="New Conversation" i], a[href*="project="], a[href*="section="]') : null;
                                 if (newConvBtn) {
                                     newConvBtn.click();
                                     return true;
@@ -2877,9 +3018,8 @@ async function switchStandaloneWorkspace(port, wsName, wsPath = null) {
                         return false;
                     };
 
-                    // Strategy 1: Sidebar Virtualized List (Header -> New Conversation in Project)
-                    try {
-                        if (findAndClickProjectInSidebar()) {
+                    const scrollAndClickInSidebar = async (projectId = null) => {
+                        if (findAndClickProjectInSidebar(projectId)) {
                             await new Promise(r => setTimeout(r, 400));
                             return true;
                         }
@@ -2893,7 +3033,7 @@ async function switchStandaloneWorkspace(port, wsName, wsPath = null) {
                         if (scrollEl) {
                             const origScroll = scrollEl.scrollTop;
                             const totalHeight = scrollEl.scrollHeight || 0;
-                            const step = 250;
+                            const step = Math.max(250, Math.floor((scrollEl.clientHeight || 0) * 0.85));
 
                             scrollEl.scrollTop = 0;
                             await new Promise(r => setTimeout(r, 60));
@@ -2904,7 +3044,7 @@ async function switchStandaloneWorkspace(port, wsName, wsPath = null) {
                                     await new Promise(r => setTimeout(r, 60));
                                 }
 
-                                if (findAndClickProjectInSidebar()) {
+                                if (findAndClickProjectInSidebar(projectId)) {
                                     scrollEl.scrollTop = origScroll;
                                     await new Promise(r => setTimeout(r, 400));
                                     return true;
@@ -2912,9 +3052,105 @@ async function switchStandaloneWorkspace(port, wsName, wsPath = null) {
                             }
                             scrollEl.scrollTop = origScroll;
                         }
+                        return false;
+                    };
+
+                    // Strategy 1: Sidebar Virtualized List (Header -> New Conversation in Project)
+                    try {
+                        if (await scrollAndClickInSidebar()) return true;
                     } catch (e) {}
 
-                    // Strategy 2: Top Project Pill Menu (when on new conversation root screen)
+                    // Strategy 2: Standalone 2.23+ projectManagementService lookup / auto-registration
+                    try {
+                        const root = document.getElementById('root');
+                        const key = root ? Object.keys(root).find(k => k.startsWith('__reactContainer$') || k.startsWith('__reactFiber$')) : null;
+                        let pms = null;
+                        let router = null;
+                        if (key && root[key]) {
+                            const q = [root[key]];
+                            let visited = 0;
+                            while (q.length > 0 && visited++ < 800) {
+                                const n = q.shift();
+                                if (!n) continue;
+                                const p = n.memoizedProps;
+                                if (!pms && p?.value?.core?.projectManagementService) {
+                                    pms = p.value.core.projectManagementService;
+                                }
+                                if (!router && p?.value && typeof p.value.buildAndCommitLocation === 'function' && typeof p.value.navigate === 'function') {
+                                    router = p.value;
+                                }
+                                if (pms && router) break;
+                                if (n.child) q.push(n.child);
+                                if (n.sibling) q.push(n.sibling);
+                            }
+                        }
+
+                        if (pms && pms.projectsStateProvider) {
+                            const state = pms.projectsStateProvider.getState() || [];
+                            const targetUri = targetFolder ? (targetFolder.startsWith('file://') ? targetFolder : ('file://' + targetFolder)) : null;
+                            let entry = state.find(x => {
+                                const p = x.project;
+                                if (!p) return false;
+                                if (isMatch(p.name)) return true;
+                                if (targetUri) {
+                                    const res = p.projectResources?.resources || [];
+                                    return res.some(r => r.type?.value === targetUri || r.type?.value?.folderUri === targetUri);
+                                }
+                                return false;
+                            });
+
+                            let projectId = entry?.project?.id || null;
+                            if (entry?.project?.archived && typeof pms.updateProject === 'function') {
+                                try { await pms.updateProject({ ...entry.project, archived: false }); } catch (_) {}
+                            }
+
+                            if (!projectId && targetUri && typeof pms.createProject === 'function') {
+                                const template = state.find(x => x.project?.projectResources?.resources?.[0]?.type?.case === 'folderUri')?.project ||
+                                                 state.find(x => x.project)?.project || {};
+                                projectId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+                                    ? crypto.randomUUID()
+                                    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                                        const r = Math.random() * 16 | 0;
+                                        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+                                    });
+                                const newProj = {
+                                    $typeName: 'exa.project_pb.Project',
+                                    ...JSON.parse(JSON.stringify(template)),
+                                    id: projectId,
+                                    name: rawTarget,
+                                    archived: false,
+                                    backendType: 0,
+                                    isWorkspaceOnly: false,
+                                    projectResources: {
+                                        $typeName: 'exa.project_pb.Resources',
+                                        resources: [{
+                                            $typeName: 'exa.project_pb.Resource',
+                                            type: {
+                                                case: 'folderUri',
+                                                value: targetUri
+                                            }
+                                        }]
+                                    }
+                                };
+                                await pms.createProject(newProj);
+                                await new Promise(r => setTimeout(r, 400));
+                            }
+
+                            if (projectId) {
+                                if (await scrollAndClickInSidebar(projectId)) return true;
+                                if (router && typeof router.navigate === 'function') {
+                                    await router.navigate({ to: '/', search: { project: projectId } });
+                                    await new Promise(r => setTimeout(r, 400));
+                                    return true;
+                                }
+                                window.location.href = window.location.origin + '/?project=' + encodeURIComponent(projectId);
+                                await new Promise(r => setTimeout(r, 600));
+                                return true;
+                            }
+                        }
+                    } catch (e) {}
+
+                    // Strategy 3: Top Project Pill Menu (when on new conversation root screen)
                     try {
                         const pillBtn = Array.from(document.querySelectorAll('button[data-testid*="project-selector"], button[aria-label*="Select project" i]'))[0] ||
                                         Array.from(document.querySelectorAll('button')).find(b => 
@@ -2952,13 +3188,13 @@ async function switchStandaloneWorkspace(port, wsName, wsPath = null) {
             });
             
             if (clickRes.result?.value) {
+                activeWorkspaceName = wsName;
                 await client.close();
                 console.log(`[switchStandaloneWorkspace] Successfully switched workspace for: ${wsName}`);
                 return true;
             }
 
-            // Strategy 3: URL Navigation via ?ws= (Registers/creates and opens new project in Standalone App)
-            const targetFolder = wsPath || (wsName.startsWith('/') ? wsName : null);
+            // Strategy 4: Legacy URL Navigation via ?ws=
             if (targetFolder) {
                 const evalRes = await Runtime.evaluate({ expression: "window.location.origin", returnByValue: true });
                 const origin = evalRes.result?.value;
@@ -2967,6 +3203,7 @@ async function switchStandaloneWorkspace(port, wsName, wsPath = null) {
                     console.log(`[switchStandaloneWorkspace] Registering/navigating project in Standalone App: ${targetUrl}`);
                     await Page.navigate({ url: targetUrl });
                     await new Promise(r => setTimeout(r, 1500));
+                    activeWorkspaceName = wsName;
                     await client.close();
                     return true;
                 }
@@ -3160,6 +3397,7 @@ module.exports = {
     captureFullIDEScreenshot,
     waitForAgentResponse,
     sendViaCDP,
+    verifyChatMessageSent,
     clickArtifactButton,
     triggerNewChat,
     triggerModelMenu,

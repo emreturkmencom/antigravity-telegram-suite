@@ -5,6 +5,7 @@ const path = require('path');
 const { WorkOrders } = require('../src/work_orders/core');
 const desks = require('../src/work_orders/desks');
 const { s } = require('../src/work_orders/strings');
+const { createStandaloneHandlers } = require('../src/work_orders/runner');
 
 function makeStandaloneEnv({ agentWorking = false, lastUserMsgAge = 10 * 60 * 1000, options = {} } = {}) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agts-wo-standalone-'));
@@ -333,6 +334,200 @@ async function runTests() {
         if (prevEnv !== undefined) process.env.WORK_ORDERS_BACKEND = prevEnv;
         else delete process.env.WORK_ORDERS_BACKEND;
         console.log('  ✅ Manager: user message queue and /wo_stop command passed');
+    }
+
+    // 9. Runner standalone handlers: fails and notifies Telegram if thread ID stays stale (e.g. 986efd35...)
+    {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agts-wo-verify-stale-'));
+        const notes = [];
+        const staleId = '986efd35-c0a8-4b08-9719-333580341aad';
+        let activeThread = { id: staleId, name: 'Old Chat', workspace: 'other' };
+
+        const handlers = createStandaloneHandlers({
+            dir,
+            port: 9333,
+            getActiveThreadInfo: async () => activeThread,
+            switchStandaloneWorkspace: async () => true,
+            switchAgentThread: async () => true,
+            triggerNewChat: async () => {
+                // Simulate new chat composer screen where URL has no /c/<uuid>,
+                // but buggy getActiveThreadInfo after send returns old staleId
+                activeThread = { id: null, name: null, workspace: 'wo-yzturkey-gelistirme' };
+                return true;
+            },
+            dismissPopups: async () => 0,
+            sendViaCDP: async () => {
+                // Buggy scenario: new chat was never created and old staleId comes back
+                activeThread = { id: staleId, name: 'Old Chat', workspace: 'wo-yzturkey-gelistirme' };
+            },
+            verifyChatMessageSent: async () => true,
+            notify: (msg) => notes.push(msg),
+            sleep: async () => {},
+            verifyAttempts: 3,
+            verifyIntervalMs: 1,
+        });
+
+        const wo = new WorkOrders({
+            dir,
+            deps: {
+                listDeskWindows: async () => [],
+                openDeskWindow: handlers.openStandaloneDesk,
+                sendToWindow: handlers.sendToStandaloneWindow,
+                closeWindow: async () => {},
+                checkAgent: handlers.checkStandaloneAgent,
+                afterOrder: handlers.afterStandaloneOrder,
+                notify: (msg) => notes.push(msg),
+                sleep: async () => {},
+            },
+            options: { maxConcurrent: 1, resultSettleMs: 10 },
+        });
+
+        fs.writeFileSync(
+            path.join(dir, 'inbox', 'first-order.md'),
+            '---\ndesk: yzturkey-gelistirme\n---\nImplement automatic work orders'
+        );
+        await wo.tick();
+        await Promise.all([...wo.running]);
+
+        const order = wo.orders.get('first-order');
+        assert.strictEqual(order.status, 'failed', 'Order must fail when thread ID does not change');
+        assert(order.reason.includes('chat thread verification failed'), `Unexpected reason: ${order.reason}`);
+
+        const cfg = desks.readDeskConfig(dir, 'yzturkey-gelistirme');
+        assert(!cfg.threadId, 'Stale threadId must NOT be written to desk.json');
+
+        const failNote = notes.find(n => n.text.includes('❌ Work order first-order') && n.text.includes('failed'));
+        assert(failNote, 'Telegram failure notification must be sent');
+        console.log('  ✅ Verification: stale thread ID fails order, protects desk.json, and notifies Telegram');
+    }
+
+    // 10. Runner standalone handlers: fails and notifies Telegram if sent message does not appear in chat
+    {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agts-wo-verify-msg-'));
+        const notes = [];
+        let activeThread = { id: 'user-orig-uuid', name: 'User Chat', workspace: 'main' };
+
+        const handlers = createStandaloneHandlers({
+            dir,
+            port: 9333,
+            getActiveThreadInfo: async () => activeThread,
+            switchStandaloneWorkspace: async () => true,
+            switchAgentThread: async () => true,
+            triggerNewChat: async () => {
+                activeThread = { id: null, name: null, workspace: 'wo-yzturkey-gelistirme' };
+                return true;
+            },
+            dismissPopups: async () => 0,
+            sendViaCDP: async () => {
+                // Thread ID changed, but message text never appeared in chat DOM/transcript
+                activeThread = { id: 'new-desk-uuid-1234', name: 'New Chat', workspace: 'wo-yzturkey-gelistirme' };
+            },
+            verifyChatMessageSent: async () => false,
+            notify: (msg) => notes.push(msg),
+            sleep: async () => {},
+            verifyAttempts: 3,
+            verifyIntervalMs: 1,
+        });
+
+        const wo = new WorkOrders({
+            dir,
+            deps: {
+                listDeskWindows: async () => [],
+                openDeskWindow: handlers.openStandaloneDesk,
+                sendToWindow: handlers.sendToStandaloneWindow,
+                closeWindow: async () => {},
+                checkAgent: handlers.checkStandaloneAgent,
+                afterOrder: handlers.afterStandaloneOrder,
+                notify: (msg) => notes.push(msg),
+                sleep: async () => {},
+            },
+            options: { maxConcurrent: 1, resultSettleMs: 10 },
+        });
+
+        fs.writeFileSync(
+            path.join(dir, 'inbox', 'missing-msg.md'),
+            '---\ndesk: yzturkey-gelistirme\n---\nImplement automatic work orders'
+        );
+        await wo.tick();
+        await Promise.all([...wo.running]);
+
+        const order = wo.orders.get('missing-msg');
+        assert.strictEqual(order.status, 'failed', 'Order must fail when sent message does not appear in chat');
+        assert(order.reason.includes('did not appear in chat'), `Unexpected reason: ${order.reason}`);
+
+        const cfg = desks.readDeskConfig(dir, 'yzturkey-gelistirme');
+        assert(!cfg.threadId, 'Unverified threadId must NOT be written to desk.json');
+
+        const failNote = notes.find(n => n.text.includes('❌ Work order missing-msg') && n.text.includes('failed'));
+        assert(failNote, 'Telegram failure notification must be sent');
+        console.log('  ✅ Verification: missing message in chat fails order and notifies Telegram');
+    }
+
+    // 11. Runner standalone handlers: succeeds and writes threadId when thread ID changes AND message appears
+    {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agts-wo-verify-ok-'));
+        const notes = [];
+        let activeThread = { id: 'user-orig-uuid', name: 'User Chat', workspace: 'main' };
+        let lastSentText = '';
+
+        const handlers = createStandaloneHandlers({
+            dir,
+            port: 9333,
+            getActiveThreadInfo: async () => activeThread,
+            switchStandaloneWorkspace: async () => true,
+            switchAgentThread: async (_port, _name, _ws, targetId) => {
+                activeThread = { id: targetId, name: 'Restored', workspace: 'main' };
+                return true;
+            },
+            triggerNewChat: async () => {
+                activeThread = { id: null, name: null, workspace: 'wo-yzturkey-gelistirme' };
+                return true;
+            },
+            dismissPopups: async () => 0,
+            sendViaCDP: async (text) => {
+                lastSentText = text;
+                activeThread = { id: 'brand-new-thread-uuid', name: 'Work Order', workspace: 'wo-yzturkey-gelistirme' };
+                const m = text.match(/write your final answer to this file: `([^`]+)`/);
+                if (m) fs.writeFileSync(m[1], 'STATUS: done\nVerified!');
+            },
+            verifyChatMessageSent: async (_port, snippet, expectedThreadId) => {
+                return expectedThreadId === 'brand-new-thread-uuid' && lastSentText.includes(snippet);
+            },
+            notify: (msg) => notes.push(msg),
+            sleep: async () => {},
+            verifyAttempts: 3,
+            verifyIntervalMs: 1,
+        });
+
+        const wo = new WorkOrders({
+            dir,
+            deps: {
+                listDeskWindows: async () => [],
+                openDeskWindow: handlers.openStandaloneDesk,
+                sendToWindow: handlers.sendToStandaloneWindow,
+                closeWindow: async () => {},
+                checkAgent: handlers.checkStandaloneAgent,
+                afterOrder: handlers.afterStandaloneOrder,
+                notify: (msg) => notes.push(msg),
+                sleep: async () => {},
+            },
+            options: { maxConcurrent: 1, resultSettleMs: 10 },
+        });
+
+        fs.writeFileSync(
+            path.join(dir, 'inbox', 'good-order.md'),
+            '---\ndesk: yzturkey-gelistirme\n---\nImplement automatic work orders'
+        );
+        await wo.tick();
+        await Promise.all([...wo.running]);
+
+        const order = wo.orders.get('good-order');
+        assert.strictEqual(order.status, 'done', 'Order must succeed when thread ID changed and message is verified');
+
+        const cfg = desks.readDeskConfig(dir, 'yzturkey-gelistirme');
+        assert.strictEqual(cfg.threadId, 'brand-new-thread-uuid', 'Verified new threadId saved to desk.json');
+        assert.strictEqual(activeThread.id, 'user-orig-uuid', 'Original user chat restored after completion');
+        console.log('  ✅ Verification: new thread ID + visible message saves desk.json and completes order');
     }
 
     console.log('✅ All Work Orders Standalone backend tests passed successfully!');

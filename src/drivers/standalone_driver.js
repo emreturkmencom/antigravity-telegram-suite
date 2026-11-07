@@ -37,12 +37,13 @@ class StandaloneDriver extends BaseDriver {
                 }
             }
 
-            // Secondary fast path: match ?section=<id> to sidebar project header
+            // Secondary fast path: match ?project=<id> or ?section=<id> to sidebar project header
             if (!workspace) {
                 try {
-                    const sectionId = new URLSearchParams(window.location.search).get('section');
+                    const params = new URLSearchParams(window.location.search);
+                    const sectionId = params.get('project') || params.get('section');
                     if (sectionId) {
-                        const secLink = document.querySelector('a[href*="section=' + sectionId + '"]');
+                        const secLink = document.querySelector('a[href*="project=' + sectionId + '"], a[href*="section=' + sectionId + '"]');
                         if (secLink) {
                             const wrapper = secLink.closest('.group\\\\/header') || secLink.parentElement?.parentElement;
                             const h = wrapper ? wrapper.querySelector('button[data-testid="project-header"], button[class*="headerbtn"]') : null;
@@ -97,9 +98,15 @@ class StandaloneDriver extends BaseDriver {
             }
 
             if (name && nameSource !== 'breadcrumb') {
-                name = name.replace(/\\s+-\\s+Antigravity$/i, '');
+                name = name.replace(/\\s+-\\s+Antigravity$/i, '').replace(/^Antigravity$/i, '').trim();
                 if (workspace && name.toLowerCase().endsWith(' - ' + workspace.toLowerCase())) {
                     name = name.slice(0, -(' - ' + workspace).length).trim();
+                }
+                if (workspace && name.toLowerCase() === workspace.toLowerCase()) {
+                    name = null;
+                }
+                if (!threadIdVal || !name) {
+                    name = null;
                 }
             }
 
