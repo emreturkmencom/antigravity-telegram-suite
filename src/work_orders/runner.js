@@ -243,9 +243,9 @@ async function canDispatchStandalone(order) {
     const working = await isAgentWorking(port).catch(() => false);
     if (working) return false;
 
-    // Condition 2: Emre son N dakikadır (WORK_ORDERS_IDLE_MIN, default 5) Telegram'dan bota mesaj atmadı
-    const idleMin = num(process.env.WORK_ORDERS_IDLE_MIN, 5);
-    const idleMs = idleMin * 60 * 1000;
+    // Condition 2: the user sent no message to the agent via Telegram in the last
+    // WORK_ORDERS_IDLE_SEC seconds (default 60), so an order never cuts into a live chat.
+    const idleMs = num(process.env.WORK_ORDERS_IDLE_SEC, 60) * 1000;
     if (lastUserMessageAt > 0 && (Date.now() - lastUserMessageAt) < idleMs) {
         return false;
     }
