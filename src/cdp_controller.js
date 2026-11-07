@@ -1662,15 +1662,24 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                                 modalContainer = allDialogs[0] || null;
                             }
 
-                            // 3. Check for inline question cards with action buttons
+                            // 3. Check for inline question cards with action buttons (exclude file/code links and composer)
+                            const isFileOrCodeChip = (el) => {
+                                if (!el) return false;
+                                if (el.hasAttribute('data-uri') || el.closest('a, code, pre, [data-testid="agent-input-box"], [id*="SidePanelInputBox"]')) return true;
+                                const txt = (el.textContent || '').trim();
+                                return /\.(js|jsx|ts|tsx|md|json|py|html|css|txt|sh|sql|yml|yaml)(:\d+|\b)/i.test(txt);
+                            };
                             if (!modalContainer) {
-                                const allBtns = Array.from(document.querySelectorAll('button')).filter(b => isVisible(b) && !isExcluded(b));
+                                const allBtns = Array.from(document.querySelectorAll('button')).filter(b => isVisible(b) && !isExcluded(b) && !isFileOrCodeChip(b));
                                 const submitBtn = allBtns.find(b => {
                                     const t = (b.textContent || '').trim().toLowerCase();
-                                    return t.includes('submit') || t.includes('gönder') || t.includes('skip') || t.includes('atla') || t.includes('proceed') || t.includes('onayla');
+                                    return t === 'submit' || t === 'gönder' || t === 'skip' || t === 'atla' || t === 'proceed' || t === 'onayla';
                                 });
                                 if (submitBtn) {
-                                    modalContainer = submitBtn.closest('form, fieldset, [class*="rounded"], div.p-4, div.p-3, div.border') || submitBtn.parentElement?.parentElement;
+                                    const candModal = submitBtn.closest('form, fieldset, [role="dialog"], .modal, [data-testid*="question"], [data-testid*="interactive"]') || submitBtn.parentElement?.parentElement;
+                                    if (candModal && !candModal.querySelector('[data-lexical-editor="true"]')) {
+                                        modalContainer = candModal;
+                                    }
                                 }
                             }
 
@@ -1748,12 +1757,15 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                                     }
                                 }
 
-                                // B: Selection by option text match
-                                const matchingEl = optionItems.find(el => {
-                                    const t = (el.innerText || el.textContent || '').trim().toLowerCase();
-                                    const cleanPrompt = escapedText.trim().toLowerCase();
-                                    return t && cleanPrompt && (t.includes(cleanPrompt) || cleanPrompt.includes(t));
-                                });
+                                // B: Selection by option text match (only when real question options exist and prompt >= 2 chars)
+                                const cleanPrompt = escapedText.trim().toLowerCase();
+                                const matchingEl = (interactiveElements.length > 0 && cleanPrompt.length >= 2)
+                                    ? optionItems.find(el => {
+                                        if (isFileOrCodeChip(el)) return false;
+                                        const t = (el.innerText || el.textContent || '').trim().toLowerCase();
+                                        return t && (t === cleanPrompt || (cleanPrompt.length >= 4 && t.includes(cleanPrompt)));
+                                    })
+                                    : null;
                                 if (matchingEl) {
                                     matchingEl.scrollIntoView({ block: 'nearest' });
                                     matchingEl.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
@@ -1811,6 +1823,47 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                             
                             if (!editor) return { found: false, reason: "no_editor", editorCount: 0 };
 
+                            // Scope submit button lookup STRICTLY to the composer container around the chat input
+                            // so we NEVER click file/symbol chips or buttons inside the chat message history!
+                            const composerContainer =
+                                editor.closest('[data-testid="agent-input-box"], [id*="SidePanelInputBox"], .interactive-input-part, .chat-input-container, .chat-input, form') ||
+                                editor.parentElement?.parentElement?.parentElement ||
+                                editor.parentElement ||
+                                document;
+                            const submitTexts = ${JSON.stringify(SUBMIT_ACTION_TEXTS)};
+                            const isInvalidComposerBtn = (b) => {
+                                if (!b || b.offsetParent === null || b.disabled) return true;
+                                if (isFileOrCodeChip(b)) return true;
+                                if (b.closest('.chat-messages, .relative.flex.flex-col.gap-y-3')) return true;
+                                const meta = ((b.getAttribute('data-testid') || '') + ' ' + (b.getAttribute('aria-label') || '') + ' ' + (b.getAttribute('title') || '') + ' ' + (b.textContent || '')).toLowerCase();
+                                if (/model-selector|select model|选择模型|add context|attach|new conversation|new chat|stop|cancel|durdur|iptal|voice|mic/i.test(meta)) return true;
+                                if (b.querySelector('svg.lucide-square, svg.lucide-circle-stop, svg.lucide-plus, svg.lucide-paperclip, svg.lucide-mic')) return true;
+                                return false;
+                            };
+                            const findSubmitBtn = () => {
+                                const composerBtns = Array.from(composerContainer.querySelectorAll('button')).filter(b => !isInvalidComposerBtn(b));
+                                let btn = composerBtns.find(b => {
+                                    const ariaOrTitle = ((b.getAttribute('aria-label') || '') + ' ' + (b.getAttribute('title') || '') + ' ' + (b.getAttribute('data-testid') || '')).trim().toLowerCase();
+                                    return submitTexts.some(text => ariaOrTitle === text || ariaOrTitle.includes(text));
+                                });
+                                if (!btn) {
+                                    const iconBtn = composerContainer.querySelector(
+                                        "svg.lucide-arrow-up, svg.lucide-arrow-right, svg.lucide-send, svg.lucide-corner-down-left, svg[class*='arrow-up'], svg[class*='arrow-right'], svg[class*='send']"
+                                    )?.closest("button");
+                                    if (iconBtn && !isInvalidComposerBtn(iconBtn)) btn = iconBtn;
+                                }
+                                if (!btn) {
+                                    btn = composerBtns.find(b => {
+                                        const text = (b.textContent || '').trim().toLowerCase();
+                                        return submitTexts.some(action => text === action);
+                                    });
+                                }
+                                return btn && !btn.disabled ? btn : null;
+                            };
+
+                            const currentEditorText = () => ((editor.value !== undefined ? editor.value : (editor.innerText || editor.textContent)) || '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
+                            let needsNativeInsert = false;
+
                             if (slashCommand && preparedSlashCommand && preparedSlashCommand.chipInserted) {
                                 // The chip was already created and any args typed into the composer by preparedSlashCommand!
                             } else {
@@ -1820,79 +1873,52 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                                 editor.focus();
                                 try {
                                     const sel = window.getSelection();
-                                    if (sel && (!sel.rangeCount || !editor.contains(sel.anchorNode))) {
-                                        const range = document.createRange();
-                                        range.selectNodeContents(editor);
-                                        range.collapse(false);
-                                        sel.removeAllRanges();
-                                        sel.addRange(range);
-                                    }
+                                    const range = document.createRange();
+                                    range.selectNodeContents(editor);
+                                    sel.removeAllRanges();
+                                    sel.addRange(range);
+                                    document.execCommand("delete", false, null);
                                 } catch (_) {}
-                                await new Promise(r => setTimeout(r, 50));
-
                                 try {
                                     document.execCommand("selectAll", false, null);
                                     document.execCommand("delete", false, null);
                                 } catch(e) {}
+                                await new Promise(r => setTimeout(r, 30));
 
-                                let inserted = false;
-                                try { inserted = !!document.execCommand("insertText", false, escapedText); } catch(e) {}
-                                const currentEditorText = () => ((editor.value !== undefined ? editor.value : (editor.innerText || editor.textContent)) || '').trim();
-
-                                if (!inserted || !currentEditorText()) {
-                                    try {
-                                        const dt = new DataTransfer();
-                                        dt.setData('text/plain', escapedText);
-                                        const pasteEvt = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
-                                        editor.dispatchEvent(pasteEvt);
-                                    } catch (_) {}
-                                    await new Promise(r => setTimeout(r, 50));
-                                }
+                                try { document.execCommand("insertText", false, escapedText); } catch(e) {}
+                                // Wait for Lexical to reconcile its EditorState into the DOM (Lexical calls
+                                // event.preventDefault() on beforeinput, so execCommand returns false even when it succeeded!)
+                                await new Promise(r => setTimeout(r, 60));
 
                                 if (!currentEditorText()) {
                                     if (editor.tagName === 'TEXTAREA') {
                                         const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
                                         if (setter) setter.call(editor, escapedText);
                                         else editor.value = escapedText;
+                                        editor.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, inputType: "insertText", data: escapedText }));
+                                        editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: escapedText }));
+                                        editor.dispatchEvent(new Event("change", { bubbles: true }));
                                     } else {
-                                        editor.textContent = escapedText;
+                                        // For Lexical / contenteditable: DO NOT mutate editor.textContent directly because
+                                        // Lexical ignores raw DOM textContent changes and leaves the Send button disabled!
+                                        // Instead, signal Node side to use native CDP Input.insertText.
+                                        needsNativeInsert = true;
                                     }
-                                    editor.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, inputType: "insertText", data: escapedText }));
-                                    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: escapedText }));
-                                    editor.dispatchEvent(new Event("change", { bubbles: true }));
                                 }
                             }
 
+                            if (needsNativeInsert) {
+                                return {
+                                    found: true,
+                                    method: 'native_cdp_input',
+                                    needsNativeInsert: true,
+                                    editorRect: rectOf(editor),
+                                    target: '${target.title?.substring(0, 30) || 'unknown'}'
+                                };
+                            }
+
                             // Use setTimeout instead of requestAnimationFrame so it doesn't hang when minimized!
-                            await new Promise(r => setTimeout(r, 150));
-
-                            // Dismiss any autocomplete/suggestion popups that may have appeared
-                            // (e.g., when text starts with '/' the IDE opens a slash command popup)
-                            editor.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape', code: 'Escape', keyCode: 27 }));
-                            editor.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Escape', code: 'Escape', keyCode: 27 }));
-                            await new Promise(r => setTimeout(r, 100));
-
-                            // Find the submit button near the editor (within same panel)
-                            const panelContainer = editor.closest('#antigravity') || editor.closest('#conversation') || document;
-                            const submitTexts = ${JSON.stringify(SUBMIT_ACTION_TEXTS)};
-                            const findSubmitBtn = () => {
-                                let btn = Array.from(panelContainer.querySelectorAll('button')).find(b => {
-                                    if (b.offsetParent === null) return false;
-                                    const label = ((b.getAttribute('aria-label') || '') + ' ' + (b.getAttribute('title') || '') + ' ' + (b.textContent || '')).trim().toLowerCase();
-                                    return submitTexts.some(text => label === text || label.includes(text));
-                                });
-                                if (!btn) {
-                                    btn = panelContainer.querySelector("svg.lucide-arrow-right, svg.lucide-arrow-up, svg[class*='arrow-right'], svg[class*='arrow-up'], svg[class*='send']")?.closest("button");
-                                }
-                                if (!btn) {
-                                    const allBtns = Array.from(panelContainer.querySelectorAll('button')).filter(b => b.offsetParent !== null);
-                                    btn = allBtns.find(b => {
-                                        const text = (b.textContent || '').trim().toLowerCase();
-                                        return submitTexts.some(action => text === action || text.startsWith(action + ' '));
-                                    });
-                                }
-                                return btn && !btn.disabled ? btn : null;
-                            };
+                            await new Promise(r => setTimeout(r, 120));
 
                             let submit = findSubmitBtn();
                             for (let waitBtn = 0; !submit && waitBtn < 6; waitBtn++) {
@@ -1901,8 +1927,14 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                             }
                             
                             if (submit && !submit.disabled) {
+                                const submitRect = rectOf(submit);
                                 setTimeout(() => submit.click(), 10);
-                                return { found: true, method: 'button', target: '${target.title?.substring(0, 30) || 'unknown'}' };
+                                return {
+                                    found: true,
+                                    method: 'button',
+                                    submitRect,
+                                    target: '${target.title?.substring(0, 30) || 'unknown'}'
+                                };
                             }
 
                             setTimeout(() => {
@@ -1942,6 +1974,16 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                         await new Promise(r => setTimeout(r, 200));
                     }
 
+                    if (val.needsNativeInsert) {
+                        await focusAndClearComposer();
+                        if (val.editorRect) {
+                            await dispatchNativeClick(val.editorRect);
+                            await new Promise(r => setTimeout(r, 40));
+                        }
+                        await Input.insertText({ text });
+                        await new Promise(r => setTimeout(r, 120));
+                    }
+
                     let isMac = process.platform === 'darwin';
                     try {
                         const versionInfo = await client.send('Browser.getVersion');
@@ -1951,8 +1993,77 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                     } catch (_) {}
                     const nativeEnter = isMac ? 36 : 13;
 
-                    await Input.dispatchKeyEvent({ type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: nativeEnter, text: '\r' });
-                    await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: nativeEnter });
+                    const isModalMethod = ['modal_button', 'radio', 'option_text_match', 'write-in'].includes(val.method);
+                    if (!isModalMethod) {
+                        await Input.dispatchKeyEvent({ type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: nativeEnter, text: '\r' });
+                        await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: nativeEnter });
+
+                        // Verify if the composer actually cleared after Enter/click; if text is still stuck in the
+                        // composer (e.g., an @file / autocomplete popup intercepted the first Enter, or the Send button
+                        // just became enabled after native insertText), dismiss popup and click the composer's Send button!
+                        await new Promise(r => setTimeout(r, 150));
+                        const postCheck = await Runtime.evaluate({
+                            expression: `
+                                ${DriverFactory.getDriver().getLocatorsScript()}
+                                (() => {
+                                    const editor = AG_UI.getChatInput();
+                                    if (!editor) return { remainingLen: 0, clickedSubmit: false };
+                                    const remaining = ((editor.value !== undefined ? editor.value : (editor.innerText || editor.textContent)) || '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
+                                    if (!remaining) return { remainingLen: 0, clickedSubmit: false };
+
+                                    const composerContainer =
+                                        editor.closest('[data-testid="agent-input-box"], [id*="SidePanelInputBox"], .interactive-input-part, .chat-input-container, .chat-input, form') ||
+                                        editor.parentElement?.parentElement?.parentElement ||
+                                        editor.parentElement;
+                                    if (!composerContainer) return { remainingLen: remaining.length, clickedSubmit: false };
+
+                                    const submitTexts = ${JSON.stringify(SUBMIT_ACTION_TEXTS)};
+                                    const isInvalidBtn = (b) => {
+                                        if (!b || b.offsetParent === null || b.disabled) return true;
+                                        if (b.hasAttribute('data-uri') || b.closest('a, code, pre, .chat-messages, .relative.flex.flex-col.gap-y-3')) return true;
+                                        const meta = ((b.getAttribute('data-testid') || '') + ' ' + (b.getAttribute('aria-label') || '') + ' ' + (b.getAttribute('title') || '') + ' ' + (b.textContent || '')).toLowerCase();
+                                        if (/model-selector|select model|选择模型|add context|attach|new conversation|new chat|stop|cancel|durdur|iptal|voice|mic/i.test(meta)) return true;
+                                        if (b.querySelector('svg.lucide-square, svg.lucide-circle-stop, svg.lucide-plus, svg.lucide-paperclip, svg.lucide-mic')) return true;
+                                        return false;
+                                    };
+                                    const btns = Array.from(composerContainer.querySelectorAll('button')).filter(b => !isInvalidBtn(b));
+                                    let btn = btns.find(b => {
+                                        const ariaOrTitle = ((b.getAttribute('aria-label') || '') + ' ' + (b.getAttribute('title') || '') + ' ' + (b.getAttribute('data-testid') || '')).trim().toLowerCase();
+                                        return submitTexts.some(t => ariaOrTitle === t || ariaOrTitle.includes(t));
+                                    });
+                                    if (!btn) {
+                                        const iconBtn = composerContainer.querySelector(
+                                            "svg.lucide-arrow-up, svg.lucide-arrow-right, svg.lucide-send, svg.lucide-corner-down-left, svg[class*='arrow-up'], svg[class*='arrow-right'], svg[class*='send']"
+                                        )?.closest('button');
+                                        if (iconBtn && !isInvalidBtn(iconBtn)) btn = iconBtn;
+                                    }
+                                    if (btn && !btn.disabled) {
+                                        const r = btn.getBoundingClientRect();
+                                        btn.click();
+                                        return {
+                                            remainingLen: remaining.length,
+                                            clickedSubmit: true,
+                                            submitRect: { centerX: r.x + r.width / 2, centerY: r.y + r.height / 2 }
+                                        };
+                                    }
+                                    return { remainingLen: remaining.length, clickedSubmit: false };
+                                })()
+                            `,
+                            returnByValue: true
+                        }).catch(() => null);
+
+                        const postVal = postCheck?.result?.value;
+                        if (postVal && postVal.remainingLen > 0) {
+                            await Input.dispatchKeyEvent({ type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+                            await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+                            await new Promise(r => setTimeout(r, 60));
+                            if (postVal.submitRect) {
+                                await dispatchNativeClick(postVal.submitRect);
+                            }
+                            await Input.dispatchKeyEvent({ type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: nativeEnter, text: '\r' });
+                            await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: nativeEnter });
+                        }
+                    }
                 } catch(e) {}
                 await client.close();
                 console.log(`sendViaCDP: Successfully sent via ${val.method} on "${target.title?.substring(0, 40)}"`);

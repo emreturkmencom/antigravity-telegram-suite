@@ -86,13 +86,17 @@ const STANDALONE_LOCATORS_SCRIPT = `
             }
 
             if (!container) {
-                const allBtns = Array.from(document.querySelectorAll('button')).filter(b => isVisible(b) && !isExcluded(b));
+                const isFileChip = (b) => b.hasAttribute('data-uri') || b.closest('a, code, pre') || /\.(js|jsx|ts|tsx|md|json|py|html|css|txt|sh|sql|yml|yaml)(:\d+|\b)/i.test((b.textContent || '').trim());
+                const allBtns = Array.from(document.querySelectorAll('button')).filter(b => isVisible(b) && !isExcluded(b) && !isFileChip(b));
                 const submitBtn = allBtns.find(b => {
                     const t = (b.textContent || '').trim().toLowerCase();
-                    return t.includes('submit') || t.includes('gönder') || t.includes('skip') || t.includes('atla') || t.includes('proceed') || t.includes('onayla');
+                    return t === 'submit' || t === 'gönder' || t === 'skip' || t === 'atla' || t === 'proceed' || t === 'onayla';
                 });
                 if (submitBtn) {
-                    container = submitBtn.closest('form, fieldset, [class*="rounded"], div.p-4, div.p-3, div.border') || submitBtn.parentElement?.parentElement;
+                    const cand = submitBtn.closest('form, fieldset, [role="dialog"], .modal, [data-testid*="question"], [data-testid*="interactive"]') || submitBtn.parentElement?.parentElement;
+                    if (cand && !cand.querySelector('[data-lexical-editor="true"]')) {
+                        container = cand;
+                    }
                 }
             }
 
@@ -151,16 +155,36 @@ const STANDALONE_LOCATORS_SCRIPT = `
         },
 
         getChatInput: () => {
-            const candidates = [
-                '[aria-label*="message input" i] textarea',
+            const isExcludedEditor = (el) => {
+                if (!el || !AG_UI.isVisible(el)) return true;
+                if (el.className && typeof el.className === 'string' && el.className.includes('xterm')) return true;
+                if (el.closest('.monaco-editor, .editor-widget, .find-widget, .quick-input-widget, .rename-box, [role="dialog"], .modal')) return true;
+                return false;
+            };
+
+            const prioritySelectors = [
+                '[data-testid="agent-input-box"] [data-lexical-editor="true"]',
+                '[id*="SidePanelInputBox"] [data-lexical-editor="true"]',
+                '[data-testid="agent-input-box"] [contenteditable="true"]',
+                '[data-testid="agent-input-box"] textarea',
                 '[aria-label*="message input" i] [contenteditable="true"]',
+                '[aria-label*="message input" i] textarea',
+                '[data-lexical-editor="true"][contenteditable="true"]'
+            ];
+
+            for (const sel of prioritySelectors) {
+                const matches = [...document.querySelectorAll(sel)].filter(el => !isExcludedEditor(el));
+                if (matches.length > 0) return matches.at(-1);
+            }
+
+            const candidates = [
                 '[aria-label*="message input" i]',
                 'textarea',
                 '[contenteditable="true"]'
             ];
 
             const editors = [...document.querySelectorAll(candidates.join(', '))]
-                .filter(el => AG_UI.isVisible(el));
+                .filter(el => !isExcludedEditor(el));
 
             return editors.at(-1) || null;
         },

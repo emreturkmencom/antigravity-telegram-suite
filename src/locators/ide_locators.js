@@ -185,6 +185,26 @@ const IDE_LOCATORS_SCRIPT = `
         },
 
         getChatInput: () => {
+            const isExcludedEditor = (el) => {
+                if (!el || !AG_UI.isVisible(el)) return true;
+                if (el.className && typeof el.className === 'string' && el.className.includes('xterm')) return true;
+                if (el.closest('.monaco-editor, .editor-widget, .find-widget, .quick-input-widget, .rename-box, [role="dialog"], .modal')) return true;
+                return false;
+            };
+
+            const prioritySelectors = [
+                '[data-testid="agent-input-box"] [data-lexical-editor="true"]',
+                '[id*="SidePanelInputBox"] [data-lexical-editor="true"]',
+                '[data-testid="agent-input-box"] [contenteditable="true"]',
+                '[data-testid="agent-input-box"] textarea',
+                '[data-lexical-editor="true"][contenteditable="true"]'
+            ];
+
+            for (const sel of prioritySelectors) {
+                const matches = [...document.querySelectorAll(sel)].filter(el => !isExcludedEditor(el));
+                if (matches.length > 0) return matches.at(-1);
+            }
+
             const candidates = [
                 '.interactive-input-editor textarea',
                 '#conversation textarea',
@@ -202,10 +222,7 @@ const IDE_LOCATORS_SCRIPT = `
             ];
 
             const editors = [...document.querySelectorAll(candidates.join(', '))]
-                .filter(el => {
-                    if (el.className && typeof el.className === 'string' && el.className.includes('xterm')) return false;
-                    return AG_UI.isVisible(el);
-                });
+                .filter(el => !isExcludedEditor(el));
 
             return editors.at(-1) || null;
         },
