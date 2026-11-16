@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.9.1] - 2026-11-16
+
+### Fixed
+- **Work Orders Desk Target Isolation in IDE Mode**: Excluded `wo-<desk>` IDE windows/panels from automatic target selection in the main bot process unless explicitly selected via `/window` (`preferredTargetId`) or `/workspace`, while keeping them visible to the Work Orders runner (`WORK_ORDERS_RUNNER=1`).
+- **Strict Runner Target Matching & Panel Refresh**: Disabled `filterTargetsById` fallback to unrelated IDE windows inside the Work Orders runner (`TARGET_NOT_FOUND` on vanished targets), and updated `sendToWindow` to refresh the desk's `extensionView` panel ID via `findPanel` before retrying.
+- **Smart Default for `WORK_ORDERS_BACKEND`**: Defaulted `WORK_ORDERS_BACKEND` via `resolveBackend(env)` to `ide` when `ANTIGRAVITY_PREFERRED_APP=ide` (otherwise `standalone`), with a console warning on invalid values and updated `.env.example`, `docs/WORK_ORDERS.md`, and 7-language READMEs.
+- **Interrupted Order Notification & Standalone Session Recovery on Restart**: Added 7-language Telegram notifications when running orders are interrupted by a bot restart, persisted `originalThread` and `originalModel` in `state.json`, and restored the user's previous Standalone chat thread and AI model on the first post-restart tick.
+- **Runner Resilience & Documentation Polish**: Flushed queued user messages on unexpected runner exit, reset the runner restart counter after 10 minutes of healthy uptime, fixed the `WORK_ORDERS_ENABLED` comment in `src/index.js`, and clarified the Standalone non-collision guard in `docs/WORK_ORDERS.md`.
+
 ## [3.9.0] - 2026-11-16
 
 ### Added
