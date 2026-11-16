@@ -46,6 +46,21 @@ function deskFolderName(desk) {
     return `wo-${desk}`;
 }
 
+function deskNameFromTarget(target = {}) {
+    const ws = target.workspaceName || '';
+    const wsMatch = ws.match(/^wo-([a-z0-9][a-z0-9._-]*)$/);
+    if (wsMatch && DESK_RE.test(wsMatch[1])) return wsMatch[1];
+    const title = target.windowTitle || target.title || '';
+    const titleMatch = title.match(/^wo-([a-z0-9][a-z0-9._-]*)(?:\s-\s|$)/)
+        || title.match(/\s-\swo-([a-z0-9][a-z0-9._-]*)\s-\s/);
+    if (titleMatch && DESK_RE.test(titleMatch[1])) return titleMatch[1];
+    return null;
+}
+
+function isDeskTarget(target) {
+    return deskNameFromTarget(target) !== null;
+}
+
 function deskPath(dir, desk) {
     return path.join(dir, 'desks', deskFolderName(desk));
 }
@@ -222,6 +237,8 @@ module.exports = {
     ensureLayout,
     slugifyDesk,
     deskFolderName,
+    deskNameFromTarget,
+    isDeskTarget,
     deskPath,
     deskSeed,
     ensureDesk,

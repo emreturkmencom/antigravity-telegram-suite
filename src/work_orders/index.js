@@ -70,6 +70,7 @@ function startWorkOrders(bot, chatIds) {
                 ANTIGRAVITY_PREFERRED_APP: process.env.WORK_ORDERS_UI_DRIVER || (backend === 'ide' ? 'ide' : 'agent'),
                 WORK_ORDERS_DIR: dir,
                 WORK_ORDERS_BACKEND: backend,
+                WORK_ORDERS_RUNNER: '1',
             },
         });
         if (lastUserActivityAt > 0) {

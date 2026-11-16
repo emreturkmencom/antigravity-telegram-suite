@@ -40,6 +40,7 @@ function _notifyThreadResolved(threadId) {
  * @returns {Promise<Array>} sorted array of CDP target objects
  */
 const DriverFactory = require('./drivers');
+const { isDeskTarget } = require('./work_orders/desks');
 const SUBMIT_ACTION_TEXTS = [
     'submit', 'send', 'send message', 'gönder',
     '提交', '发送', '发送消息'
@@ -273,16 +274,27 @@ function annotateTargetsWithWindows(rawTargets = []) {
     return rawTargets;
 }
 
-function filterTargetsById(candidates, specificTargetId) {
-    if (!specificTargetId || specificTargetId === 'auto') return candidates;
-    const matched = candidates.filter(t =>
+function isWorkOrdersRunner() {
+    return process.env.WORK_ORDERS_RUNNER === '1';
+}
+
+function matchesTargetId(t, specificTargetId) {
+    if (!specificTargetId || specificTargetId === 'auto' || !t) return false;
+    return Boolean(
         (t.id && (t.id === specificTargetId || t.id.startsWith(specificTargetId))) ||
         (t.windowId && (t.windowId === specificTargetId || t.windowId.startsWith(specificTargetId)))
     );
+}
+
+function filterTargetsById(candidates, specificTargetId) {
+    if (!specificTargetId || specificTargetId === 'auto') return candidates;
+    const matched = candidates.filter(t => matchesTargetId(t, specificTargetId));
     return matched.length > 0 ? matched : candidates;
 }
 
-async function resolveTargets(port, includeIframe = true) {
+async function resolveTargets(port, includeIframe = true, options = {}) {
+    const { includeDesks = false, specificTargetId = null } = options || {};
+    const normalize = (s) => (s || '').toLowerCase().replace(/[-_]/g, ' ').trim();
     const raw = await httpGet(`http://127.0.0.1:${port}/json`);
     const targets = annotateTargetsWithWindows(JSON.parse(raw));
     const typeFilter = includeIframe
@@ -300,17 +312,26 @@ async function resolveTargets(port, includeIframe = true) {
         if (/\/(settings(?:-standalone)?|customizations)(?:[/?#]|$)/i.test(url)) return false;
         if (t.title && t.title.includes('Launchpad')) return false;
         if (t.title === 'Manager') return false;
+        // Exclude Work Orders desk windows (wo-<desk>) from main bot automatic target selection
+        if (!includeDesks && !isWorkOrdersRunner() && isDeskTarget(t)) {
+            const allowedByPreferred = preferredTargetId && matchesTargetId(t, preferredTargetId);
+            const allowedBySpecific = specificTargetId && matchesTargetId(t, specificTargetId);
+            const allowedByWorkspace = activeWorkspaceName && t.workspaceName &&
+                normalize(t.workspaceName) === normalize(activeWorkspaceName);
+            if (!allowedByPreferred && !allowedBySpecific && !allowedByWorkspace) {
+                return false;
+            }
+        }
         return true;
     });
 
-    const normalize = (s) => (s || '').toLowerCase().replace(/[-_]/g, ' ').trim();
     const targetMatchLabel = (t) => `${t.workspaceName || ''} ${t.windowTitle || ''} ${t.title || ''}`;
 
     candidates.sort((a, b) => {
         // 1. Preferred target/window by ID always wins (set via /window command)
         if (preferredTargetId) {
-            const aPref = (a.id === preferredTargetId || a.windowId === preferredTargetId) ? 1 : 0;
-            const bPref = (b.id === preferredTargetId || b.windowId === preferredTargetId) ? 1 : 0;
+            const aPref = matchesTargetId(a, preferredTargetId) ? 1 : 0;
+            const bPref = matchesTargetId(b, preferredTargetId) ? 1 : 0;
             if (aPref !== bPref) return bPref - aPref;
         }
 
@@ -341,7 +362,7 @@ async function resolveTargets(port, includeIframe = true) {
  * List all available IDE windows for the /window command.
  */
 async function listWindows(port) {
-    const targets = await resolveTargets(port, false);
+    const targets = await resolveTargets(port, false, { includeDesks: true });
     windowCache = targets.map(t => ({
         id: t.id,
         title: t.title || 'Untitled',
@@ -728,7 +749,7 @@ async function snapshotChatState(port, specificTargetId = null, threadName = nul
     lastResolvedThreadId = null; // ALWAYS clear stale cache before attempting to anchor
 
     // STRATEGY 0: Extract exact UUID from active page/extensionView URL
-    let candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId);
+    let candidates = filterTargetsById(await resolveTargets(port, true, { specificTargetId }), specificTargetId);
     for (const target of candidates) {
         if (target.url) {
             const uuidMatch = target.url.match(/\/c\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
@@ -766,7 +787,7 @@ async function snapshotChatState(port, specificTargetId = null, threadName = nul
     // approach as _domLatestExtraction), then find a unique snippet in transcripts.
     if (threadName && specificTargetId) {
         try {
-            const candidates = await resolveTargets(port, true);
+            const candidates = await resolveTargets(port, true, { specificTargetId });
             const targetCandidates = filterTargetsById(candidates, specificTargetId);
             
             for (const target of targetCandidates) {
@@ -865,7 +886,7 @@ async function snapshotChatState(port, specificTargetId = null, threadName = nul
     }
     
     // Strategy 3: DOM fallback for legacy behavior
-    let candidates2 = filterTargetsById(await resolveTargets(port, true), specificTargetId);
+    let candidates2 = filterTargetsById(await resolveTargets(port, true, { specificTargetId }), specificTargetId);
     for (const target of candidates2) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
@@ -910,7 +931,7 @@ async function snapshotChatState(port, specificTargetId = null, threadName = nul
  * also called directly on window switch for auto-latest.
  */
 async function _domLatestExtraction(port, specificTargetId = null) {
-    let candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId);
+    let candidates = filterTargetsById(await resolveTargets(port, true, { specificTargetId }), specificTargetId);
     for (const target of candidates) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
@@ -976,7 +997,7 @@ async function _domLatestExtraction(port, specificTargetId = null) {
 }
 
 async function getInteractiveModalState(port, specificTargetId = null) {
-    let candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId);
+    let candidates = filterTargetsById(await resolveTargets(port, true, { specificTargetId }), specificTargetId);
     
     for (const target of candidates) {
         try {
@@ -1417,7 +1438,7 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null,
         // Re-fetch targets on each iteration to avoid stale WebSocket connections
         let candidates;
         try {
-            const raw = await resolveTargets(port, true);
+            const raw = await resolveTargets(port, true, { specificTargetId });
             candidates = filterTargetsById(raw, specificTargetId);
         } catch(e) {
             await new Promise(r => setTimeout(r, 2000));
@@ -1558,7 +1579,7 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null,
 }
 
 async function sendViaCDP(text, port, specificTargetId = null) {
-    const candidates = await resolveTargets(port);
+    const candidates = await resolveTargets(port, true, { specificTargetId });
     let sortedCandidates = candidates;
 
     if (specificTargetId) {
@@ -2144,7 +2165,7 @@ async function sendViaCDP(text, port, specificTargetId = null) {
 }
 
 async function triggerNewChat(port, wsName = null, specificTargetId = null) {
-    let candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId || preferredTargetId);
+    let candidates = filterTargetsById(await resolveTargets(port, true, { specificTargetId: specificTargetId || preferredTargetId }), specificTargetId || preferredTargetId);
     const effectiveWs = wsName || activeWorkspaceName;
     if (effectiveWs && !specificTargetId) {
         const normWs = (s) => (s || '').toLowerCase().replace(/[-_]/g, ' ').trim();
@@ -2278,7 +2299,7 @@ async function verifyChatMessageSent(port, snippet, expectedThreadId = null, spe
     const cleanSnippet = String(snippet || '').replace(/\s+/g, ' ').trim().slice(0, 80);
     if (!cleanSnippet) return false;
 
-    const candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId);
+    const candidates = filterTargetsById(await resolveTargets(port, true, { specificTargetId }), specificTargetId);
     const snippetStr = JSON.stringify(cleanSnippet);
     const expectedIdStr = JSON.stringify(expectedThreadId || null);
 
@@ -2830,7 +2851,7 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
     let standaloneTargetResponded = false;
     const driver = DriverFactory.getDriver();
 
-    let candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId);
+    let candidates = filterTargetsById(await resolveTargets(port, true, { specificTargetId }), specificTargetId);
     // 1. Try to get Name, Workspace, and Thread ID from the DOM
     for (const target of candidates) {
         try {
@@ -2972,7 +2993,7 @@ async function getActiveThreadId(port, specificTargetId = null) {
     return info ? info.id : null;
 }
 async function isAgentWorking(port, specificTargetId = null) {
-    let candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId);
+    let candidates = filterTargetsById(await resolveTargets(port, true, { specificTargetId }), specificTargetId);
     for (const target of candidates) {
         try {
             const client = await withTimeout(CDP({ target: target.webSocketDebuggerUrl }), 2000, "CDP timeout");
@@ -3463,7 +3484,7 @@ async function listStandaloneWorkspaces(port) {
  * @returns {Promise<boolean>} true if the button was found and clicked
  */
 async function clickArtifactButton(buttonLabel, port, specificTargetId = null) {
-    const candidates = await resolveTargets(port, true);
+    const candidates = await resolveTargets(port, true, { specificTargetId: specificTargetId || preferredTargetId });
     let targets = filterTargetsById(candidates, specificTargetId || preferredTargetId);
 
     const labelLower = buttonLabel.toLowerCase();
@@ -3543,7 +3564,7 @@ async function clickArtifactButton(buttonLabel, port, specificTargetId = null) {
 async function dismissPopups(port, specificTargetId = null) {
     let total = 0;
     let candidates = [];
-    try { candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId); } catch (_) { return 0; }
+    try { candidates = filterTargetsById(await resolveTargets(port, true, { specificTargetId }), specificTargetId); } catch (_) { return 0; }
     const script = DriverFactory.getDriver().getLocatorsScript();
     for (const t of candidates) {
         if (!/127\.0\.0\.1/.test(t.url || '')) continue;
@@ -3777,7 +3798,7 @@ async function getAvailableModels(port) {
 }
 
 async function selectModel(port, modelName, specificTargetId = null) {
-    const candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId);
+    const candidates = filterTargetsById(await resolveTargets(port, true, { specificTargetId }), specificTargetId);
 
     for (const target of candidates) {
         try {
@@ -3977,7 +3998,7 @@ async function selectModel(port, modelName, specificTargetId = null) {
 }
 
 async function stopAgent(port, specificTargetId = null) {
-    const candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId);
+    const candidates = filterTargetsById(await resolveTargets(port, true, { specificTargetId }), specificTargetId);
 
     for (const target of candidates) {
         try {

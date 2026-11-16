@@ -109,38 +109,62 @@ async function runTests() {
         ];
 
         const srv = await startFakeCDPServer(() => JSON.parse(JSON.stringify(fakeTargets)));
+        const prevRunnerFlag = process.env.WORK_ORDERS_RUNNER;
+        delete process.env.WORK_ORDERS_RUNNER;
         try {
             setPreferredWindow(null);
             setActiveWorkspace(null);
 
-            // listWindows returns only real top-level IDE windows (excludes data: splash and iframes)
+            const { deskNameFromTarget, isDeskTarget } = require('../src/work_orders/desks');
+            assert.strictEqual(deskNameFromTarget({ workspaceName: 'wo-beta' }), 'beta');
+            assert.strictEqual(deskNameFromTarget({ title: 'wo-qa-1 - Antigravity IDE' }), 'qa-1');
+            assert.strictEqual(isDeskTarget({ workspaceName: 'alpha-proj', title: 'alpha-proj - Antigravity IDE - wo-notes.md' }), false);
+
+            // listWindows returns all real top-level IDE windows (including desks so /window can select them)
             const wins = await listWindows(srv.port);
             assert.deepStrictEqual(wins.map(w => w.id), ['WIN_A', 'WIN_B']);
 
-            // resolveTargets(true) excludes outer vscode-webview, settings-standalone, plugin://, data:,
-            // and ranks live extensionView agent panels ahead of workbench shells
-            const resolved = await resolveTargets(srv.port, true);
-            assert.deepStrictEqual(resolved.map(t => t.id), ['PANEL_A', 'PANEL_B', 'WIN_A', 'WIN_B']);
-            assert.strictEqual(resolved[0].windowId, 'WIN_A');
-            assert.strictEqual(resolved[0].workspaceName, 'alpha-proj');
-            assert.strictEqual(resolved[1].windowId, 'WIN_B');
-            assert.strictEqual(resolved[1].workspaceName, 'wo-beta');
+            // In main bot process (no WORK_ORDERS_RUNNER), automatic resolveTargets excludes wo-<desk> windows/panels
+            const resolvedMain = await resolveTargets(srv.port, true);
+            assert.deepStrictEqual(resolvedMain.map(t => t.id), ['PANEL_A', 'WIN_A']);
+            assert.strictEqual(resolvedMain[0].windowId, 'WIN_A');
+            assert.strictEqual(resolvedMain[0].workspaceName, 'alpha-proj');
 
-            // Selecting Window B via /window routes agent commands to PANEL_B first (not WIN_B shell!)
+            // Even if ONLY desk targets exist (no non-desk IDE window open), main bot must NOT fall back to a desk
+            const deskOnlyTargets = fakeTargets.filter(t => ['WIN_B', 'OUTER_B', 'PANEL_B'].includes(t.id));
+            const deskOnlySrv = await startFakeCDPServer(() => JSON.parse(JSON.stringify(deskOnlyTargets)));
+            try {
+                const resolvedDeskOnly = await resolveTargets(deskOnlySrv.port, true);
+                assert.deepStrictEqual(resolvedDeskOnly, [], 'Main bot must not fall back to desk targets when no normal window is open');
+            } finally {
+                await deskOnlySrv.close();
+            }
+
+            // With WORK_ORDERS_RUNNER=1, runner sees desk targets as well
+            process.env.WORK_ORDERS_RUNNER = '1';
+            const resolvedRunner = await resolveTargets(srv.port, true);
+            assert.deepStrictEqual(resolvedRunner.map(t => t.id), ['PANEL_A', 'PANEL_B', 'WIN_A', 'WIN_B']);
+            assert.strictEqual(resolvedRunner[1].windowId, 'WIN_B');
+            assert.strictEqual(resolvedRunner[1].workspaceName, 'wo-beta');
+            delete process.env.WORK_ORDERS_RUNNER;
+
+            // Selecting Window B via /window (preferredTargetId) explicitly allows routing to that desk window's PANEL_B
             setPreferredWindow('WIN_B');
             const byWinB = await resolveTargets(srv.port, true);
             assert.strictEqual(byWinB[0].id, 'PANEL_B');
             assert.strictEqual(byWinB[1].id, 'WIN_B');
 
-            // Workspace routing prioritizes matching window's agent panel
+            // Workspace routing prioritizes matching window's agent panel when explicitly set
             setPreferredWindow(null);
             setActiveWorkspace('wo-beta');
             const byWs = await resolveTargets(srv.port, true);
             assert.strictEqual(byWs[0].id, 'PANEL_B');
 
             setActiveWorkspace(null);
-            console.log('  ✅ Target graph resolution, settings exclusion, and window->panel routing passed');
+            console.log('  ✅ Target graph resolution, desk exclusion in main bot, and runner visibility passed');
         } finally {
+            if (prevRunnerFlag === undefined) delete process.env.WORK_ORDERS_RUNNER;
+            else process.env.WORK_ORDERS_RUNNER = prevRunnerFlag;
             setPreferredWindow(null);
             setActiveWorkspace(null);
             await srv.close();

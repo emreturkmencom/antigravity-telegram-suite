@@ -32,7 +32,7 @@ const { ensureIDETargetsObserver } = require('../autoaccept');
 const { STANDALONE_LOCATORS_SCRIPT } = require('../locators/standalone_locators');
 const { ensureMemoryConvention } = require('../memory_convention');
 const { WorkOrders } = require('./core');
-const { deskFolderName, defaultDir, readDeskConfig, writeDeskConfig } = require('./desks');
+const { deskFolderName, deskNameFromTarget, defaultDir, readDeskConfig, writeDeskConfig } = require('./desks');
 const { s } = require('./strings');
 
 const port = isStandalone
@@ -67,14 +67,12 @@ const AGENT_ERROR_RE = /terminated due to error|Agent terminated|Error ID:/i;
 // ==================== IDE BACKEND ====================
 async function listDeskWindows() {
     let targets = [];
-    try { targets = await resolveTargets(port, false); } catch (_) { return []; }
+    try { targets = await resolveTargets(port, false, { includeDesks: true }); } catch (_) { return []; }
     const out = [];
     for (const t of targets) {
-        const wsFromUri = t.workspaceName || '';
-        const candidateStr = `${wsFromUri} - ${t.title || ''}`;
-        const m = candidateStr.match(/(?:^|\s-\s)wo-([a-z0-9][a-z0-9._-]*)(?:\s-\s|$)/);
-        if (m && !out.some(x => x.targetId === t.id)) {
-            out.push({ desk: m[1], targetId: t.id, ws: t.webSocketDebuggerUrl });
+        const desk = deskNameFromTarget(t);
+        if (desk && !out.some(x => x.targetId === t.id)) {
+            out.push({ desk, targetId: t.id, ws: t.webSocketDebuggerUrl });
         }
     }
     return out;
@@ -484,6 +482,7 @@ async function canDispatchStandalone(order) {
 }
 
 if (require.main === module) {
+    process.env.WORK_ORDERS_RUNNER = '1';
     const deps = isStandalone ? {
         listDeskWindows: async () => [],
         openDeskWindow: (desk, deskDir) => openStandaloneDesk(desk, deskDir),
