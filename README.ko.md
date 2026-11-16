@@ -2,19 +2,17 @@
 
 # 🤖 Antigravity Telegram Suite
 
-**[Antigravity Standalone App](https://antigravity.google/)\*와 [Antigravity IDE](https://antigravity.google/) 모두에서 동작합니다.**
+**[Antigravity Standalone App](https://antigravity.google/)과 [Antigravity IDE](https://antigravity.google/) 모두에서 동작합니다.**
 
 🌍 Languages: [English](README.md) | [中文](README.zh.md) | [한국어](README.ko.md) | [Türkçe](README.tr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md)
 
-Telegram으로 Antigravity AI 에이전트를 원격 제어하세요.
-메시지 전송, AI 모델 전환, 워크스페이스 관리, 스크린샷 촬영, 멀티 에이전트 워크플로우 실행까지 — 모두 휴대폰에서 할 수 있습니다.
+Telegram으로 Antigravity AI 에이전트를 원격 제어하고, **Claude Code나 외부 앱을 Antigravity에 연결**하며, **여러 전문 에이전트를 동시에 병렬 실행**하세요.
+메시지 전송, AI 모델 전환, 워크스페이스 관리, 스크린샷 촬영, 병렬 멀티 에이전트 워크플로우 실행까지 — 모두 휴대폰이나 터미널에서 할 수 있습니다.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.8.3-orange.svg)]()
-
-\* *일부 기능은 Standalone App에서 제약이 있을 수 있습니다. 자세한 내용은 [알려진 이슈](#-알려진-이슈)를 참고하세요.*
+[![Version](https://img.shields.io/badge/Version-3.9.0-orange.svg)]()
 
 </div>
 
@@ -49,6 +47,7 @@ Telegram으로 Antigravity AI 에이전트를 원격 제어하세요.
 | 🖥️ **크로스 플랫폼** | Linux, macOS(Intel 및 Apple Silicon), Windows에서 동작합니다 |
 | 🔀 **듀얼 앱 지원** | Antigravity IDE와 Standalone Agent App 사이를 매끄럽게 전환합니다 |
 | 📡 **Telegraph 게시** | 작업 체크리스트, 계획 및 워크스루를 128비트 암호화 난수 슬러그 URL로 게시(또는 비공개 유지)할 수 있으며, 전체 전환 및 삭제 제어가 가능합니다 |
+| 🤝 **Claude Code 연동 및 병렬 에이전트 (`/wo`)** | **Claude Code**, CLI 도구, cron 작업 또는 외부 앱을 Antigravity에 연결 — 격리된 IDE 창에서 **여러 전문 에이전트를 동시에 병렬 실행**하고, 에이전트별 AI 모델을 지정하며 결과를 디스크와 Telegram으로 받아봅니다 |
 
 ---
 
@@ -186,6 +185,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/plan <task>` | 코딩 전에 **구현 계획**을 생성합니다 |
 | `/schedule_task <task>` | IDE에서 반복 작업 또는 1회성 작업을 예약합니다 |
 | `/agents` | 채팅 스레드 목록을 보고 전환합니다 |
+| `/wo [데스크] [작업]` | **Work Orders(작업 지시)** 패널을 열거나 전문 데스크에 작업을 전달합니다 (`--model "..."` 지원) |
+| `/wo_stop` | 현재 실행 중인 작업 지시를 중지합니다 |
 | `/quota` | AI 크레딧과 모델 사용 한도를 확인합니다 |
 
 ### 앱 및 창 관리
@@ -261,6 +262,61 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 - **단순하지만 긴 작업** (예: "이 모듈 리팩터링") → `/goal`
 - **교차 모델 리뷰가 필요한 복잡한 작업** (예: "이 기능 만들고, 보안 리뷰하고, 이슈 수정") → `/turbo`
 - **계획 수립** → `/plan` (계획만 생성한 뒤 직접 결정)
+- **반복되는 전문 업무 또는 외부 오케스트레이션** (예: 댓글 분류, QA 점검, Claude Code / Cron 작업 위임) → `/wo`
+
+---
+
+## 🤝 Work Orders — Claude Code 및 외부 앱을 병렬 Antigravity 에이전트에 연결
+
+별도의 SDK나 API 키 없이 **Telegram (`/wo`)**, **Claude Code**, cron 작업, CI 파이프라인 또는 모든 로컬 앱에서 제어할 수 있는 **멀티 에이전트 워커 풀(Worker Pool)**로 Antigravity를 활용하세요.
+
+```text
+┌────────────────────┐                           ┌────────────────────────────────────────┐
+│  Claude Code / CLI │──┐                        │ 🪟 IDE 창 1: frontend (Gemini Pro)     │
+├────────────────────┤  │  inbox/에 .md 저장     ├────────────────────────────────────────┤
+│  Cron / 로컬 앱    │──┼──────────────────────► │ 🪟 IDE 창 2: qa-audit (Flash Low)      │
+├────────────────────┤  │  또는 채팅에서 /wo     ├────────────────────────────────────────┤
+│  Telegram (/wo)    │──┘                        │ 🪟 IDE 창 3: security (Sonnet)         │
+└────────────────────┘                           └───────────────────┬────────────────────┘
+                                                                     │ results/<id>.md
+                                                                     ▼
+                                                   📲 Telegram 알림 + 디스크 결과 파일
+```
+
+### 왜 유용한가요?
+
+- 🧠 **Claude Code는 매니저, Antigravity는 실행 워커:** 터미널에서 Claude Code(또는 Codex / Cursor / 스크립트)를 수석 아키텍트로 유지하면서 리서치, 테스트 작성, 리팩터링, QA 업무를 Antigravity 모델 쿼터로 위임하세요. 파일을 쓸 수 있는 모든 앱이 작업을 지시할 수 있습니다.
+- ⚡ **여러 에이전트를 동시에 병렬 실행 (`WORK_ORDERS_BACKEND=ide`):** 각 전문 **데스크(Desk)**가 격리된 **Antigravity IDE 2.6+** 창에서 열려 여러 에이전트가 **동시에 병렬**로 작업하며, 기본 Telegram 채팅은 전혀 차단되지 않습니다. 유휴 창은 RAM 절약을 위해 **3분** 후 자동으로 닫힙니다 (`WORK_ORDERS_IDLE_CLOSE_MIN=3`).
+- 🎯 **에이전트별 맞춤형 AI 모델 지정:** `/wo` → **🤖 모델**에서 데스크마다 최적의 모델을 지정하거나(빠른 분류는 *Gemini Flash*, 코딩은 *Gemini Pro / Argon*, 감사는 *Claude*) `--model`로 작업별 오버라이드가 가능합니다.
+- 🗂 **영구 도메인 메모리 및 승인 게이트:** 각 데스크는 자체 폴더와 `AGENT.md`에 규칙과 학습 내용을 기억하며, 민감한 작업 전 Telegram에서 원탭 **승인 / 거절**을 요구할 수 있습니다.
+- 🧩 **단일 창 Standalone 모드도 완벽 지원 (`WORK_ORDERS_BACKEND=standalone`):** 가벼운 Standalone 모드에서는 채팅이 유휴 상태(`60초`)가 될 때까지 기다린 뒤 순차 실행하고, 완료 후 이전 대화 스레드와 AI 모델을 자동 복원합니다.
+
+### 예시 1: Telegram에서 제어 (`/wo`)
+
+```text
+/wo                                                    # 인터랙티브 데스크 및 작업 패널 열기
+/wo security-audit 인증 미들웨어 우회 취약점 점검       # 한 줄로 전문 데스크에 작업 전송
+/wo qa --model "Gemini 3.8 Flash (Low)" 스모크 테스트   # 단일 작업에 대해 AI 모델 지정
+/wo_stop                                               # 실행 중인 작업 지시 중지
+```
+
+### 예시 2: 10초 만에 Claude Code(또는 외부 앱) 연결하기
+
+Claude Code(또는 스크립트)가 `~/Projects/.agts-work-orders/inbox/`에 Markdown 파일을 저장하고(임시 파일 작성 후 이름 변경) `results/<id>.md`에서 결과를 읽도록 지시하기만 하면 됩니다:
+
+```markdown
+---
+desk: code-review
+model: Gemini 3.8 Flash (High)
+approval: auto
+timeout: 20
+---
+/home/me/Projects/my-app 경로의 git diff를 검토하고 엣지 케이스나 회귀 가능성을 정리해줘.
+```
+
+에이전트가 작업을 마치면 AGTS가 `STATUS: done`과 전체 보고서를 `results/<id>.md`에 기록하고 **동시에** Telegram으로 알림을 보냅니다.
+
+📖 전체 설정, `.env` 옵션 및 YAML 스키마: **[docs/WORK_ORDERS.md](docs/WORK_ORDERS.md)**
 
 ---
 
@@ -335,11 +391,9 @@ antigravity-telegram-suite/
 
 | 이슈 | 상세 |
 |-------|---------|
-| **Standalone App 제약** | 일부 기능(워크스페이스 전환, 스레드 관리)은 Standalone Antigravity App에서 안정적으로 동작하지 않을 수 있습니다. **Antigravity IDE는 완전 지원되며 권장됩니다.** |
+| **Standalone 및 IDE 2.6+ 완벽 지원** | `/agents`, `/wo` 멀티 윈도우 병렬 데스크, 모델 및 추론 강도 선택, 자동 수락, 대화 추적을 포함한 모든 명령어가 Antigravity Standalone App(2.29+)과 Antigravity IDE(2.6+ / 1.107.0+) 모두에서 기본 동작합니다. |
 | **IDE 2.0 자동 업데이트** | Antigravity IDE가 자동 업데이트되면, 봇도 함께 업데이트되기 전까지 DOM selector가 깨질 수 있습니다. |
 | **Turbo Mode 모델 접근성** | Turbo Mode는 Claude와 Gemini 모델이 모두 사용 가능해야 합니다. 하나라도 사용할 수 없으면 파이프라인이 실패합니다. |
-
-> 💡 개발자인 저는 IDE 지원에 더 집중하고 있습니다. Standalone App 연동은 best-effort 기준으로 제공됩니다.
 
 ---
 

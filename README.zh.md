@@ -2,19 +2,17 @@
 
 # 🤖 Antigravity Telegram Suite
 
-**同时支持 [Antigravity Standalone App](https://antigravity.google/)\* 和 [Antigravity IDE](https://antigravity.google/)。**
+**同时支持 [Antigravity Standalone App](https://antigravity.google/) 和 [Antigravity IDE](https://antigravity.google/)。**
 
 🌍 Languages: [English](README.md) | [中文](README.zh.md) | [한국어](README.ko.md) | [Türkçe](README.tr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md)
 
-通过 Telegram 远程控制你的 Antigravity AI 代理。
-发送消息、切换 AI 模型、管理工作区、截取屏幕截图、运行多代理工作流 — 一切操作都可以在手机上完成。
+通过 Telegram 远程控制你的 Antigravity AI 代理，**将 Claude Code 或外部应用连接到 Antigravity**，并**同时并行运行多个专家代理**。
+发送消息、切换 AI 模型、管理工作区、截取屏幕截图、编排并行多代理工作流 — 一切操作都可以在手机或终端上完成。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.8.3-orange.svg)]()
-
-\* *部分功能在 Standalone App 上可能存在限制。详情请参阅 [已知问题](#-已知问题)。*
+[![Version](https://img.shields.io/badge/Version-3.9.0-orange.svg)]()
 
 </div>
 
@@ -49,6 +47,7 @@
 | 🖥️ **跨平台** | 支持 Linux、macOS（Intel 和 Apple Silicon）及 Windows |
 | 🔀 **双应用支持** | 在 Antigravity IDE 和 Standalone Agent App 之间无缝切换 |
 | 📡 **Telegraph 发布** | 任务清单、计划和走查文档可以使用 128 位不可猜测的加密 Slug URL 发布（或在聊天中保持私密），提供完整的开关与清空控制 |
+| 🤝 **连接 Claude Code 与并行代理 (`/wo`)** | 将 **Claude Code**、CLI 工具、定时任务或本地应用桥接到 Antigravity — 在隔离的 IDE 窗口中**同时并行运行多个专家代理**，为每个代理分配专属 AI 模型，并在磁盘与 Telegram 中获取结果 |
 
 ---
 
@@ -186,6 +185,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/plan <任务>` | 编码前生成**实施计划** |
 | `/schedule_task <任务>` | 在 IDE 中安排定时或一次性任务 |
 | `/agents` | 查看并切换聊天线程 |
+| `/wo [工位] [工单]` | 打开 **Work Orders（工单）**面板或向专家工位派发任务（支持 `--model "..."`） |
+| `/wo_stop` | 停止当前运行中的工单任务 |
 | `/quota` | 检查 AI 额度和模型使用限制 |
 
 ### 应用与窗口管理
@@ -261,6 +262,61 @@ Turbo 模式运行一个自动协调多个 AI 模型的 **Agents Council** 工�
 - **简单但耗时的任务**（例如："重构这个模块"）→ `/goal`
 - **需要跨模型审查的复杂任务**（例如："构建此功能、审查安全性、修复问题"）→ `/turbo`
 - **制定计划** → `/plan`（仅生成计划，然后由你决定）
+- **持续的专业工位或外部编排**（例如：评论处理、QA 审计、通过 Claude Code / Cron 派发并行任务）→ `/wo`
+
+---
+
+## 🤝 Work Orders — 将 Claude Code 与外部应用连接到并行 Antigravity 代理
+
+无需任何 SDK 或 API Key，即可将 Antigravity 变成一个由 **Telegram (`/wo`)**、**Claude Code**、Cron 定时任务、CI 流水线或任何本地应用驱动的**多代理工作池（Worker Pool）**。
+
+```text
+┌────────────────────┐                           ┌────────────────────────────────────────┐
+│  Claude Code / CLI │──┐                        │ 🪟 IDE 窗口 1: frontend (Gemini Pro)    │
+├────────────────────┤  │  放入 inbox/*.md       ├────────────────────────────────────────┤
+│  Cron / 本地应用   │──┼──────────────────────► │ 🪟 IDE 窗口 2: qa-audit (Flash Low)     │
+├────────────────────┤  │  或在聊天中发送 /wo    ├────────────────────────────────────────┤
+│  Telegram (/wo)    │──┘                        │ 🪟 IDE 窗口 3: security (Sonnet)        │
+└────────────────────┘                           └───────────────────┬────────────────────┘
+                                                                     │ results/<id>.md
+                                                                     ▼
+                                                   📲 Telegram 实时通知 + 本地磁盘结果文件
+```
+
+### 核心优势
+
+- 🧠 **Claude Code 当经理，Antigravity 当执行者：** 在终端中保留 Claude Code（或 Codex / Cursor / 自定义脚本）作为主架构师，将调研、编写测试、重构或 QA 任务卸载到 Antigravity 的模型额度上。任何能写文件的应用都能调度 Antigravity。
+- ⚡ **同时并行运行多个代理 (`WORK_ORDERS_BACKEND=ide`)：** 每个专家**工位（Desk）**都在独立的 **Antigravity IDE 2.6+** 窗口中打开，多个代理**同时并行工作**，而你的主 Telegram 聊天完全不受阻塞。空闲窗口在 **3 分钟**后自动关闭（`WORK_ORDERS_IDLE_CLOSE_MIN=3`）以节省内存。
+- 🎯 **按代理分配专属 AI 模型：** 通过 `/wo` → **🤖 模型**为不同工位绑定不同模型（如用 *Gemini Flash* 快速分类，用 *Gemini Pro / Argon* 编码，用 *Claude* 审计），或单次使用 `--model` 覆盖。
+- 🗂 **持久化领域记忆与人工审批：** 每个工位拥有独立的 `AGENT.md` 长期记忆文件，并支持在敏感任务执行前通过 Telegram 一键**批准 / 拒绝**。
+- 🧩 **同样支持单窗口 Standalone 模式 (`WORK_ORDERS_BACKEND=standalone`)：** 在轻量级 Standalone 模式下，工单安全排队、等待聊天空闲（`60s`）后顺序执行，并在完成后自动恢复你之前的对话线程与 AI 模型。
+
+### 示例 1：在 Telegram 中控制 (`/wo`)
+
+```text
+/wo                                                    # 打开交互式工位与工单管理面板
+/wo security-audit 检查鉴权中间件是否存在绕过漏洞       # 一句话向专家工位派发任务
+/wo qa --model "Gemini 3.8 Flash (Low)" 运行冒烟测试   # 为单次任务指定 AI 模型
+/wo_stop                                               # 停止运行中的工单
+```
+
+### 示例 2：10 秒连接 Claude Code（或任何应用）
+
+只需让 Claude Code（或脚本）将一个 Markdown 文件原子写入 `~/Projects/.agts-work-orders/inbox/`（先写临时文件再重命名），随后读取 `results/<id>.md`：
+
+```markdown
+---
+desk: code-review
+model: Gemini 3.8 Flash (High)
+approval: auto
+timeout: 20
+---
+审查 /home/me/Projects/my-app 的 git diff，列出潜在边界问题或回归风险。
+```
+
+代理完成后，AGTS 会将 `STATUS: done` 与完整报告写入 `results/<id>.md`，**同时**向你的 Telegram 推送通知。
+
+📖 完整配置、`.env` 参数与 YAML 规范：**[docs/WORK_ORDERS.md](docs/WORK_ORDERS.md)**
 
 ---
 
@@ -335,11 +391,9 @@ Bot 支持**两个 Antigravity 应用**同时运行：
 
 | 问题 | 详情 |
 |-------|---------| 
-| **Standalone App 限制** | 部分功能（工作区切换、线程管理）在 Standalone Antigravity App 上可能不够稳定。**推荐使用 Antigravity IDE，已完全支持。** |
+| **Standalone 与 IDE 2.6+ 完整支持** | 所有命令均原生支持 Antigravity Standalone App (2.29+) 与 Antigravity IDE (2.6+ / 1.107.0+)，包括 `/agents`、`/wo` 多窗口并行工位、模型与思考强度选择、自动接受及会话追踪。 |
 | **IDE 2.0 自动更新** | Antigravity IDE 自动更新后，Bot 更新之前 DOM 选择器可能会失效。 |
 | **Turbo Mode 模型访问** | Turbo Mode 需要 Claude 和 Gemini 模型均可用。如果其中一个不可用，管道将失败。 |
-
-> 💡 作为开发者，我更专注于 IDE 支持。Standalone App 集成仅以"尽力而为"的方式提供。
 
 ---
 

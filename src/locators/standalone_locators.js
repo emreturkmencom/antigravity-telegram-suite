@@ -308,12 +308,25 @@ const STANDALONE_LOCATORS_SCRIPT = `
 
         getModelSelectorButton: () => {
             const isFile = (str) => /\.(js|jsx|ts|tsx|md|json|py|html|css|txt|sh)$/i.test((str || '').trim());
+            const isNonModelTrigger = (el) => {
+                const tid = (el.getAttribute('data-testid') || '').toLowerCase();
+                const lbl = ((el.getAttribute('aria-label') || '') + ' ' + (el.getAttribute('title') || '')).toLowerCase();
+                return tid.includes('project-selector') || tid.includes('permissions-selector') || lbl.includes('select project');
+            };
+
+            // 1. Highest priority: exact [data-testid="model-selector-trigger"] (prevents DOM-order collision with project-selector-trigger on empty home screen)
+            const exactTriggers = Array.from(document.querySelectorAll('[data-testid="model-selector-trigger"]'))
+                .filter(el => !isNonModelTrigger(el));
+            const visibleExact = exactTriggers.find(AG_UI.isVisible);
+            if (visibleExact) return visibleExact;
+            if (exactTriggers.length > 0) return exactTriggers[0];
 
             const explicit = Array.from(document.querySelectorAll(
-                '[data-testid="model-selector-trigger"], [data-testid*="model-selector" i], [aria-label*="Select model" i], [title*="Select model" i], [aria-label*="选择模型" i], [title*="选择模型" i], [aria-label*="current:" i], [aria-label*="当前" i], [data-testid*="model-select" i]'
+                '[data-testid*="model-selector" i], [aria-label*="Select model" i], [title*="Select model" i], [aria-label*="选择模型" i], [title*="选择模型" i], [aria-label*="current:" i], [aria-label*="当前" i], [data-testid*="model-select" i]'
             ));
 
             const validExplicit = explicit.filter(el => {
+                if (isNonModelTrigger(el)) return false;
                 const text = (el.textContent || '').trim();
                 const label = (el.getAttribute('aria-label') || '').trim();
                 if (isFile(text) || isFile(label)) return false;
@@ -327,7 +340,7 @@ const STANDALONE_LOCATORS_SCRIPT = `
 
             const modelKeywords = ['gemini', 'claude', 'gpt', 'opus', 'sonnet', 'flash', 'argon', 'carbon', 'hydrogen', 'orchestrator', 'llama', 'mistral', 'deepseek'];
             const allButtons = Array.from(document.querySelectorAll('button, [role="button"]')).filter(el => {
-                if (!AG_UI.isVisible(el)) return false;
+                if (!AG_UI.isVisible(el) || isNonModelTrigger(el)) return false;
                 const inMenu = el.closest('[role="menu"], [role="listbox"], [data-radix-popper-content-wrapper], div[class*="popover"], div[class*="dropdown-content"]');
                 if (inMenu) return false;
                 

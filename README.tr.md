@@ -6,8 +6,8 @@
 
 🌍 Diller: [English](README.md) | [中文](README.zh.md) | [한국어](README.ko.md) | [Türkçe](README.tr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md)
 
-Antigravity AI ajanınızı Telegram üzerinden uzaktan kontrol edin.
-Telefonunuzdan mesaj gönderin, yapay zeka modellerini değiştirin, çalışma alanlarını (workspace) yönetin, ekran görüntüsü alın ve çoklu ajan (multi-agent) iş akışlarını çalıştırın.
+Antigravity AI ajanınızı Telegram üzerinden uzaktan kontrol edin, **Claude Code veya harici uygulamaları Antigravity'ye bağlayın** ve **aynı anda birden fazla uzman ajanı paralel çalıştırın**.
+Telefonunuzdan veya terminalinizden mesaj gönderin, AI modellerini değiştirin, çalışma alanlarını yönetin, ekran görüntüsü alın ve paralel çoklu ajan iş akışları kurgulayın.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
@@ -47,7 +47,7 @@ Telefonunuzdan mesaj gönderin, yapay zeka modellerini değiştirin, çalışma 
 | 🖥️ **Çapraz Platform** | Linux, macOS (Intel & Apple Silicon) ve Windows’ta çalışır |
 | 🔀 **Çift Uygulama Desteği** | Antigravity IDE ve Standalone App arasında sorunsuzca geçiş yapın |
 | 📡 **Telegraph Yayını** | Görev listeleri, planlar ve walkthrough belgeleri 128-bit tahmin edilemez kripto slug URL'leri ile yayınlanabilir (veya sohbette gizli tutulabilir), tam açma/kapama ve silme kontrolü |
-| 🗂 **Work Orders (`/wo`)** | Kendi `AGENT.md` hafızasına sahip uzman ajan "masaları" (desks), masa/iş bazlı AI model seçimi, Telegram onay mekanizması, harici `inbox/` otomasyonu, Standalone sıralı çalışma ve Antigravity IDE üzerinde paralel çoklu pencere yürütme |
+| 🤝 **Claude Code Bağlantısı & Paralel Ajanlar (`/wo`)** | **Claude Code**, CLI araçları, cron görevleri veya yerel uygulamaları Antigravity'ye bağlayın — izole IDE pencerelerinde **aynı anda birden fazla uzman ajanı paralel** çalıştırın, her ajana özel AI modeli atayın ve çıktıları hem diskten hem Telegram'dan alın |
 
 ---
 
@@ -267,17 +267,57 @@ Turbo Mod, birden fazla AI modelini otomatik koordine eden bir **Ajan Konseyi** 
 
 ---
 
-## 🗂 Work Orders (Uzman Ajan Masaları)
+## 🤝 Work Orders — Claude Code ve Dış Uygulamaları Paralel Antigravity Ajanlarına Bağlayın
 
-**Work Orders** (`/wo`), her biri kendi klasörüne, `AGENT.md` kurallarına/hafızasına, onay politikasına (`⚡ Otomatik` veya `🔒 Onaylı`) ve özel AI modeline (`🤖 Model`) sahip kalıcı uzman masalar kurmanızı sağlar.
+Antigravity'yi **Telegram (`/wo`)**, **Claude Code**, cron görevleri, CI hatları veya herhangi bir yerel uygulamadan yönetebileceğiniz — hiçbir SDK veya API anahtarı gerektirmeyen — bir **çoklu ajan işçi havuzuna (worker pool)** dönüştürün.
 
-- **Telegram Üzerinden:** `/wo` ile masa oluşturun, masa bazlı varsayılan model seçin, bekleyen işleri onaylayın veya `/wo video-qa --model "Gemini 3.8 Flash (Low)" Son paketi kontrol et` gibi tek satırlık iş emirleri gönderin.
-- **Dış Orkestratörler ve Scriptler:** Claude Code, CI scriptleri veya cron görevleri `.agts-work-orders/inbox/` klasörüne bir Markdown dosyası bırakarak iş emri verebilir ve yapılandırılmış çıktıyı `results/<id>.md` + Telegram bildirimi olarak alabilir.
-- **İki Çalışma Modu (`WORK_ORDERS_BACKEND`):**
-  - `standalone` *(varsayılan)*: Antigravity Standalone (`AGENT_CDP_PORT`) üzerinde sıralı çalışır; kullanıcı sohbeti `60` saniye boşta kalana kadar bekler ve iş bitince önceki sohbetinizi ve AI modelinizi otomatik geri yükler.
-  - `ide`: Her masayı kendi **Antigravity IDE 2.6+** penceresinde (`IDE_CDP_PORT`) açarak farklı masaların **aynı anda paralel** çalışmasını sağlar; normal Telegram sohbetinizi bloklamaz ve sırada iş yoksa boşta kalan IDE pencerelerini `3` dakika sonra otomatik kapatır (`WORK_ORDERS_IDLE_CLOSE_MIN=3`).
+```text
+┌────────────────────┐                           ┌────────────────────────────────────────┐
+│  Claude Code / CLI │──┐                        │ 🪟 IDE Pencere 1: frontend (Gemini Pro)│
+├────────────────────┤  │  inbox/'a .md bırak    ├────────────────────────────────────────┤
+│  Cron / Uygulamalar│──┼──────────────────────► │ 🪟 IDE Pencere 2: qa-audit (Flash Low) │
+├────────────────────┤  │  veya sohbetten /wo    ├────────────────────────────────────────┤
+│  Telegram (/wo)    │──┘                        │ 🪟 IDE Pencere 3: security (Sonnet)    │
+└────────────────────┘                           └───────────────────┬────────────────────┘
+                                                                     │ results/<id>.md
+                                                                     ▼
+                                                   📲 Telegram Bildirimi + Disk Çıktısı
+```
 
-📖 Detaylı rehber ve YAML şeması: **[docs/WORK_ORDERS.md](docs/WORK_ORDERS.md)**
+### Neden Kullanmalısınız?
+
+- 🧠 **Claude Code Yönetici, Antigravity Ajanları Çalışan Olsun:** Terminalde Claude Code'u (veya Codex / Cursor / özel scriptlerinizi) baş mimar olarak tutun; araştırma, test yazımı, refactor veya QA işlerini Antigravity model kotasına devredin. Dosya yazabilen her uygulama Antigravity'ye iş emri gönderebilir.
+- ⚡ **Aynı Anda Birden Fazla Ajanla Paralel Çalışın (`WORK_ORDERS_BACKEND=ide`):** Her uzman **masa (desk)** kendi izole **Antigravity IDE 2.6+** penceresinde açılır; böylece birden fazla ajan **eşzamanlı olarak paralel** çalışırken ana Telegram sohbetiniz %100 serbest kalır. Boşta kalan pencereler RAM tasarrufu için **3 dakika** sonra otomatik kapanır (`WORK_ORDERS_IDLE_CLOSE_MIN=3`).
+- 🎯 **Ajan Bazlı AI Model Seçimi:** `/wo` → **🤖 Model** üzerinden her masaya en uygun modeli atayın (ör. hızlı işler için *Gemini Flash*, kodlama için *Gemini Pro / Argon*, denetim için *Claude*) veya tek bir iş için `--model` ile ezin.
+- 🗂 **Kalıcı Uzmanlık Hafızası & İnsan Onayı:** Her masanın kuralları ve geçmiş tecrübelerini hatırladığı kendi `AGENT.md` dosyası vardır; hassas işler çalışmadan önce Telegram'da tek dokunuşla **Onayla / Reddet** şartı koyabilirsiniz.
+- 🧩 **Tek Pencereli Standalone Modda da Çalışır (`WORK_ORDERS_BACKEND=standalone`):** Hafif Standalone uygulamasını mı tercih ediyorsunuz? İşler güvenle sıraya girer, sohbetiniz `60` saniye boşta kalana kadar bekler, sırayla çalışır ve bittiğinde önceki sohbetinizi ve AI modelinizi otomatik geri yükler.
+
+### Örnek 1: Telegram'dan Yönetim (`/wo`)
+
+```text
+/wo                                                      # İnteraktif Masalar & İş Emirleri panelini aç
+/wo security-audit Auth katmanını yetki atlama için tara # Uzman masaya tek satırda iş gönder
+/wo qa --model "Gemini 3.8 Flash (Low)" Smoke test çalıştır # Tek bir iş için AI modelini değiştir
+/wo_stop                                                 # Çalışan iş emirlerini durdur
+```
+
+### Örnek 2: Claude Code'u (veya Herhangi Bir Uygulamayı) 10 Saniyede Bağlayın
+
+Claude Code'a (veya herhangi bir scripte) `~/Projects/.agts-work-orders/inbox/` klasörüne bir Markdown dosyası bırakmasını (önce geçici dosyaya yazıp yeniden adlandırarak) ve sonucu `results/<id>.md` dosyasından okumasını söylemeniz yeterli:
+
+```markdown
+---
+desk: code-review
+model: Gemini 3.8 Flash (High)
+approval: auto
+timeout: 20
+---
+/home/me/Projects/my-app dizinindeki git diff çıktısını incele ve olası regresyonları listele.
+```
+
+Ajan işi bitirdiği anda AGTS, `results/<id>.md` dosyasına `STATUS: done` ile tüm raporu yazar **ve** Telegram'ınıza bildirim gönderir.
+
+📖 Kurulum, `.env` ayarları ve tam YAML şeması: **[docs/WORK_ORDERS.md](docs/WORK_ORDERS.md)**
 
 ---
 

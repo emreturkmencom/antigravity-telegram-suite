@@ -6,8 +6,8 @@
 
 🌍 Languages: [English](README.md) | [中文](README.zh.md) | [한국어](README.ko.md) | [Türkçe](README.tr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md)
 
-Control your Antigravity AI agent remotely via Telegram.
-Send messages, switch AI models, manage workspaces, take screenshots, and run multi-agent workflows — all from your phone.
+Control your Antigravity AI agent remotely via Telegram, **connect Claude Code or external apps to Antigravity**, and **run multiple specialist agents at the same time**.
+Send messages, switch AI models, manage workspaces, take screenshots, and orchestrate parallel multi-agent workflows — all from your phone or terminal.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
@@ -48,7 +48,7 @@ Send messages, switch AI models, manage workspaces, take screenshots, and run mu
 | 🔀 **Dual App Support** | Seamlessly switch between Antigravity IDE and Standalone Agent App |
 | 🔐 **Multi-Account Switching** | Authenticate and switch between Google accounts, injecting credentials directly into the IDE database or OS keychain |
 | 📡 **Telegraph Publishing** | Task checklists, implementation plans, and walkthroughs can be published with 128-bit unguessable crypto slug URLs (or kept private in chat), with full toggle and wipe controls |
-| 🗂 **Work Orders (`/wo`)** | Persistent specialist agent "desks" with dedicated `AGENT.md` memory, per-desk/per-order AI model selection, Telegram approval gates, external `inbox/` automation, Standalone sequential mode, and parallel multi-window execution on Antigravity IDE |
+| 🤝 **Connect Claude Code & Parallel Agents (`/wo`)** | Bridge **Claude Code**, CLI tools, cron jobs, or webhooks to Antigravity — run **multiple specialist agents at the same time** in isolated IDE windows, assign a custom AI model per agent, and receive results on disk & Telegram |
 
 
 ---
@@ -301,17 +301,57 @@ Turbo Mode runs an **Agents Council** workflow that coordinates multiple AI mode
 
 ---
 
-## 🗂 Work Orders (Specialist Agent Desks)
+## 🤝 Work Orders — Connect Claude Code & External Apps to Parallel Antigravity Agents
 
-**Work Orders** (`/wo`) lets you spin up persistent specialist desks — each with its own workspace folder, `AGENT.md` instructions & memory, approval policy (`⚡ Auto` or `🔒 Approve`), and dedicated AI model (`🤖 Model`).
+Turn Antigravity into a **multi-agent worker pool** that you can drive from **Telegram (`/wo`)**, **Claude Code**, cron jobs, CI pipelines, or any local app — with zero SDKs or API keys.
 
-- **From Telegram:** Run `/wo` to create desks, configure per-desk models, approve pending jobs, or dispatch one-liners like `/wo video-qa --model "Gemini 3.8 Flash (Low)" Check latest batch`.
-- **From External Orchestrators & Cron:** Any tool (such as Claude Code, CI scripts, or cron jobs) can drop a Markdown file into `.agts-work-orders/inbox/` and read structured results from `results/<id>.md` + Telegram notifications.
-- **Two Execution Backends (`WORK_ORDERS_BACKEND`):**
-  - `standalone` *(default)*: Runs sequentially on Antigravity Standalone (`AGENT_CDP_PORT`), waits for user idle (`60s`), and restores your active chat thread & model afterwards.
-  - `ide`: Opens each desk in an isolated **Antigravity IDE 2.6+** window (`IDE_CDP_PORT`) so multiple desks run **in parallel** without blocking your normal Telegram chat, auto-closing idle windows after `3` minutes (`WORK_ORDERS_IDLE_CLOSE_MIN=3`).
+```text
+┌────────────────────┐                           ┌────────────────────────────────────────┐
+│  Claude Code / CLI │──┐                        │ 🪟 IDE Window 1: frontend (Gemini Pro) │
+├────────────────────┤  │  drop .md in inbox/    ├────────────────────────────────────────┤
+│  Cron / Local Apps │──┼──────────────────────► │ 🪟 IDE Window 2: qa-audit (Flash Low)  │
+├────────────────────┤  │  or send /wo in chat   ├────────────────────────────────────────┤
+│  Telegram (/wo)    │──┘                        │ 🪟 IDE Window 3: security (Sonnet)     │
+└────────────────────┘                           └───────────────────┬────────────────────┘
+                                                                     │ results/<id>.md
+                                                                     ▼
+                                                   📲 Telegram Notification + Disk Output
+```
 
-📖 Full guide & YAML schema: **[docs/WORK_ORDERS.md](docs/WORK_ORDERS.md)**
+### Why Use It?
+
+- 🧠 **Use Claude Code as Manager, Antigravity as Workers:** Keep Claude Code (or Codex / Cursor / custom scripts) as your lead architect in the terminal and offload research, test writing, refactoring, or QA tasks to Antigravity's model quota. Any app that can write a file can dispatch jobs to Antigravity.
+- ⚡ **Work with Multiple Agents at the Same Time (`WORK_ORDERS_BACKEND=ide`):** Each specialist **desk** opens in its own isolated **Antigravity IDE 2.6+** window so multiple agents work **simultaneously in parallel** — while your main Telegram chat stays 100% free. Idle windows auto-close after **3 minutes** (`WORK_ORDERS_IDLE_CLOSE_MIN=3`) to save RAM.
+- 🎯 **Per-Agent AI Model Routing:** Assign the right model to each desk via `/wo` → **🤖 Model** (e.g., *Gemini Flash* for fast triage, *Gemini Pro / Argon* for coding, *Claude* for audits) or override per job with `--model`.
+- 🗂 **Persistent Domain Memory & Human Approval:** Every desk has its own folder and `AGENT.md` where it remembers rules and past lessons across runs, plus optional 1-tap **Approve / Reject** gates in Telegram before sensitive jobs run.
+- 🧩 **Works in Single-Window Standalone Mode Too (`WORK_ORDERS_BACKEND=standalone`):** Prefer lightweight Standalone mode? Jobs queue safely, wait until your chat is idle (`60s`), run sequentially, and automatically restore your previous chat thread and AI model when done.
+
+### Example 1: Control from Telegram (`/wo`)
+
+```text
+/wo                                                    # Open interactive Desks & Orders panel
+/wo security-audit Check auth middleware for bypasses  # Send a 1-line job to a specialist desk
+/wo qa --model "Gemini 3.8 Flash (Low)" Run smoke test # Override AI model for a single job
+/wo_stop                                               # Stop running work order(s)
+```
+
+### Example 2: Connect Claude Code (or Any App) in 10 Seconds
+
+Tell Claude Code (or any script) to drop a Markdown file into `~/Projects/.agts-work-orders/inbox/` (write to a temp file first, then rename) and read the result from `results/<id>.md`:
+
+```markdown
+---
+desk: code-review
+model: Gemini 3.8 Flash (High)
+approval: auto
+timeout: 20
+---
+Review the git diff in /home/me/Projects/my-app and list any edge cases or regressions.
+```
+
+As soon as the agent finishes, AGTS writes `STATUS: done` + the full report to `results/<id>.md` **and** pushes a notification to your Telegram.
+
+📖 Full setup, `.env` options & YAML spec: **[docs/WORK_ORDERS.md](docs/WORK_ORDERS.md)**
 
 ---
 

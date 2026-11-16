@@ -63,12 +63,13 @@ function startWorkOrders(bot, chatIds) {
     };
 
     const spawn = () => {
+        const backend = getBackend();
         child = fork(path.join(__dirname, 'runner.js'), [], {
             env: {
                 ...process.env,
-                ANTIGRAVITY_PREFERRED_APP: process.env.WORK_ORDERS_UI_DRIVER || 'agent',
+                ANTIGRAVITY_PREFERRED_APP: process.env.WORK_ORDERS_UI_DRIVER || (backend === 'ide' ? 'ide' : 'agent'),
                 WORK_ORDERS_DIR: dir,
-                WORK_ORDERS_BACKEND: process.env.WORK_ORDERS_BACKEND || 'standalone',
+                WORK_ORDERS_BACKEND: backend,
             },
         });
         if (lastUserActivityAt > 0) {

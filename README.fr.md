@@ -2,19 +2,17 @@
 
 # 🤖 Antigravity Telegram Suite
 
-**Fonctionne avec l'[Antigravity Standalone App](https://antigravity.google/)\* et l'[Antigravity IDE](https://antigravity.google/).**
+**Fonctionne avec l'[Antigravity Standalone App](https://antigravity.google/) et l'[Antigravity IDE](https://antigravity.google/).**
 
 🌍 Langues : [English](README.md) | [中文](README.zh.md) | [한국어](README.ko.md) | [Türkçe](README.tr.md) | [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md)
 
-Contrôlez votre agent IA Antigravity à distance via Telegram.
-Envoyez des messages, changez de modèle d'IA, gérez les espaces de travail, prenez des captures d'écran et exécutez des flux de travail multi-agents — le tout depuis votre téléphone.
+Contrôlez votre agent IA Antigravity à distance via Telegram, **connectez Claude Code ou d'autres applications à Antigravity** et **exécutez plusieurs agents spécialisés en même temps**.
+Envoyez des messages, changez de modèle d'IA, gérez les espaces de travail, prenez des captures d'écran et orchestrez des flux multi-agents en parallèle — depuis votre téléphone ou votre terminal.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.8.3-orange.svg)]()
-
-\* *Certaines fonctionnalités peuvent être limitées sur l'application autonome (Standalone). Voir [Known Issues (Problèmes connus)](#-problèmes-connus-known-issues).*
+[![Version](https://img.shields.io/badge/Version-3.9.0-orange.svg)]()
 
 </div>
 
@@ -49,6 +47,7 @@ Envoyez des messages, changez de modèle d'IA, gérez les espaces de travail, pr
 | 🖥️ **Multiplateforme** | Fonctionne sur Linux, macOS (Intel & Apple Silicon) et Windows |
 | 🔀 **Prise en charge double application** | Basculez facilement entre Antigravity IDE et Standalone Agent App |
 | 📡 **Publication Telegraph** | Les listes de tâches, plans et walkthroughs peuvent être publiés avec des URL avec slug cryptographique indéchiffrable 128 bits (ou conservés privés dans le chat), avec contrôle total d'activation et de suppression |
+| 🤝 **Connectez Claude Code & Agents Parallèles (`/wo`)** | Reliez **Claude Code**, outils CLI, tâches cron ou apps locales à Antigravity — faites tourner **plusieurs agents spécialisés en même temps** dans des fenêtres IDE isolées, assignez un modèle IA par agent et recevez les résultats sur disque & Telegram |
 
 ---
 
@@ -186,6 +185,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/plan <tâche>` | Générer un **plan d'implémentation** avant le codage |
 | `/schedule_task <tâche>` | Planifier une tâche récurrente ou ponctuelle dans l'IDE |
 | `/agents` | Lister et basculer entre les fils de discussion (threads) |
+| `/wo [desk] [ordre]` | Ouvrir le panneau **Work Orders** ou envoyer une tâche à un bureau spécialisé (`--model "..."` supporté) |
+| `/wo_stop` | Arrêter les ordres de travail en cours |
 | `/quota` | Vérifier les crédits IA et les limites d'utilisation du modèle |
 
 ### Gestion de l'App & des Fenêtres
@@ -261,6 +262,61 @@ Le Mode Turbo exécute un flux de travail **Agents Council (Conseil d'Agents)** 
 - **Tâche longue simple** (ex. "refactoriser ce module") → `/goal`
 - **Tâche complexe avec révision multi-modèles** (ex. "construire cette fonctionnalité, vérifier la sécurité, corriger les erreurs") → `/turbo`
 - **Planification** → `/plan` (génère le plan, vous décidez ensuite)
+- **Tâches récurrentes ou orchestration externe** (ex. tri de commentaires, audits QA, jobs délégués par Claude Code / Cron) → `/wo`
+
+---
+
+## 🤝 Work Orders — Connectez Claude Code et Vos Applications à des Agents Antigravity en Parallèle
+
+Transformez Antigravity en un **pool de workers multi-agents** pilotable depuis **Telegram (`/wo`)**, **Claude Code**, des tâches cron, des pipelines CI ou toute application locale — sans SDK ni clé API.
+
+```text
+┌────────────────────┐                           ┌────────────────────────────────────────┐
+│  Claude Code / CLI │──┐                        │ 🪟 Fenêtre IDE 1: frontend (Gemini Pro)│
+├────────────────────┤  │  dépose .md -> inbox/  ├────────────────────────────────────────┤
+│  Cron / Apps Local │──┼──────────────────────► │ 🪟 Fenêtre IDE 2: qa-audit (Flash Low) │
+├────────────────────┤  │  ou envoie /wo         ├────────────────────────────────────────┤
+│  Telegram (/wo)    │──┘                        │ 🪟 Fenêtre IDE 3: security (Sonnet)    │
+└────────────────────┘                           └───────────────────┬────────────────────┘
+                                                                     │ results/<id>.md
+                                                                     ▼
+                                                   📲 Notification Telegram + Fichier Disque
+```
+
+### Pourquoi l'utiliser ?
+
+- 🧠 **Claude Code comme Manager, Antigravity comme Exécutants :** Gardez Claude Code (ou Codex / Cursor / scripts) comme architecte principal dans le terminal et déléguez la recherche, les tests, le refactoring ou la QA au quota de modèles Antigravity. Toute application capable d'écrire un fichier peut envoyer des tâches.
+- ⚡ **Travaillez avec plusieurs agents en même temps (`WORK_ORDERS_BACKEND=ide`) :** Chaque **desk** spécialisé s'ouvre dans sa propre fenêtre **Antigravity IDE 2.6+** isolée afin que plusieurs agents travaillent **simultanément en parallèle** — pendant que votre chat Telegram principal reste 100 % libre. Les fenêtres inactives se ferment automatiquement après **3 minutes** (`WORK_ORDERS_IDLE_CLOSE_MIN=3`) pour économiser la RAM.
+- 🎯 **Routage de modèle IA par agent :** Assignez le modèle idéal à chaque desk via `/wo` → **🤖 Modèle** (ex. *Gemini Flash* pour le tri rapide, *Gemini Pro / Argon* pour le code, *Claude* pour l'audit) ou surchargez par tâche avec `--model`.
+- 🗂 **Mémoire persistante & approbation humaine :** Chaque desk conserve ses règles et apprentissages dans son propre `AGENT.md`, avec validation optionnelle **Approuver / Rejeter** en 1 clic sur Telegram.
+- 🧩 **Fonctionne aussi en mode Standalone mono-fenêtre (`WORK_ORDERS_BACKEND=standalone`) :** Les tâches attendent `60s` d'inactivité du chat, s'exécutent séquentiellement et restaurent automatiquement votre discussion et votre modèle IA précédents.
+
+### Exemple 1 : Contrôle depuis Telegram (`/wo`)
+
+```text
+/wo                                                    # Ouvrir le panneau interactif Desks & Ordres
+/wo security-audit Vérifie le middleware d'auth        # Envoyer une tâche en une ligne
+/wo qa --model "Gemini 3.8 Flash (Low)" Smoke test     # Choisir le modèle IA pour une tâche précise
+/wo_stop                                               # Arrêter les ordres en cours
+```
+
+### Exemple 2 : Connectez Claude Code (ou toute App) en 10 secondes
+
+Demandez simplement à Claude Code (ou à un script) de déposer un fichier Markdown dans `~/Projects/.agts-work-orders/inbox/` (écriture temporaire puis renommage) et de lire le résultat dans `results/<id>.md` :
+
+```markdown
+---
+desk: code-review
+model: Gemini 3.8 Flash (High)
+approval: auto
+timeout: 20
+---
+Analyse le git diff dans /home/me/Projects/my-app et liste les cas limites ou régressions.
+```
+
+Dès que l'agent termine, AGTS écrit `STATUS: done` et le rapport complet dans `results/<id>.md` **et** envoie une notification sur Telegram.
+
+📖 Guide complet, options `.env` et spécification YAML : **[docs/WORK_ORDERS.md](docs/WORK_ORDERS.md)**
 
 ---
 
@@ -335,11 +391,9 @@ Utilisez `/app` pour basculer le bot entre les applications. Le paramètre `ANTI
 
 | Problème | Détails |
 |-------|---------|
-| **Limitations de Standalone App** | Certaines fonctionnalités (changement d'espace de travail, gestion des discussions) peuvent ne pas fonctionner de manière fiable avec Standalone Antigravity App. **Antigravity IDE est entièrement pris en charge et recommandé.** |
+| **Support Complet Standalone & IDE 2.6+** | Toutes les commandes fonctionnent nativement avec l'Antigravity Standalone App (2.29+) et l'Antigravity IDE (2.6+ / 1.107.0+), y compris `/agents`, les bureaux parallèles multi-fenêtres `/wo`, le choix de modèle/effort, l'auto-accept et le suivi des conversations. |
 | **Mise à jour Auto dans IDE 2.0** | Si Antigravity IDE se met à jour automatiquement, les sélecteurs DOM peuvent casser jusqu'à ce que le bot soit également mis à jour. |
 | **Accès aux Modèles Mode Turbo** | Le Mode Turbo nécessite que les modèles Claude et Gemini soient disponibles. Si un modèle n'est pas disponible, le pipeline échouera. |
-
-> 💡 En tant que développeur, je préfère me concentrer sur le support de l'IDE. L'intégration de l'application autonome est fournie "au mieux" (best-effort).
 
 ---
 

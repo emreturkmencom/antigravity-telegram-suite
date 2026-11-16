@@ -5,6 +5,12 @@
 //   Restores user chat after order finishes; queues user messages during order execution.
 // - 'ide': Runs each desk as its own Antigravity IDE window (CDP 9334).
 
+const BACKEND = (process.env.WORK_ORDERS_BACKEND || 'standalone').toLowerCase();
+const isStandalone = BACKEND === 'standalone';
+if (!process.env.WORK_ORDERS_UI_DRIVER) {
+    process.env.ANTIGRAVITY_PREFERRED_APP = isStandalone ? 'agent' : 'ide';
+}
+
 const CDP = require('chrome-remote-interface');
 const {
     resolveTargets,
@@ -28,9 +34,6 @@ const { ensureMemoryConvention } = require('../memory_convention');
 const { WorkOrders } = require('./core');
 const { deskFolderName, defaultDir, readDeskConfig, writeDeskConfig } = require('./desks');
 const { s } = require('./strings');
-
-const BACKEND = (process.env.WORK_ORDERS_BACKEND || 'standalone').toLowerCase();
-const isStandalone = BACKEND === 'standalone';
 
 const port = isStandalone
     ? parseInt(process.env.AGENT_CDP_PORT || process.env.DEBUGGING_PORT || '9333', 10)
@@ -212,12 +215,18 @@ async function closeWindow(win) {
 async function selectWindowModel(win, modelName) {
     if (!modelName) return;
     const targetId = (win && (win.panelId || win.targetId)) || null;
-    try {
-        const ok = await selectModel(port, modelName, targetId);
-        if (!ok) console.warn(`[work-orders] selectModel("${modelName}") did not match on desk "${win && win.desk}"`);
-    } catch (e) {
-        console.warn(`[work-orders] selectModel("${modelName}") error: ${e.message}`);
+    // On a cold-booted IDE window, the model catalog hydrates via gRPC 1–5s after Lexical mounts.
+    for (let attempt = 1; attempt <= 6; attempt++) {
+        try {
+            const ok = await selectModel(port, modelName, targetId);
+            if (ok) return true;
+        } catch (e) {
+            if (attempt === 6) console.warn(`[work-orders] selectModel("${modelName}") error: ${e.message}`);
+        }
+        if (attempt < 6) await sleep(1500);
     }
+    console.warn(`[work-orders] selectModel("${modelName}") did not match on desk "${win && win.desk}" after retries`);
+    return false;
 }
 
 // ==================== STANDALONE BACKEND ====================

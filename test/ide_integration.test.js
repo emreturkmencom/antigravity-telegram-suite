@@ -190,6 +190,33 @@ async function runTests() {
         }
         console.log('  ✅ Work Orders IDE backend non-blocking user chat check passed');
 
+        // 5. Home-screen DOM-order collision guard: project-selector-trigger before model-selector-trigger
+        const { JSDOM } = require('jsdom');
+        const { STANDALONE_LOCATORS_SCRIPT } = require('../src/locators/standalone_locators');
+        const dom = new JSDOM(`<!DOCTYPE html><body>
+            <div data-testid="input-box-bottom-toolbar">
+                <button data-testid="project-selector-trigger" aria-label="Select project (current: wo-demo)">wo-demo</button>
+                <button data-testid="model-selector-trigger" aria-label="Select model (current: Gemini 4 Carbon High)">Gemini 4 Carbon High</button>
+            </div>
+        </body>`, { runScripts: 'dangerously' });
+        for (const el of dom.window.document.querySelectorAll('button')) {
+            Object.defineProperty(el, 'offsetWidth', { value: 120 });
+            Object.defineProperty(el, 'offsetHeight', { value: 28 });
+        }
+        dom.window.eval(STANDALONE_LOCATORS_SCRIPT);
+        const modelBtn = dom.window.eval('AG_UI.getModelSelectorButton()');
+        assert(modelBtn, 'getModelSelectorButton must find a button');
+        assert.strictEqual(modelBtn.getAttribute('data-testid'), 'model-selector-trigger', 'Must pick model-selector-trigger over preceding project-selector-trigger');
+
+        // 6. Verify Work Orders strings cover all 7 supported languages with matching keys
+        const { STR } = require('../src/work_orders/strings');
+        const enKeys = Object.keys(STR.en).sort();
+        for (const lang of ['tr', 'zh', 'ko', 'de', 'es', 'fr']) {
+            assert(STR[lang], `Missing language ${lang} in work_orders/strings.js`);
+            assert.deepStrictEqual(Object.keys(STR[lang]).sort(), enKeys, `Key mismatch in work_orders/strings.js for ${lang}`);
+        }
+        console.log('  ✅ Home-screen model-selector locator priority & 7-language Work Orders strings passed');
+
         console.log('✅ All Antigravity IDE 2.6+ integration tests passed!');
     } finally {
         if (prevApp === undefined) delete process.env.ANTIGRAVITY_PREFERRED_APP;
