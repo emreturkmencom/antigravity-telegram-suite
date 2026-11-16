@@ -196,7 +196,10 @@
     "telegraph_desc": "Toggle Telegraph artifact uploads",
     "cleartelegraph_desc": "Wipe published Telegraph pages",
     "force_update_desc": "Force update (overwrites local changes)",
-    "caffeinate_desc": "Toggle macOS sleep prevention"
+    "caffeinate_desc": "Toggle macOS sleep prevention",
+    "rename_desc": "Rename the active conversation",
+    "wo_desc": "Manage Work Orders & specialist desks",
+    "wo_stop_desc": "Stop running Work Order(s)"
   },
   "telegraph": {
     "enabled": "🌐 <b>Telegraph Publishing:</b> ENABLED\n\nArtifacts will be published to Telegraph/graph.org with unguessable URLs.",
@@ -310,7 +313,20 @@
     "refresh_btn": "🔄 Refresh",
     "close_btn": "❌ Close",
     "search_found_multi": "🔍 <b>Search results for \"{query}\":</b>\n\n<i>Select a chat below:</i>",
-    "search_not_found": "❌ No chats found matching \"{query}\"."
+    "search_not_found": "❌ No chats found matching \"{query}\".",
+    "project_view_paged_title": "📁 <b>Project: {workspace}</b> (showing {start}–{end} of {count})\n\n<i>Select a chat to switch:</i>",
+    "rename_active_btn": "✏️ Rename Active Chat",
+    "rename_pick_btn": "✏️ Rename a Chat…",
+    "rename_pick_title": "✏️ <b>Select a chat to rename</b> (<code>{workspace}</code>):",
+    "back_to_project_btn": "⬅️ Back to Project",
+    "rename_prompt": "✏️ Send the new name for <b>{name}</b>\n<i>(Send /cancel to abort)</i>",
+    "rename_success": "✅ Chat renamed to: <b>{name}</b>",
+    "rename_failed": "❌ Could not rename chat: {reason}",
+    "rename_no_active": "ℹ️ No active conversation is open right now. Open a chat first or pick one inside a project.",
+    "rename_cancelled": "✖️ Rename cancelled.",
+    "prev_page_btn": "⬅️ Prev",
+    "next_page_btn": "Next ➡️",
+    "show_all_projects_btn": "📂 Show All Projects ({count})"
   },
   "artifacts": {
     "list_title": "📎 <b>Artifacts for Current Thread:</b>\n\n",

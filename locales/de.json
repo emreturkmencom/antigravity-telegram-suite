@@ -196,7 +196,10 @@
     "telegraph_desc": "Telegraph-Uploads umschalten",
     "cleartelegraph_desc": "Veröffentlichte Telegraph-Seiten löschen",
     "force_update_desc": "Update erzwingen (lokale Änderungen überschreiben)",
-    "caffeinate_desc": "macOS-Ruhezustandsverhinderung umschalten"
+    "caffeinate_desc": "macOS-Ruhezustandsverhinderung umschalten",
+    "rename_desc": "Aktiven Chat umbenennen",
+    "wo_desc": "Work Orders & Spezial-Desks verwalten",
+    "wo_stop_desc": "Laufende Work Orders stoppen"
   },
   "telegraph": {
     "enabled": "🌐 <b>Telegraph-Veröffentlichung:</b> AKTIVIERT\n\nArtefakte werden auf Telegraph/graph.org mit unerratbaren URLs veröffentlicht.",
@@ -310,7 +313,20 @@
     "refresh_btn": "🔄 Aktualisieren",
     "close_btn": "❌ Schließen",
     "search_found_multi": "🔍 <b>Suchergebnisse für \"{query}\":</b>\n\n<i>Wählen Sie unten einen Chat:</i>",
-    "search_not_found": "❌ Keine Chats für \"{query}\" gefunden."
+    "search_not_found": "❌ Keine Chats für \"{query}\" gefunden.",
+    "project_view_paged_title": "📁 <b>Projekt: {workspace}</b> ({start}–{end} von {count} Chats)\n\n<i>Wähle einen Chat zum Wechseln:</i>",
+    "rename_active_btn": "✏️ Aktiven Chat umbenennen",
+    "rename_pick_btn": "✏️ Chat umbenennen…",
+    "rename_pick_title": "✏️ <b>Wähle einen Chat zum Umbenennen</b> (<code>{workspace}</code>):",
+    "back_to_project_btn": "⬅️ Zurück zum Projekt",
+    "rename_prompt": "✏️ Sende den neuen Namen für <b>{name}</b>\n<i>(/cancel zum Abbrechen)</i>",
+    "rename_success": "✅ Chat umbenannt in: <b>{name}</b>",
+    "rename_failed": "❌ Chat konnte nicht umbenannt werden: {reason}",
+    "rename_no_active": "ℹ️ Aktuell ist kein aktiver Chat geöffnet. Öffne zuerst einen Chat oder wähle einen im Projekt.",
+    "rename_cancelled": "✖️ Umbenennen abgebrochen.",
+    "prev_page_btn": "⬅️ Zurück",
+    "next_page_btn": "Weiter ➡️",
+    "show_all_projects_btn": "📂 Alle Projekte anzeigen ({count})"
   },
   "artifacts": {
     "list_title": "📎 <b>Artefakte für aktuellen Thread:</b>\n\n",

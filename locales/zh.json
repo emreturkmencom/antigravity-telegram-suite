@@ -196,7 +196,10 @@
     "telegraph_desc": "切换 Telegraph 文物上传",
     "cleartelegraph_desc": "清空已发布的 Telegraph 页面",
     "force_update_desc": "强制更新 (覆盖本地修改)",
-    "caffeinate_desc": "切换 macOS 防睡眠模式"
+    "caffeinate_desc": "切换 macOS 防睡眠模式",
+    "rename_desc": "重命名当前活动会话",
+    "wo_desc": "管理工单与专家工位",
+    "wo_stop_desc": "停止运行中的工单"
   },
   "telegraph": {
     "enabled": "🌐 <b>Telegraph 发布：</b>已启用\n\n产物将使用不可猜测的 URL 发布到 Telegraph/graph.org。",
@@ -310,7 +313,20 @@
     "refresh_btn": "🔄 刷新",
     "close_btn": "❌ 关闭",
     "search_found_multi": "🔍 <b>\"{query}\" 的搜索结果：</b>\n\n<i>请在下方选择聊天：</i>",
-    "search_not_found": "❌ 未找到匹配 \"{query}\" 的聊天。"
+    "search_not_found": "❌ 未找到匹配 \"{query}\" 的聊天。",
+    "project_view_paged_title": "📁 <b>项目: {workspace}</b>（第 {start}–{end} 条，共 {count} 条）\n\n<i>选择要切换的会话：</i>",
+    "rename_active_btn": "✏️ 重命名当前会话",
+    "rename_pick_btn": "✏️ 重命名会话…",
+    "rename_pick_title": "✏️ <b>选择要重命名的会话</b> (<code>{workspace}</code>)：",
+    "back_to_project_btn": "⬅️ 返回项目",
+    "rename_prompt": "✏️ 请发送 <b>{name}</b> 的新名称\n<i>（发送 /cancel 取消）</i>",
+    "rename_success": "✅ 会话已重命名为：<b>{name}</b>",
+    "rename_failed": "❌ 无法重命名会话：{reason}",
+    "rename_no_active": "ℹ️ 当前没有打开的活动会话。请先打开会话或在项目中选择。",
+    "rename_cancelled": "✖️ 已取消重命名。",
+    "prev_page_btn": "⬅️ 上一页",
+    "next_page_btn": "下一页 ➡️",
+    "show_all_projects_btn": "📂 显示全部项目 ({count})"
   },
   "artifacts": {
     "list_title": "📎 <b>当前聊天的产物：</b>\n\n",

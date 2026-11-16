@@ -54,6 +54,40 @@ class StandaloneDriver extends BaseDriver {
                 }
             }
 
+            // IDE 2.6+ extensionView (when sidebar drawer is collapsed, selectedRow is unmounted and URL stays '/'):
+            // read active cascadeId + title directly from Redux conversation state.
+            if (!threadIdVal) {
+                try {
+                    const root = document.getElementById('root');
+                    const fk = root && Object.keys(root).find(k => k.startsWith('__reactContainer') || k.startsWith('__reactFiber'));
+                    const seen = new Set();
+                    const q = [root && fk ? root[fk] : null];
+                    let steps = 0;
+                    while (q.length && steps++ < 6000) {
+                        const n = q.shift();
+                        if (!n || seen.has(n)) continue;
+                        seen.add(n);
+                        const v = n.memoizedProps && n.memoizedProps.value;
+                        if (v && v.store && typeof v.store.getState === 'function') {
+                            const st = v.store.getState();
+                            const cs = st?.conversation?.convoState;
+                            if (cs && cs.cascadeId && uuidRegex.test(cs.cascadeId)) {
+                                threadIdVal = cs.cascadeId.match(uuidRegex)[0];
+                                const sum = st?.trajectorySummaries?.summaries?.[threadIdVal];
+                                const stTitle = (sum?.annotations?.title || sum?.summary || '').trim();
+                                if (stTitle && nameSource === 'document-title') {
+                                    name = stTitle;
+                                    nameSource = 'redux-store';
+                                }
+                            }
+                            break;
+                        }
+                        if (n.child) q.push(n.child);
+                        if (n.sibling) q.push(n.sibling);
+                    }
+                } catch (e) {}
+            }
+
             // Fast path: Standalone 2.23+ / IDE 2.6+ titlebar breadcrumbs
             const crumbs = Array.from(document.querySelectorAll('[data-testid="breadcrumb-segment"]'));
             if (crumbs.length >= 2) {
@@ -251,6 +285,119 @@ class StandaloneDriver extends BaseDriver {
 
     getListAgentThreadsScript() {
         return `(async () => {
+            const formatRelTime = (epochMs) => {
+                if (!epochMs || epochMs <= 0) return "";
+                const diffSec = Math.max(0, Math.floor((Date.now() - epochMs) / 1000));
+                if (diffSec < 60) return "1m";
+                if (diffSec < 3600) return Math.floor(diffSec / 60) + "m";
+                if (diffSec < 86400) return Math.floor(diffSec / 3600) + "h";
+                if (diffSec < 604800) return Math.floor(diffSec / 86400) + "d";
+                if (diffSec < 2592000) return Math.floor(diffSec / 604800) + "w";
+                return Math.floor(diffSec / 2592000) + "mo";
+            };
+
+            const parseRelTimeMs = (timeStr) => {
+                const s = String(timeStr || "").trim().toLowerCase();
+                if (!s) return 0;
+                if (s === "now" || s === "just now") return Date.now();
+                const m = s.match(/^([0-9]+)\\s*(mo|wk|w|yr|y|min|m|hour|hr|h|day|d|sec|s)\\b/);
+                if (!m) return 0;
+                const val = parseInt(m[1], 10);
+                const unit = m[2];
+                const mult = unit.startsWith("s") ? 1000
+                    : (unit === "m" || unit === "min") ? 60000
+                    : unit.startsWith("h") ? 3600000
+                    : unit.startsWith("d") ? 86400000
+                    : unit.startsWith("w") ? 604800000
+                    : unit === "mo" ? 2592000000
+                    : 31536000000;
+                return Date.now() - val * mult;
+            };
+
+            const isWorkOrderWorkspace = (wsPath, wsName) => {
+                if (wsPath && wsPath.includes("/.agts-work-orders/")) return true;
+                if (wsName && /^wo-[a-z0-9][a-z0-9._-]*$/i.test(wsName)) return true;
+                return false;
+            };
+
+            // 0. Fast Path (<1 ms, zero sidebar scrolling): Read Redux trajectorySummaries store directly
+            try {
+                const root = document.getElementById("root");
+                const fk = root && Object.keys(root).find(k => k.startsWith("__reactContainer") || k.startsWith("__reactFiber"));
+                let reduxStore = null;
+                const seen = new Set();
+                const q = [root && fk ? root[fk] : null];
+                let steps = 0;
+                while (q.length && !reduxStore && steps++ < 6000) {
+                    const n = q.shift();
+                    if (!n || seen.has(n)) continue;
+                    seen.add(n);
+                    const v = n.memoizedProps && n.memoizedProps.value;
+                    if (v && v.store && typeof v.store.getState === "function") {
+                        reduxStore = v.store;
+                        break;
+                    }
+                    if (n.child) q.push(n.child);
+                    if (n.sibling) q.push(n.sibling);
+                }
+
+                const summaries = reduxStore && reduxStore.getState()?.trajectorySummaries?.summaries;
+                if (summaries && typeof summaries === "object" && Object.keys(summaries).length > 0) {
+                    const byWs = new Map();
+                    for (const [cascadeId, v] of Object.entries(summaries)) {
+                        if (!v || v.annotations?.archived === true) continue;
+                        if (v.forkParentConversationId && v.trajectoryType && v.trajectoryType !== 4) continue;
+
+                        const rawTitle = String(v.annotations?.title || v.summary || "").trim();
+                        const stepCount = Number(v.stepCount || 0);
+                        if (!rawTitle && stepCount <= 0) continue;
+                        const name = rawTitle || "Untitled Conversation";
+
+                        const sec = Number(v.lastModifiedTime?.seconds ?? v.createdTime?.seconds ?? 0);
+                        const nanos = Number(v.lastModifiedTime?.nanos ?? 0);
+                        const updatedAt = sec > 0 ? (sec * 1000 + Math.floor(nanos / 1e6)) : 0;
+                        const pinned = Boolean(v.annotations?.pinned);
+
+                        let wsPath = "";
+                        let wsName = "Default";
+                        const rawUri = v.workspaces?.[0]?.workspaceFolderAbsoluteUri || "";
+                        if (rawUri) {
+                            try {
+                                wsPath = decodeURIComponent(rawUri).replace(/^file:\\/\\//i, "").replace(/\\/+$/, "");
+                                const base = wsPath.split("/").filter(Boolean).pop();
+                                if (base) wsName = base;
+                            } catch (_) {}
+                        }
+
+                        if (isWorkOrderWorkspace(wsPath, wsName)) continue;
+
+                        if (!byWs.has(wsName)) {
+                            byWs.set(wsName, []);
+                        }
+                        byWs.get(wsName).push({
+                            name,
+                            threadId: cascadeId,
+                            href: "/c/" + cascadeId,
+                            time: formatRelTime(updatedAt),
+                            updatedAt,
+                            pinned,
+                        });
+                    }
+
+                    const results = Array.from(byWs.entries())
+                        .map(([workspace, threads]) => {
+                            threads.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+                            return { workspace, threads };
+                        })
+                        .filter(w => w.threads.length > 0)
+                        .sort((a, b) => (b.threads[0]?.updatedAt || 0) - (a.threads[0]?.updatedAt || 0));
+
+                    if (results.length > 0) {
+                        return JSON.stringify(results);
+                    }
+                }
+            } catch (_) {}
+
             const header = document.querySelector('button[data-testid="project-header"], button[class*="headerbtn"], a[href*="/c/"]');
             if (header) {
                 const scrollEl = document.querySelector(".relative.w-full.h-full.overflow-y-auto.overscroll-none.px-2") ||
@@ -261,10 +408,6 @@ class StandaloneDriver extends BaseDriver {
 
                 const origScroll = scrollEl ? scrollEl.scrollTop : 0;
                 const totalHeight = scrollEl ? scrollEl.scrollHeight : 0;
-                // 2.29 groups conversations under Projects: the sidebar can be
-                // ~18 000 px tall, and 250 px steps overran the 12 s CDP evaluate
-                // timeout -> empty list ("no recent threads"). Step a viewport at
-                // a time and stop after a time budget.
                 const step = Math.max(250, Math.floor((scrollEl ? scrollEl.clientHeight : 0) * 0.9));
                 const scanStart = performance.now();
 
@@ -317,14 +460,21 @@ class StandaloneDriver extends BaseDriver {
                         }
 
                         const wsName = rowWs || headerWs || lastKnownWs;
+                        if (isWorkOrderWorkspace("", wsName)) continue;
 
                         if (!foundWorkspaces.has(wsName)) {
                             foundWorkspaces.set(wsName, { workspace: wsName, threads: new Map() });
                         }
 
+                        const href = link.getAttribute("href") || "";
+                        const hm = href.match(/\\/c\\/([0-9a-f-]{36})/i);
+                        const threadId = (row && row.getAttribute("data-cascade-id")) || (hm ? hm[1] : null);
+                        const dedupKey = threadId || title;
+
                         const wsObj = foundWorkspaces.get(wsName);
-                        if (!wsObj.threads.has(title)) {
+                        if (!wsObj.threads.has(dedupKey)) {
                             let time = "";
+                            const pinned = Boolean(row && row.getAttribute("data-pinned") === "true");
                             if (row) {
                                 const timeSpan = Array.from(row.querySelectorAll("span, p, div")).find(s => 
                                     s.textContent.trim() !== title && 
@@ -332,19 +482,23 @@ class StandaloneDriver extends BaseDriver {
                                 );
                                 if (timeSpan) time = timeSpan.textContent.trim();
                             }
-                            wsObj.threads.set(title, { name: title, time, href: link.getAttribute("href") });
+                            const updatedAt = parseRelTimeMs(time);
+                            wsObj.threads.set(dedupKey, { name: title, threadId, time, updatedAt, pinned, href });
                         }
                     }
                 }
 
                 if (scrollEl) scrollEl.scrollTop = origScroll;
 
-                const results = Array.from(foundWorkspaces.values()).map(w => ({
-                    workspace: w.workspace,
-                    threads: Array.from(w.threads.values())
-                }));
+                const results = Array.from(foundWorkspaces.values())
+                    .map(w => {
+                        const threads = Array.from(w.threads.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+                        return { workspace: w.workspace, threads };
+                    })
+                    .filter(w => w.threads.length > 0)
+                    .sort((a, b) => (b.threads[0]?.updatedAt || 0) - (a.threads[0]?.updatedAt || 0));
 
-                if (results.length > 0 && results.some(w => w.threads.length > 0)) {
+                if (results.length > 0) {
                     return JSON.stringify(results);
                 }
             }

@@ -2566,7 +2566,11 @@ async function listAgentThreads(port) {
                     const existing = allWorkspaces.find(w => normalize(w.workspace) === normalize(hw.workspace));
                     if (existing) {
                         for (const t of hw.threads) {
-                            if (!existing.threads.some(et => et.name === t.name)) existing.threads.push(t);
+                            const dup = existing.threads.some(et =>
+                                (t.threadId && et.threadId && et.threadId === t.threadId) ||
+                                (!t.threadId && et.name === t.name)
+                            );
+                            if (!dup) existing.threads.push(t);
                         }
                     } else {
                         allWorkspaces.push(hw);
@@ -2630,6 +2634,26 @@ async function switchAgentThread(port, threadName, targetWorkspaceName = null, t
                                 link.click();
                                 return 'clicked';
                             }
+                            // Fast SPA navigation via TanStack Router on #root fiber (switches any of 500+ threads in ~2ms without scrolling)
+                            try {
+                                const root = document.getElementById("root");
+                                const fk = root && Object.keys(root).find(k => k.startsWith("__reactContainer") || k.startsWith("__reactFiber"));
+                                const seen = new Set();
+                                const q = [root && fk ? root[fk] : null];
+                                let steps = 0;
+                                while (q.length && steps++ < 6000) {
+                                    const n = q.shift();
+                                    if (!n || seen.has(n)) continue;
+                                    seen.add(n);
+                                    const v = n.memoizedProps && n.memoizedProps.value;
+                                    if (v && typeof v === "object" && typeof v.navigate === "function" && typeof v.buildLocation === "function") {
+                                        await v.navigate({ to: "/c/" + targetId });
+                                        return 'clicked';
+                                    }
+                                    if (n.child) q.push(n.child);
+                                    if (n.sibling) q.push(n.sibling);
+                                }
+                            } catch (_) {}
                             const scrollEl = document.querySelector(".relative.w-full.h-full.overflow-y-auto.overscroll-none.px-2") ||
                                              Array.from(document.querySelectorAll("*")).find(el => {
                                                  const s = window.getComputedStyle(el);
@@ -2638,7 +2662,7 @@ async function switchAgentThread(port, threadName, targetWorkspaceName = null, t
                             if (scrollEl) {
                                 const origScroll = scrollEl.scrollTop;
                                 const totalHeight = scrollEl.scrollHeight || 0;
-                                const step = 250;
+                                const step = Math.max(250, Math.floor((scrollEl.clientHeight || 0) * 0.9));
                                 scrollEl.scrollTop = 0;
                                 await new Promise(r => setTimeout(r, 60));
                                 for (let pos = 0; pos <= totalHeight + step; pos += step) {
@@ -3630,6 +3654,7 @@ module.exports = {
     closeAllEditors,
     listAgentThreads,
     switchAgentThread,
+    renameAgentThread,
     get CHAT_EXTRACT_EXPR() { return getChatExtractExpr(); },
     getChatExtractExpr,
     getActiveThreadId,
@@ -3640,6 +3665,147 @@ module.exports = {
     getLastResolvedThreadId, setLastResolvedThreadId,
     setOnThreadResolved
 };
+
+async function renameAgentThread(port, targetThreadId = null, newTitle = '', specificTargetId = null) {
+    const cleanTitle = String(newTitle || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+    if (!cleanTitle) return { ok: false, reason: 'empty_title' };
+
+    const candidates = filterTargetsById(await resolveTargets(port, true, { specificTargetId: specificTargetId || preferredTargetId }), specificTargetId || preferredTargetId);
+    for (const target of candidates) {
+        let client;
+        try {
+            client = await CDP({ target: target.webSocketDebuggerUrl });
+            const { Runtime } = client;
+            await Runtime.enable();
+
+            const evalRes = await Runtime.evaluate({
+                expression: `(async () => {
+                    try {
+                        const requestedId = ${JSON.stringify(targetThreadId || null)};
+                        const cleanTitle = ${JSON.stringify(cleanTitle)};
+                        const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+                        const root = document.getElementById("root");
+                        const fk = root && Object.keys(root).find(k => k.startsWith("__reactContainer") || k.startsWith("__reactFiber"));
+                        let ctxVal = null, agentSvc = null, reduxStore = null;
+                        const seen = new Set();
+                        const q = [root && fk ? root[fk] : null];
+                        let steps = 0;
+                        while (q.length && steps++ < 8000) {
+                            const n = q.shift();
+                            if (!n || seen.has(n)) continue;
+                            seen.add(n);
+                            const v = n.memoizedProps && n.memoizedProps.value;
+                            if (v && typeof v === "object") {
+                                if (v.core && !ctxVal) ctxVal = v;
+                                if (typeof v.updateConversationAnnotations === "function" && !agentSvc) agentSvc = v;
+                                if (v.store && typeof v.store.getState === "function" && !reduxStore) reduxStore = v.store;
+                            }
+                            if (n.child) q.push(n.child);
+                            if (n.sibling) q.push(n.sibling);
+                        }
+
+                        const st = reduxStore ? reduxStore.getState() : null;
+                        const activeCascadeId = (() => {
+                            const um = (window.location.href || "").match(/\\/c\\/([0-9a-f-]{36})/i);
+                            if (um && uuidRe.test(um[1])) return um[1];
+                            const sel = document.querySelector('[data-testid="conversation-row-sidebar"][data-selected="true"]')?.getAttribute("data-cascade-id");
+                            if (sel && uuidRe.test(sel)) return sel;
+                            const stId = st?.conversation?.convoState?.cascadeId;
+                            if (stId && uuidRe.test(stId)) return stId;
+                            return null;
+                        })();
+
+                        const cascadeId = (requestedId && uuidRe.test(requestedId)) ? requestedId : activeCascadeId;
+                        if (!cascadeId) {
+                            return { ok: false, reason: "no_active_thread" };
+                        }
+
+                        const existingSummary = st?.trajectorySummaries?.summaries?.[cascadeId] || null;
+                        const oldTitle = (existingSummary?.annotations?.title || existingSummary?.summary || "").trim() || null;
+
+                        // 1. If renaming the currently active conversation and titlebar breadcrumb exposes onRename, call it directly
+                        if (cascadeId === activeCascadeId) {
+                            const crumbs = Array.from(document.querySelectorAll('[data-testid="breadcrumb-segment"]'));
+                            const lastCrumb = crumbs[crumbs.length - 1];
+                            const cfk = lastCrumb && Object.keys(lastCrumb).find(k => k.startsWith("__reactFiber"));
+                            let cf = cfk ? lastCrumb[cfk] : null;
+                            for (let i = 0; cf && i < 15; i++, cf = cf.return) {
+                                if (cf.memoizedProps && typeof cf.memoizedProps.onRename === "function") {
+                                    await cf.memoizedProps.onRename(cleanTitle);
+                                    return { ok: true, method: "breadcrumb_onRename", threadId: cascadeId, oldTitle, newTitle: cleanTitle };
+                                }
+                            }
+                        }
+
+                        // 2. Direct gRPC / agentService annotation update (works for ANY conversation, active or off-screen)
+                        const ann = existingSummary?.annotations
+                            ? { ...existingSummary.annotations, title: cleanTitle }
+                            : {
+                                $typeName: "exa.jetski_cortex_pb.ConversationAnnotations",
+                                tags: [],
+                                cls: [],
+                                sideQuestionCascadeIds: [],
+                                sideQuestionTitles: {},
+                                title: cleanTitle,
+                            };
+
+                        if (agentSvc && typeof agentSvc.updateConversationAnnotations === "function") {
+                            await agentSvc.updateConversationAnnotations([cascadeId], ann, true);
+                            if (reduxStore && typeof reduxStore.dispatch === "function") {
+                                try {
+                                    reduxStore.dispatch({
+                                        type: "trajectorySummaries/applyOptimisticAnnotation",
+                                        payload: { cascadeId, annotations: { title: cleanTitle } },
+                                    });
+                                } catch (_) {}
+                            }
+                            return { ok: true, method: "agentService", threadId: cascadeId, oldTitle, newTitle: cleanTitle };
+                        }
+
+                        const ls = ctxVal?.core?.projectManagementService?.lsClient;
+                        if (ls && typeof ls.updateConversationAnnotations === "function") {
+                            await ls.updateConversationAnnotations({
+                                cascadeIds: [cascadeId],
+                                annotations: ann,
+                                mergeAnnotations: true,
+                            });
+                            if (reduxStore && typeof reduxStore.dispatch === "function") {
+                                try {
+                                    reduxStore.dispatch({
+                                        type: "trajectorySummaries/applyOptimisticAnnotation",
+                                        payload: { cascadeId, annotations: { title: cleanTitle } },
+                                    });
+                                } catch (_) {}
+                            }
+                            return { ok: true, method: "lsClient", threadId: cascadeId, oldTitle, newTitle: cleanTitle };
+                        }
+
+                        return { ok: false, reason: "unsupported_target" };
+                    } catch (err) {
+                        return { ok: false, reason: err.message || String(err) };
+                    }
+                })()`,
+                awaitPromise: true,
+                returnByValue: true,
+            });
+
+            await client.close();
+            const val = evalRes && evalRes.result && evalRes.result.value;
+            if (val && val.ok) {
+                threadNameToIdCache.set(cleanTitle, val.threadId);
+                return val;
+            }
+            if (val && val.reason && val.reason !== 'unsupported_target') {
+                return val;
+            }
+        } catch (_) {
+            try { if (client) await client.close(); } catch (__) {}
+        }
+    }
+
+    return { ok: false, reason: 'window_not_found' };
+}
 
 async function captureFullIDEScreenshot(port) {
     const candidates = await resolveTargets(port, false);

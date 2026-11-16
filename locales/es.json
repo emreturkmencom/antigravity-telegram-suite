@@ -196,7 +196,10 @@
     "telegraph_desc": "Alternar subidas a Telegraph",
     "cleartelegraph_desc": "Borrar páginas publicadas en Telegraph",
     "force_update_desc": "Forzar actualización (sobrescribe cambios locales)",
-    "caffeinate_desc": "Alternar prevención de reposo en macOS"
+    "caffeinate_desc": "Alternar prevención de reposo en macOS",
+    "rename_desc": "Renombrar la conversación activa",
+    "wo_desc": "Gestionar Work Orders y escritorios especialistas",
+    "wo_stop_desc": "Detener Work Orders en ejecución"
   },
   "telegraph": {
     "enabled": "🌐 <b>Publicación en Telegraph:</b> HABILITADA\n\nLos artefactos se publicarán en Telegraph/graph.org con URLs indescifrables.",
@@ -310,7 +313,20 @@
     "refresh_btn": "🔄 Actualizar",
     "close_btn": "❌ Cerrar",
     "search_found_multi": "🔍 <b>Resultados de búsqueda para \"{query}\":</b>\n\n<i>Seleccione un chat:</i>",
-    "search_not_found": "❌ No se encontraron chats para \"{query}\"."
+    "search_not_found": "❌ No se encontraron chats para \"{query}\".",
+    "project_view_paged_title": "📁 <b>Proyecto: {workspace}</b> (mostrando {start}–{end} de {count})\n\n<i>Selecciona un chat para cambiar:</i>",
+    "rename_active_btn": "✏️ Renombrar Chat Activo",
+    "rename_pick_btn": "✏️ Renombrar un Chat…",
+    "rename_pick_title": "✏️ <b>Selecciona un chat para renombrar</b> (<code>{workspace}</code>):",
+    "back_to_project_btn": "⬅️ Volver al Proyecto",
+    "rename_prompt": "✏️ Envía el nuevo nombre para <b>{name}</b>\n<i>(Envía /cancel para cancelar)</i>",
+    "rename_success": "✅ Chat renombrado a: <b>{name}</b>",
+    "rename_failed": "❌ No se pudo renombrar el chat: {reason}",
+    "rename_no_active": "ℹ️ No hay ninguna conversación activa abierta ahora mismo. Abre un chat primero o elige uno en un proyecto.",
+    "rename_cancelled": "✖️ Cambio de nombre cancelado.",
+    "prev_page_btn": "⬅️ Ant.",
+    "next_page_btn": "Sig. ➡️",
+    "show_all_projects_btn": "📂 Mostrar Todos los Proyectos ({count})"
   },
   "artifacts": {
     "list_title": "📎 <b>Artefactos del chat actual:</b>\n\n",

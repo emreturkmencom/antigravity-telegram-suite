@@ -196,7 +196,10 @@
     "telegraph_desc": "Telegraph yüklemelerini aç/kapat",
     "cleartelegraph_desc": "Yayınlanan Telegraph sayfalarını temizle",
     "force_update_desc": "Zorla güncelle (yerel değişiklikleri sıfırlar)",
-    "caffeinate_desc": "macOS uyku önlemeyi (caffeinate) aç/kapat"
+    "caffeinate_desc": "macOS uyku önlemeyi (caffeinate) aç/kapat",
+    "rename_desc": "Aktif sohbeti yeniden adlandır",
+    "wo_desc": "İş emirlerini ve uzman masaları yönet",
+    "wo_stop_desc": "Çalışan iş emirlerini durdur"
   },
   "telegraph": {
     "enabled": "🌐 <b>Telegraph Yayını:</b> AKTİF\n\nArtefaktlar tahmin edilemez URL'ler ile Telegraph/graph.org üzerinde yayınlanacak.",
@@ -310,7 +313,20 @@
     "refresh_btn": "🔄 Yenile",
     "close_btn": "❌ Kapat",
     "search_found_multi": "🔍 <b>\"{query}\" için arama sonuçları:</b>\n\n<i>Aşağıdan bir sohbet seçin:</i>",
-    "search_not_found": "❌ \"{query}\" ile eşleşen sohbet bulunamadı."
+    "search_not_found": "❌ \"{query}\" ile eşleşen sohbet bulunamadı.",
+    "project_view_paged_title": "📁 <b>Proje: {workspace}</b> ({count} sohbetten {start}–{end} arası)\n\n<i>Geçmek istediğiniz sohbeti seçin:</i>",
+    "rename_active_btn": "✏️ Aktif Sohbeti Yeniden Adlandır",
+    "rename_pick_btn": "✏️ Sohbet Yeniden Adlandır…",
+    "rename_pick_title": "✏️ <b>Yeniden adlandırılacak sohbeti seçin</b> (<code>{workspace}</code>):",
+    "back_to_project_btn": "⬅️ Projeye Dön",
+    "rename_prompt": "✏️ <b>{name}</b> sohbeti için yeni adı gönderin\n<i>(İptal için /cancel yazın)</i>",
+    "rename_success": "✅ Sohbet yeniden adlandırıldı: <b>{name}</b>",
+    "rename_failed": "❌ Sohbet yeniden adlandırılamadı: {reason}",
+    "rename_no_active": "ℹ️ Şu an açık bir aktif sohbet yok. Önce bir sohbet açın veya proje içinden seçin.",
+    "rename_cancelled": "✖️ Yeniden adlandırma iptal edildi.",
+    "prev_page_btn": "⬅️ Önceki",
+    "next_page_btn": "Sonraki ➡️",
+    "show_all_projects_btn": "📂 Tüm Projeleri Göster ({count})"
   },
   "artifacts": {
     "list_title": "📎 <b>Mevcut Sohbetin Artifact'leri:</b>\n\n",

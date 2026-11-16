@@ -196,7 +196,10 @@
     "telegraph_desc": "Basculer les téléversements Telegraph",
     "cleartelegraph_desc": "Effacer les pages Telegraph publiées",
     "force_update_desc": "Forcer la mise à jour (écrase les modifications locales)",
-    "caffeinate_desc": "Basculer la prévention de veille macOS"
+    "caffeinate_desc": "Basculer la prévention de veille macOS",
+    "rename_desc": "Renommer la discussion active",
+    "wo_desc": "Gérer les Work Orders et bureaux spécialisés",
+    "wo_stop_desc": "Arrêter les Work Orders en cours"
   },
   "telegraph": {
     "enabled": "🌐 <b>Publication Telegraph :</b> ACTIVÉE\n\nLes artefacts seront publiés sur Telegraph/graph.org avec des URL indéchiffrables.",
@@ -310,7 +313,20 @@
     "refresh_btn": "🔄 Actualiser",
     "close_btn": "❌ Fermer",
     "search_found_multi": "🔍 <b>Résultats de recherche pour \"{query}\" :</b>\n\n<i>Sélectionnez une discussion ci-dessous :</i>",
-    "search_not_found": "❌ Aucune discussion trouvée pour \"{query}\"."
+    "search_not_found": "❌ Aucune discussion trouvée pour \"{query}\".",
+    "project_view_paged_title": "📁 <b>Projet : {workspace}</b> (affichage {start}–{end} sur {count})\n\n<i>Sélectionnez une discussion :</i>",
+    "rename_active_btn": "✏️ Renommer la Discussion Active",
+    "rename_pick_btn": "✏️ Renommer une Discussion…",
+    "rename_pick_title": "✏️ <b>Choisissez une discussion à renommer</b> (<code>{workspace}</code>) :",
+    "back_to_project_btn": "⬅️ Retour au Projet",
+    "rename_prompt": "✏️ Envoyez le nouveau nom pour <b>{name}</b>\n<i>(Envoyez /cancel pour annuler)</i>",
+    "rename_success": "✅ Discussion renommée en : <b>{name}</b>",
+    "rename_failed": "❌ Impossible de renommer la discussion : {reason}",
+    "rename_no_active": "ℹ️ Aucune discussion active ouverte actuellement. Ouvrez une discussion ou choisissez-en une dans un projet.",
+    "rename_cancelled": "✖️ Renommage annulé.",
+    "prev_page_btn": "⬅️ Préc.",
+    "next_page_btn": "Suiv. ➡️",
+    "show_all_projects_btn": "📂 Afficher Tous les Projets ({count})"
   },
   "artifacts": {
     "list_title": "📎 <b>Artefacts du fil actuel :</b>\n\n",

@@ -12,7 +12,7 @@ Telefonunuzdan veya terminalinizden mesaj gönderin, AI modellerini değiştirin
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.1-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.2-orange.svg)]()
 
 </div>
 
@@ -184,7 +184,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/goal <görev>` | **Goal Modu** — ajan görev tamamlanıncaya kadar otonom çalışır |
 | `/plan <görev>` | Kodlamadan önce **uygulama planı** oluşturur |
 | `/schedule_task <görev>` | IDE’de tekrarlayan veya tek seferlik görev planlar |
-| `/agents [arama]` | İnteraktif sohbet yöneticisi (Son sohbetler, proje klasörleri, hızlı arama) |
+| `/agents [arama]` | İnteraktif sohbet yöneticisi (Son 5 sabitlenmiş, süre bilgili son 5 sohbet, proje başına max 10 sayfalı liste, hızlı arama) |
+| `/rename [başlık]` | Aktif sohbeti yeniden adlandırır (veya `/agents` içinden herhangi bir sohbeti değiştirir) |
 | `/wo [masa] [iş]` | **Work Orders** panelini açar veya uzman bir masaya iş emri gönderir (`--model "..."` destekli) |
 | `/wo_stop` | O an çalışan iş emirlerini durdurur |
 | `/quota` | AI kredilerini ve model kullanım limitlerini kontrol eder |

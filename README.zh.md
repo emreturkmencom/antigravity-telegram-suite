@@ -12,7 +12,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.1-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.2-orange.svg)]()
 
 </div>
 
@@ -184,7 +184,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/goal <任务>` | 启动 **Goal 模式** — 代理自主工作直到完成 |
 | `/plan <任务>` | 编码前生成**实施计划** |
 | `/schedule_task <任务>` | 在 IDE 中安排定时或一次性任务 |
-| `/agents` | 查看并切换聊天线程 |
+| `/agents` | 查看并切换聊天线程（置顶前 5、带时间的最新前 5、项目分页最多 10 条） |
+| `/rename [标题]` | 重命名当前活动会话（或在 `/agents` 中重命名任意会话） |
 | `/wo [工位] [工单]` | 打开 **Work Orders（工单）**面板或向专家工位派发任务（支持 `--model "..."`） |
 | `/wo_stop` | 停止当前运行中的工单任务 |
 | `/quota` | 检查 AI 额度和模型使用限制 |

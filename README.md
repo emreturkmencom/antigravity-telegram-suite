@@ -12,7 +12,7 @@ Send messages, switch AI models, manage workspaces, take screenshots, and orches
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.1-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.2-orange.svg)]()
 
 </div>
 
@@ -206,7 +206,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/goal <task>` | Start **Goal Mode** — agent works autonomously until done |
 | `/plan <task>` | Generate an **implementation plan** before coding |
 | `/schedule_task <prompt>` | Schedule a recurring or one-time task in the IDE |
-| `/agents [query]` | Interactive chat thread manager (Recent chats, project folders, fast search) |
+| `/agents [query]` | Interactive chat thread manager (Top 5 pinned, Top 5 recent with timestamps, paginated max-10 project views, fast search) |
+| `/rename [title]` | Rename the active conversation (or rename any chat interactively via `/agents`) |
 | `/wo [desk] [order]` | Open **Work Orders** panel or dispatch a job to a specialist desk (`--model "..."` supported) |
 | `/wo_stop` | Abort currently running work order(s) |
 | `/quota` | Check AI model credits and usage quotas |

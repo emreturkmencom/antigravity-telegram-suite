@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.9.2] - 2026-11-16
+
+### Added
+- **Conversation Renaming (`/rename` & `/agents` Interactive `✏️` Rename)**:
+  - Added `/rename <new title>` to instantly rename the active conversation and `/rename` (or `✏️ Rename Active Chat` / `✏️ Rename a Chat…` inside `/agents`) for guided interactive renaming of active or background conversations across both Antigravity Standalone (2.29+) and Antigravity IDE (2.6+).
+  - Localized all new `/agents` pagination and `/rename` prompts across all 7 supported languages (`en`, `tr`, `zh`, `ko`, `de`, `es`, `fr`) and registered `/rename`, `/wo`, and `/wo_stop` in Telegram's native `/` command menu.
+
+### Changed
+- **Redesigned & 60x Faster `/agents` Menu**:
+  - Replaced the 9-second sidebar scroll scraper with direct in-memory Redux `trajectorySummaries` extraction (`~150ms` even across 500+ conversations), preserving exact `lastModifiedTime` timestamps, `pinned` status, and workspace paths while hiding internal `.agts-work-orders` (`wo-*`) desk sessions.
+  - Main `/agents` screen now cleanly displays **Top 5 Pinned (`📌`)** + **Top 5 Truly Most Recent (`💬`)** chats (each with project name and relative age `(5m)`, `(3h)`, `(1d)`), followed by the 12 most recently active workspaces (with `📂 Show All Projects` expansion).
+  - Project views now display **at most 10 conversations per page** sorted newest-first with `⬅️ Prev` / `Next ➡️` pagination, and `switchAgentThread` navigates off-screen threads directly via TanStack Router (`router.navigate`) without sidebar scrolling.
+
 ## [3.9.1] - 2026-11-16
 
 ### Fixed
