@@ -1,7 +1,7 @@
 {
   "name": "antigravity-telegram-suite",
   "version": "3.9.3",
-  "description": "Control your Antigravity IDE remotely via Telegram. Send messages, switch models, manage workspaces, take screenshots — all from your phone.",
+  "description": "Control your Antigravity IDE remotely via Telegram. Send messages, switch models, manage workspaces, take screenshots \u2014 all from your phone.",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
@@ -24,7 +24,7 @@
     "cdp",
     "chrome-devtools-protocol"
   ],
-  "author": "Emre Türkmen",
+  "author": "Emre T\u00fcrkmen",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -41,5 +41,10 @@
   },
   "devDependencies": {
     "husky": "^9.1.7"
+  },
+  "overrides": {
+    "jsdom": {
+      "undici": "8.12.2"
+    }
   }
 }
