@@ -278,6 +278,14 @@ function isWorkOrdersRunner() {
     return process.env.WORK_ORDERS_RUNNER === '1';
 }
 
+// Desk windows only exist in Antigravity IDE (workbench page or its extensionView agent panel).
+// In the Standalone App a desk is just a workspace inside the user's single window, so a
+// Standalone page showing a desk thread must never be hidden from the main bot.
+function isIdeTarget(t) {
+    const url = (t && t.url) || '';
+    return url.startsWith('vscode-file://') || /extensionView=true/i.test(url);
+}
+
 function matchesTargetId(t, specificTargetId) {
     if (!specificTargetId || specificTargetId === 'auto' || !t) return false;
     return Boolean(
@@ -314,7 +322,7 @@ async function resolveTargets(port, includeIframe = true, options = {}) {
         if (t.title && t.title.includes('Launchpad')) return false;
         if (t.title === 'Manager') return false;
         // Exclude Work Orders desk windows (wo-<desk>) from main bot automatic target selection
-        if (!includeDesks && !isWorkOrdersRunner() && isDeskTarget(t)) {
+        if (!includeDesks && !isWorkOrdersRunner() && isIdeTarget(t) && isDeskTarget(t)) {
             const allowedByPreferred = preferredTargetId && matchesTargetId(t, preferredTargetId);
             const allowedBySpecific = specificTargetId && matchesTargetId(t, specificTargetId);
             const allowedByWorkspace = activeWorkspaceName && t.workspaceName &&

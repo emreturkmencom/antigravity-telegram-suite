@@ -142,6 +142,23 @@ async function runTests() {
                 await deskOnlySrv.close();
             }
 
+            // Standalone App showing a desk thread (standalone backend) is the user's only window: never exclude it
+            const standaloneDeskThread = [{
+                id: 'SA_PAGE',
+                type: 'page',
+                title: 'AGTS Work Order 20261116 - wo-beta - Antigravity',
+                url: 'https://127.0.0.1:42653/c/11111111-2222-3333-4444-555555555555?project=p1',
+                webSocketDebuggerUrl: 'ws://127.0.0.1:9999/devtools/page/SA_PAGE',
+            }];
+            const saSrv = await startFakeCDPServer(() => JSON.parse(JSON.stringify(standaloneDeskThread)));
+            try {
+                assert.strictEqual(isDeskTarget(standaloneDeskThread[0]), true, 'title still names the desk');
+                const resolvedSa = await resolveTargets(saSrv.port, true);
+                assert.deepStrictEqual(resolvedSa.map(t => t.id), ['SA_PAGE'], 'Standalone page on a desk thread must stay visible to the main bot');
+            } finally {
+                await saSrv.close();
+            }
+
             // With WORK_ORDERS_RUNNER=1, runner sees desk targets as well
             process.env.WORK_ORDERS_RUNNER = '1';
             const resolvedRunner = await resolveTargets(srv.port, true);
