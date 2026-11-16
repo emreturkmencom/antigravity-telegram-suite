@@ -296,7 +296,7 @@ function createStandaloneHandlers({
     let lastOriginalThread = null;
     let lastOriginalModel = null;
 
-    async function openStandaloneDesk(desk, deskDir) {
+    async function openStandaloneDesk(desk, deskDir, order = null, onSessionCaptured = null) {
         // 1. Record current active thread and workspace before switching
         let originalThread = null;
         try {
@@ -305,6 +305,10 @@ function createStandaloneHandlers({
             console.debug('[work-orders] failed to read active thread info before switch:', e.message);
         }
         lastOriginalThread = originalThread;
+        if (order) order.originalThread = originalThread;
+        if (onSessionCaptured) {
+            try { onSessionCaptured({ originalThread }); } catch (_) {}
+        }
 
         // 2. Switch workspace to desk's folder
         const wsName = deskFolderName(desk);
@@ -437,7 +441,7 @@ function createStandaloneHandlers({
         return { working: !AGENT_ERROR_RE.test(lastText), lastText };
     }
 
-    async function selectStandaloneModel(win, modelName) {
+    async function selectStandaloneModel(win, modelName, order = null, onSessionCaptured = null) {
         if (!modelName) return;
         const targetPort = (win && win.port) || cdpPort;
         try {
@@ -445,6 +449,10 @@ function createStandaloneHandlers({
             if (cur) {
                 lastOriginalModel = cur;
                 if (win) win.originalModel = cur;
+                if (order) order.originalModel = cur;
+                if (onSessionCaptured) {
+                    try { onSessionCaptured({ originalModel: cur }); } catch (_) {}
+                }
             }
         } catch (_) {}
         try {
@@ -456,8 +464,8 @@ function createStandaloneHandlers({
     }
 
     async function afterStandaloneOrder(order, win) {
-        const orig = (win && win.originalThread) || lastOriginalThread;
-        const origModel = (win && win.originalModel) || lastOriginalModel;
+        const orig = (win && win.originalThread) || (order && order.originalThread) || lastOriginalThread;
+        const origModel = (win && win.originalModel) || (order && order.originalModel) || lastOriginalModel;
         lastOriginalThread = null;
         lastOriginalModel = null;
         const targetPort = (win && win.port) || cdpPort;
@@ -488,7 +496,7 @@ function createStandaloneHandlers({
             }
         }
 
-        if (origModel && order && order.model && origModel.toLowerCase() !== order.model.toLowerCase()) {
+        if (origModel && (!order || !order.model || origModel.toLowerCase() !== order.model.toLowerCase())) {
             try {
                 await chooseModel(targetPort, origModel);
             } catch (_) {}
@@ -532,8 +540,8 @@ if (require.main === module) {
     process.env.WORK_ORDERS_RUNNER = '1';
     const deps = isStandalone ? {
         listDeskWindows: async () => [],
-        openDeskWindow: (desk, deskDir) => openStandaloneDesk(desk, deskDir),
-        selectModel: (win, modelName) => selectStandaloneModel(win, modelName),
+        openDeskWindow: (desk, deskDir, order, onSession) => openStandaloneDesk(desk, deskDir, order, onSession),
+        selectModel: (win, modelName, order, onSession) => selectStandaloneModel(win, modelName, order, onSession),
         sendToWindow: (win, text) => sendToStandaloneWindow(win, text),
         closeWindow: async () => {},
         checkAgent: (win) => checkStandaloneAgent(win),

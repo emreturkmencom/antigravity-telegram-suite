@@ -171,7 +171,7 @@ async function run() {
         assert(e.notes.some(n => n.text.includes('rejected')));
     }
 
-    // Restart while running: the order is failed, never re-sent blindly.
+    // Restart while running: the order is failed, notified via Telegram, and never re-sent blindly.
     {
         const e = makeEnv();
         e.drop('r1.md', '---\ndesk: d\ntimeout: 1\n---\nlong job');
@@ -182,6 +182,8 @@ async function run() {
         const again = new WorkOrders({ dir: e.dir, deps: { ...e.wo.deps, notify: (m) => notes.push(m) } });
         assert.strictEqual(again.orders.get('r1').status, 'failed');
         assert(fs.existsSync(path.join(e.dir, 'failed', 'r1.md')));
+        assert.strictEqual(notes.length, 1, 'Telegram notification sent for interrupted running order');
+        assert(notes[0].text.includes('r1') && notes[0].text.includes('failed'), `Expected failed restart notice, got: ${notes[0].text}`);
     }
 
     // Idle close after idleCloseMin (default 3 min), skipped when queued orders remain, immediate on 0.

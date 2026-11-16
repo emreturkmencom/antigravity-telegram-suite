@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const desks = require('./desks');
+const { s } = require('./strings');
 
 const DEFAULTS = {
     maxWindows: 3,
@@ -68,6 +69,7 @@ class WorkOrders {
         this.orders = new Map(); // id -> order record
         this.deskState = new Map(); // desk -> { busyWith, lastActive }
         this.running = new Set();
+        this.interruptedOrders = [];
         desks.ensureLayout(dir);
         this.statePath = path.join(dir, 'state.json');
         this._loadState();
@@ -83,9 +85,16 @@ class WorkOrders {
             for (const o of st.orders || []) this.orders.set(o.id, o);
         } catch (_) { /* first run */ }
         // An order "running" when the runner died cannot be resumed safely: we do
-        // not know what the agent did. Fail it loudly instead of re-sending.
+        // not know what the agent did. Fail it loudly instead of re-sending, and
+        // queue any Standalone session restoration for the first async tick().
         for (const o of this.orders.values()) {
-            if (o.status === 'running') this._finish(o, 'failed', 'runner restarted while the order was running', false);
+            if (o.status === 'running') {
+                this._finish(o, 'failed', 'runner restarted while the order was running', false);
+                if (this.deps && this.deps.notify) {
+                    this.deps.notify({ text: s('order_interrupted_restart', { id: o.id, desk: o.desk }) });
+                }
+                this.interruptedOrders.push(o);
+            }
         }
     }
 
@@ -231,9 +240,23 @@ First line: "STATUS: done" or "STATUS: failed". Write it even if the order faile
         let win = null;
         try {
             const deskDir = this.ensureDesk(order.desk);
-            win = await this.deps.openDeskWindow(order.desk, deskDir);
+            const saveOrderSession = (patch) => {
+                if (!patch || typeof patch !== 'object') return;
+                if ('originalThread' in patch) order.originalThread = patch.originalThread;
+                if ('originalModel' in patch) order.originalModel = patch.originalModel;
+                this._saveState();
+            };
+            win = await this.deps.openDeskWindow(order.desk, deskDir, order, saveOrderSession);
+            if (win && win.originalThread !== undefined && order.originalThread !== win.originalThread) {
+                order.originalThread = win.originalThread;
+                this._saveState();
+            }
             if (order.model && this.deps.selectModel) {
-                await this.deps.selectModel(win, order.model, order);
+                await this.deps.selectModel(win, order.model, order, saveOrderSession);
+                if (win && win.originalModel !== undefined && order.originalModel !== win.originalModel) {
+                    order.originalModel = win.originalModel;
+                    this._saveState();
+                }
             }
             await this.deps.sendToWindow(win, this.buildPrompt(order));
             const modelTag = order.model ? ` (🤖 ${order.model})` : '';
@@ -356,6 +379,22 @@ First line: "STATUS: done" or "STATUS: failed". Write it even if the order faile
     }
 
     async tick() {
+        if (this.interruptedOrders.length > 0) {
+            const interrupted = this.interruptedOrders.splice(0);
+            if (this.deps && this.deps.afterOrder) {
+                for (const o of interrupted) {
+                    try {
+                        await this.deps.afterOrder(o, {
+                            desk: o.desk,
+                            originalThread: o.originalThread || null,
+                            originalModel: o.originalModel || null,
+                        });
+                    } catch (err) {
+                        console.error('[work-orders] afterOrder restore error:', err.message);
+                    }
+                }
+            }
+        }
         this.scanInbox();
         await this.dispatch();
         await this.closeIdleWindows();

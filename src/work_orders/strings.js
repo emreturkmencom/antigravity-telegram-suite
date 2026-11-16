@@ -64,6 +64,7 @@ const STR = {
         no_running_order: 'No work order is currently running.',
         cant_return_chat: '⚠️ Work order finished, but could not return to your previous chat: select with /agents.',
         thread_lost_new: 'ℹ️ Stored chat for desk "{desk}" was not found, opening a new chat.',
+        order_interrupted_restart: '⚠️ Bot restarted — work order {id} (desk "{desk}") was interrupted and marked failed. The agent may still be working in the background; check the desk.',
         help: 'Work Orders: connect Claude Code, scripts or Telegram to parallel Antigravity agents.\n\n• A desk is a folder with its own AGENT.md (rules + memory) and its own AI model. Make one desk per kind of job (comments, video-qa, security…).\n• ✉️ New order sends a job to a desk. The agent writes its answer to a result file; the result comes back here.\n• External apps & Claude Code can drop .md orders into inbox/.\n• Shortcut: /wo <desk> [--model "..."] <order text>\n\nFolder: {dir}',
     },
     tr: {
@@ -129,6 +130,7 @@ const STR = {
         no_running_order: 'Şu an çalışan bir iş emri yok.',
         cant_return_chat: '⚠️ İş emri bitti, eski sohbetine geri dönemedim: /agents ile seç.',
         thread_lost_new: 'ℹ️ "{desk}" masası için kayıtlı sohbet bulunamadı, yeni sohbet açılıyor.',
+        order_interrupted_restart: '⚠️ Bot yeniden başladı — {id} iş emri ("{desk}" masası) yarıda kaldı (failed). Agent arka planda çalışmaya devam ediyor olabilir, masayı kontrol et.',
         help: 'İş Emirleri: Claude Code, scriptler veya Telegram\'dan paralel Antigravity agent\'larına iş ver.\n\n• Masa, kendi AGENT.md\'si (kurallar + hafıza) ve kendi AI modeli olan bir klasördür. Her iş türü için bir masa aç (yorumlar, video-qa, güvenlik…).\n• ✉️ Yeni iş emri bir masaya iş gönderir. Agent cevabını sonuç dosyasına yazar, sonuç buraya gelir.\n• Claude Code ve dış uygulamalar inbox/ klasörüne .md bırakabilir.\n• Kısayol: /wo <masa> [--model "..."] <iş emri metni>\n\nKlasör: {dir}',
     },
     zh: {
@@ -194,6 +196,7 @@ const STR = {
         no_running_order: '当前没有正在运行的工单。',
         cant_return_chat: '⚠️ 工单已完成，但无法切回之前的聊天：请使用 /agents 选择。',
         thread_lost_new: 'ℹ️ 未找到工位 "{desk}" 的历史会话，正在开启新会话。',
+        order_interrupted_restart: '⚠️ 机器人已重启 — 工单 {id}（工位 "{desk}"）中断并已标记为失败 (failed)。代理可能仍在后台继续运行，请检查该工位。',
         help: '工单中心：将 Claude Code、脚本或 Telegram 连接到并行 Antigravity 代理。\n\n• 每个工位拥有独立的 AGENT.md（规则 + 记忆）与专属 AI 模型。\n• 外部应用可将 .md 工单放入 inbox/ 目录。\n• 快捷指令：/wo <工位> [--model "..."] <任务内容>\n\n目录: {dir}',
     },
     ko: {
@@ -259,6 +262,7 @@ const STR = {
         no_running_order: '현재 실행 중인 작업 지시가 없습니다.',
         cant_return_chat: '⚠️ 작업이 끝났으나 이전 채팅으로 돌아가지 못했습니다. /agents로 선택해 주세요.',
         thread_lost_new: 'ℹ️ "{desk}" 데스크의 기존 대화를 찾지 못해 새 대화를 엽니다.',
+        order_interrupted_restart: '⚠️ 봇이 재시작되어 작업 지시 {id}("{desk}" 데스크)가 중단되었으며 실패(failed) 처리되었습니다. 에이전트가 백그라운드에서 계속 실행 중일 수 있으니 데스크를 확인하세요.',
         help: 'Work Orders: Claude Code, 스크립트 또는 Telegram을 병렬 Antigravity 에이전트에 연결합니다.\n\n• 각 데스크는 자체 AGENT.md(규칙 + 메모리)와 전용 AI 모델을 가집니다.\n• 외부 앱에서 inbox/ 폴더로 .md 작업 파일을 넣을 수 있습니다.\n• 단축 명령: /wo <데스크> [--model "..."] <작업 내용>\n\n폴더: {dir}',
     },
     de: {
@@ -324,6 +328,7 @@ const STR = {
         no_running_order: 'Aktuell läuft kein Arbeitsauftrag.',
         cant_return_chat: '⚠️ Auftrag beendet, konnte aber nicht zum vorherigen Chat wechseln: bitte mit /agents wählen.',
         thread_lost_new: 'ℹ️ Gespeicherter Chat für Desk "{desk}" nicht gefunden, öffne neuen Chat.',
+        order_interrupted_restart: '⚠️ Bot wurde neu gestartet — Arbeitsauftrag {id} (Desk "{desk}") wurde unterbrochen und als fehlgeschlagen (failed) markiert. Der Agent arbeitet möglicherweise im Hintergrund weiter; bitte prüfe den Desk.',
         help: 'Work Orders: Verbinde Claude Code, Skripte oder Telegram mit parallelen Antigravity-Agenten.\n\n• Jeder Desk hat eine eigene AGENT.md (Regeln + Gedächtnis) und ein eigenes KI-Modell.\n• Externe Apps können .md-Aufträge in inbox/ ablegen.\n• Kurzform: /wo <Desk> [--model "..."] <Auftrag>\n\nOrdner: {dir}',
     },
     es: {
@@ -389,6 +394,7 @@ const STR = {
         no_running_order: 'No hay ninguna orden en ejecución.',
         cant_return_chat: '⚠️ Orden finalizada, pero no se pudo volver al chat anterior: selecciónalo con /agents.',
         thread_lost_new: 'ℹ️ No se encontró el chat guardado de "{desk}", abriendo uno nuevo.',
+        order_interrupted_restart: '⚠️ El bot se reinició — la orden {id} (desk "{desk}") quedó interrumpida y se marcó como fallida (failed). Puede que el agente siga trabajando en segundo plano; revisa el desk.',
         help: 'Work Orders: conecta Claude Code, scripts o Telegram a agentes Antigravity en paralelo.\n\n• Cada desk tiene su propio AGENT.md (reglas + memoria) y modelo de IA.\n• Apps externas pueden dejar archivos .md en inbox/.\n• Atajo: /wo <desk> [--model "..."] <orden>\n\nCarpeta: {dir}',
     },
     fr: {
@@ -454,6 +460,7 @@ const STR = {
         no_running_order: 'Aucun ordre en cours d\'exécution.',
         cant_return_chat: '⚠️ Ordre terminé, mais impossible de revenir à la discussion précédente : utilisez /agents.',
         thread_lost_new: 'ℹ️ Discussion enregistrée introuvable pour "{desk}", ouverture d\'une nouvelle discussion.',
+        order_interrupted_restart: '⚠️ Le bot a redémarré — l\'ordre {id} (desk "{desk}") a été interrompu et marqué en échec (failed). L\'agent continue peut-être en arrière-plan ; vérifiez le desk.',
         help: 'Work Orders : connectez Claude Code, scripts ou Telegram à des agents Antigravity en parallèle.\n\n• Chaque desk possède son propre AGENT.md (règles + mémoire) et son modèle IA.\n• Les apps externes peuvent déposer des fichiers .md dans inbox/.\n• Raccourci : /wo <desk> [--model "..."] <ordre>\n\nDossier : {dir}',
     },
 };

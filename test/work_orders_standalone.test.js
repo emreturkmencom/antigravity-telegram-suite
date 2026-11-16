@@ -536,6 +536,140 @@ async function runTests() {
         console.log('  ✅ Verification: new thread ID + model switch/restore + visible message saves desk.json and completes order');
     }
 
+    // 12. Restart while Standalone order is running: state.json holds originalThread + originalModel,
+    //     constructor notifies Telegram of interrupted/failed order, and first tick restores session & model.
+    {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agts-wo-restart-restore-'));
+        let activeThread = { id: 'user-orig-uuid', name: 'User Chat', workspace: 'main-proj' };
+        let activeModel = 'Claude Opus 5.5 (High)';
+        let releaseFirstRun;
+        const holdGate = new Promise(r => { releaseFirstRun = r; });
+
+        const handlers1 = createStandaloneHandlers({
+            dir,
+            port: 9333,
+            getActiveThreadInfo: async () => activeThread,
+            switchStandaloneWorkspace: async () => true,
+            switchAgentThread: async () => true,
+            triggerNewChat: async () => {
+                activeThread = { id: null, name: null, workspace: 'wo-ops' };
+                return true;
+            },
+            dismissPopups: async () => 0,
+            getCurrentModel: async () => activeModel,
+            selectModel: async (_port, m) => { activeModel = m; return true; },
+            sendViaCDP: async () => {
+                activeThread = { id: 'desk-ops-uuid', name: 'Ops Order', workspace: 'wo-ops' };
+            },
+            verifyChatMessageSent: async () => true,
+            notify: () => {},
+            sleep: async () => {},
+            verifyAttempts: 2,
+            verifyIntervalMs: 1,
+        });
+
+        const wo1 = new WorkOrders({
+            dir,
+            deps: {
+                listDeskWindows: async () => [],
+                openDeskWindow: handlers1.openStandaloneDesk,
+                selectModel: handlers1.selectStandaloneModel,
+                sendToWindow: handlers1.sendToStandaloneWindow,
+                closeWindow: async () => {},
+                notify: () => {},
+                sleep: () => holdGate, // hold inside _waitForResult to simulate sudden restart while running
+            },
+            options: { maxConcurrent: 1, resultSettleMs: 10 },
+        });
+
+        fs.writeFileSync(
+            path.join(dir, 'inbox', 'interrupted-1.md'),
+            '---\ndesk: ops\nmodel: "Gemini 3.8 Flash (Low)"\n---\nLong running job'
+        );
+        await wo1.tick();
+        // Wait briefly for openDeskWindow + selectModel + sendToWindow to complete before _waitForResult sleeps
+        for (let i = 0; i < 20 && activeThread.id !== 'desk-ops-uuid'; i++) {
+            await new Promise(r => setImmediate(r));
+        }
+        assert.strictEqual(activeThread.id, 'desk-ops-uuid', 'Standalone switched to desk thread');
+        assert.strictEqual(activeModel, 'Gemini 3.8 Flash (Low)', 'Standalone switched to desk model');
+
+        const savedState = JSON.parse(fs.readFileSync(path.join(dir, 'state.json'), 'utf8'));
+        assert.strictEqual(savedState.orders.length, 1);
+        assert.deepStrictEqual(savedState.orders[0].originalThread, {
+            id: 'user-orig-uuid',
+            name: 'User Chat',
+            workspace: 'main-proj',
+        }, 'originalThread persisted in state.json');
+        assert.strictEqual(savedState.orders[0].originalModel, 'Claude Opus 5.5 (High)', 'originalModel persisted in state.json');
+
+        // Simulate runner restart with fresh handlers and WorkOrders reading state.json from disk
+        const restartNotes = [];
+        let afterOrderCalls = 0;
+        let capturedOrigThread = null;
+        const handlers2 = createStandaloneHandlers({
+            dir,
+            port: 9333,
+            getActiveThreadInfo: async () => activeThread,
+            switchStandaloneWorkspace: async () => true,
+            switchAgentThread: async (_port, _name, _ws, targetId) => {
+                activeThread = { id: targetId, name: 'User Chat', workspace: 'main-proj' };
+                return true;
+            },
+            getCurrentModel: async () => activeModel,
+            selectModel: async (_port, m) => { activeModel = m; return true; },
+            notify: (m) => restartNotes.push(m),
+            sleep: async () => {},
+        });
+
+        const wo2 = new WorkOrders({
+            dir,
+            deps: {
+                listDeskWindows: async () => [],
+                openDeskWindow: handlers2.openStandaloneDesk,
+                selectModel: handlers2.selectStandaloneModel,
+                sendToWindow: handlers2.sendToStandaloneWindow,
+                closeWindow: async () => {},
+                afterOrder: async (order, win) => {
+                    afterOrderCalls += 1;
+                    capturedOrigThread = (win && win.originalThread) || order.originalThread;
+                    await handlers2.afterStandaloneOrder(order, win);
+                },
+                notify: (m) => restartNotes.push(m),
+                sleep: async () => {},
+            },
+            options: { maxConcurrent: 1, resultSettleMs: 10 },
+        });
+
+        assert.strictEqual(wo2.orders.get('interrupted-1').status, 'failed');
+        assert.strictEqual(restartNotes.length, 1, 'Restart must notify Telegram about interrupted running order');
+        assert(
+            restartNotes[0].text.includes('interrupted-1') && restartNotes[0].text.includes('failed'),
+            `Unexpected notification text: ${restartNotes[0].text}`
+        );
+        assert.strictEqual(afterOrderCalls, 0, 'Constructor stays synchronous; afterOrder awaits first tick');
+
+        await wo2.tick();
+        assert.strictEqual(afterOrderCalls, 1, 'First tick calls afterOrder once');
+        assert.deepStrictEqual(capturedOrigThread, {
+            id: 'user-orig-uuid',
+            name: 'User Chat',
+            workspace: 'main-proj',
+        });
+        assert.strictEqual(activeThread.id, 'user-orig-uuid', 'User chat restored on first tick after restart');
+        assert.strictEqual(activeModel, 'Claude Opus 5.5 (High)', 'User model restored on first tick after restart');
+
+        await wo2.tick();
+        assert.strictEqual(afterOrderCalls, 1, 'Subsequent ticks do not re-run interrupted restoration');
+
+        // Clean up the suspended wo1 promise cleanly without side effects
+        wo1.deps.afterOrder = undefined;
+        wo1.orders.get('interrupted-1').aborted = true;
+        releaseFirstRun();
+        await Promise.allSettled([...wo1.running]);
+        console.log('  ✅ Restart recovery: Telegram notified and Standalone chat/model restored on first tick');
+    }
+
     console.log('✅ All Work Orders Standalone backend tests passed successfully!');
 }
 
