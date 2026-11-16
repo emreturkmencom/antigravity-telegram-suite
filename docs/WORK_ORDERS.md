@@ -1,83 +1,111 @@
 # Work Orders
 
-Give your Antigravity agents jobs from Telegram, then get the results back in Telegram.
+Give specialist Antigravity agents jobs from Telegram — or from external orchestrators (Claude Code, cron jobs, CI scripts) — and get structured results back automatically in Telegram and on disk.
 
-A **desk** is one agent for one kind of job, for example `comments`, `video-qa` or
-`weekly-report`. Each desk has its own folder and `AGENT.md` for rules and memory, and it
-runs in its own Antigravity IDE window. Like a person who keeps one chat per topic, each
-desk keeps its own context, and the agent records what it learns in its `AGENT.md`.
+A **desk** is a persistent specialist agent for one kind of job (for example `comments`, `video-qa`, `security-audit`, or `weekly-report`). Each desk has its own folder (`desks/wo-<desk>/`), its own `AGENT.md` for instructions and long-term memory, and its own `desk.json` settings (approval policy, default AI model, active thread). Like a teammate dedicated to one domain, each desk accumulates context over time in `AGENT.md`.
 
 ## Use it from Telegram
 
-Send `/wo` to open the panel:
+Send `/wo` to open the interactive Work Orders panel:
 
-- **➕ New desk** walks you through it, step by step:
-  1. **Name.** Free text is fine: "Yorum Masası" becomes `yorum-masasi`.
-  2. **Instructions.** What this agent does and the rules it follows.
-  3. **Approval.** Choose whether orders run automatically or wait for you to approve them in Telegram.
-- **✉️ New order:** pick a desk, then send the job as a message. Several lines are fine.
-- **🗂 Desks:** open a desk to send an order, edit its instructions, switch approval, see its last result, or archive it. Archiving moves the desk folder to `archive/`; nothing is deleted.
-- **📊 Status:** what is waiting, queued or running, plus the last few results.
+- **➕ New desk** walks you through creating a specialist desk step by step:
+  1. **Name** — Free text is fine: `"Yorum Masası"` becomes `yorum-masasi`.
+  2. **Instructions** — Role, rules, and output conventions written into `AGENT.md`.
+  3. **Approval** — Choose whether orders run automatically (`⚡ Auto`) or wait for your confirmation in Telegram (`🔒 Approve`).
+- **✉️ New order:** Pick a desk, then send the job as a message (multi-line text is supported).
+- **🗂 Desks:** Open any desk to:
+  - Send a new order (`✉️ Send order`)
+  - Edit its `AGENT.md` instructions (`✏️ Edit instructions`)
+  - Toggle approval mode (`⚡ Auto` / `🔒 Approve`)
+  - Pick the desk's default AI model (`🤖 Model` — presets or custom model name, or reset to app default)
+  - Read its latest result (`📄 Last result`) or archive the desk (`🗄 Archive` moves it safely to `archive/`, nothing is deleted)
+- **📊 Status:** View orders waiting for approval, queued, or currently running, plus recent completed/failed results.
 
-Shortcut: `/wo <desk> <order text>` sends an order in one message.
+### Quick Shortcuts
 
-When an order finishes, the result arrives in the chat. If the desk asks for approval,
-Approve / Reject buttons appear first. `/cancel` stops any step-by-step flow.
+- `/wo <desk> <order text>` — Send an order in a single message.
+- `/wo <desk> --model "Gemini 3.8 Flash (Low)" <order text>` — Override the AI model for just this order.
+- `/wo_stop` — Abort currently running work order(s) and stop agent generation.
+- `/cancel` — Exit any multi-step `/wo` creation prompt.
 
-## Setup
+When an order finishes, the result is delivered directly to Telegram. If a desk is set to `telegram` approval, **Approve / Reject** buttons appear first.
 
-Work Orders is on by default and needs the **Antigravity IDE** (`IDE_CDP_PORT`, default 9334).
-On first start the bot creates `<PROJECTS_DIR>/.agts-work-orders/`. `/workspace` hides
-folders whose names start with a dot, so this one stays out of your project list.
+## Backends & Setup (`standalone` vs `ide`)
+
+Work Orders is enabled by default and creates `<PROJECTS_DIR>/.agts-work-orders/` on first start (dot-prefixed so `/workspace` keeps your normal project list clean).
+
+It supports two execution backends via `WORK_ORDERS_BACKEND`:
+
+1. **`standalone` (Default — Single-Window Sequential)**
+   - Runs on the **Antigravity Standalone App** (`AGENT_CDP_PORT`, default `9333`).
+   - **Non-collision guard:** Waits until your active Standalone session has been idle for `WORK_ORDERS_IDLE_SEC` (default `60`s) before starting an order, queues incoming user Telegram messages while the order runs, and **restores both your previous chat thread and your original AI model** as soon as the queue drains.
+2. **`ide` (Parallel Multi-Window)**
+   - Runs on **Antigravity IDE 2.6+** (`IDE_CDP_PORT`, default `9334`).
+   - Opens each desk in its own isolated IDE window (up to `WORK_ORDERS_MAX_WINDOWS` concurrent windows), allowing **multiple different desks to execute in parallel**.
+   - **Zero chat blocking:** Your normal Telegram chat (for example on Standalone port `9333` or another IDE window) stays completely unblocked while IDE work orders run in the background.
+   - **Auto-close idle windows:** Once a desk finishes and has no queued orders waiting for it, its IDE window automatically closes after `WORK_ORDERS_IDLE_CLOSE_MIN` minutes (default `3`; set `0` to close immediately after completion).
 
 ```env
-# WORK_ORDERS_ENABLED=false        # turn it off
+# WORK_ORDERS_ENABLED=false        # on by default; set false to turn it off
+# WORK_ORDERS_BACKEND=standalone   # 'standalone' (sequential) | 'ide' (parallel multi-window)
 # WORK_ORDERS_DIR=~/Projects/.agts-work-orders
-# WORK_ORDERS_MAX_WINDOWS=3        # desk windows open at once (~1–1.5 GB RAM each)
-# WORK_ORDERS_IDLE_CLOSE_MIN=15    # close idle desk windows
-# WORK_ORDERS_TIMEOUT_MIN=60       # default per-order timeout
+# WORK_ORDERS_DEFAULT_MODEL=       # optional global fallback model for work orders
+# WORK_ORDERS_IDLE_SEC=60          # standalone: seconds of user inactivity required before starting
+# WORK_ORDERS_MAX_WINDOWS=3        # ide: max desk windows open at once (~1–1.5 GB RAM each)
+# WORK_ORDERS_IDLE_CLOSE_MIN=3     # ide: close idle desk windows after N min (0 = immediate)
+# WORK_ORDERS_TIMEOUT_MIN=60       # default per-order timeout in minutes
 ```
 
-Work Orders runs as a child process that uses the **IDE** driver. Your normal Telegram chat
-keeps using `ANTIGRAVITY_PREFERRED_APP` as before.
+## AI Model Selection (3-Tier Priority)
 
-## How an order runs
+Different desks benefit from different models (for example a fast, low-cost Flash model for triage/formatting vs. Claude Opus or Gemini Pro High for deep code review). For every order, the target model is resolved in this priority order:
 
-1. **The order is saved.** The order is written to `inbox/` and then moved to `running/`. If the desk asks for approval, it waits there for your button press.
-2. **The desk window opens.** The desk window opens, or the bot reuses it if it is already open. The order is sent to its agent with the header `[AGTS Work Order <id>]`.
-3. **The agent writes its answer.** The agent writes its answer to `results/<id>.md`. The first line is `STATUS: done` or `STATUS: failed`.
-4. **The result is sent to you.** When that file stops changing, the result goes to Telegram and the order is moved to `done/` or `failed/`.
+1. **Per-order override:** `model:` in the order's YAML frontmatter, or `--model "..."` in `/wo <desk> --model "..." <text>`.
+2. **Per-desk default:** `model` saved in `desks/wo-<desk>/desk.json` (set via `/wo` → **🗂 Desks** → `<desk>` → **🤖 Model**).
+3. **Global fallback:** `WORK_ORDERS_DEFAULT_MODEL` in `.env` (if unset, the app's currently active model is kept).
 
-Scheduling rules:
+## How an Order Runs
 
-- **One order per desk.** A desk runs one order at a time. Different desks run in parallel.
-- **Window limit.** At most `WORK_ORDERS_MAX_WINDOWS` desk windows are open at once. When the limit is hit, the desk window that has been idle longest is closed. A desk that is still working is never closed.
-- **Idle windows close.** Idle desk windows close after `WORK_ORDERS_IDLE_CLOSE_MIN` minutes. A desk's `AGENT.md` and chat history stay on disk.
-- **Restarts.** If the bot restarts while an order is running, that order is marked failed and is not sent again.
+1. **Queued in `inbox/`:** The order markdown file is created in `inbox/` and moved to `running/` (if `approval: telegram`, it waits for your button press before execution).
+2. **Desk session & model prepared:**
+   - In **`ide`** mode, the bot opens (or reuses) the desk's dedicated IDE window, switches to the target model if configured, and injects the prompt with `[AGTS Work Order <id>]`.
+   - In **`standalone`** mode, once user chat is idle, the bot snapshots your current workspace/thread and active model, switches to the desk workspace (`wo-<desk>`), reuses or creates the desk's thread, selects the target model, and injects the prompt.
+3. **Agent writes result file:** The agent executes the task and writes `results/<id>.md` starting with `STATUS: done` or `STATUS: failed`.
+4. **Delivery & cleanup:** Once `results/<id>.md` (and any `expects:` artifact) stabilizes, the result is sent to Telegram, the order moves to `done/` or `failed/`, and Standalone restores your prior session/model (or IDE schedules idle window close).
 
-## Orders from scripts
+### Scheduling Rules
 
-Scripts and cron jobs can send orders too. Drop a markdown file into `inbox/`. Write it to a temporary name first, then rename it, so the bot never reads a half-written file:
+- **One order per desk at a time:** Orders targeting the same desk run FIFO. In `ide` mode, orders targeting *different* desks run concurrently up to `WORK_ORDERS_MAX_WINDOWS`.
+- **Window eviction & queued-order protection (`ide` mode):** When `WORK_ORDERS_MAX_WINDOWS` is reached, the longest-idle finished window without a queued order is closed to free a slot. Busy windows and windows with queued orders are never evicted.
+- **Crash/restart safety:** If the bot restarts while an order is in `running/`, that order is marked `failed` (`bot_restarted`) rather than blindly re-executing side effects.
+
+## Orders from Scripts & External Orchestrators
+
+External agents (such as Claude Code acting as a manager), cron jobs, or webhooks can dispatch jobs without touching Telegram APIs by dropping a `.md` file into `<WORK_ORDERS_DIR>/inbox/`. Write to a temporary filename first (e.g. `.tmp-<id>.md` outside or hidden) and atomically rename into `inbox/<id>.md` so the watcher never reads a partial file:
 
 ```markdown
 ---
-desk: comments          # required
-approval: auto          # optional: auto | telegram (default: the desk's setting)
-timeout: 30             # optional, minutes
-mode: plain             # optional: plain | goal | plan
-expects: out/replies.json   # optional: also wait for this file (relative to the desk)
+desk: comments                        # required
+model: Gemini 3.8 Flash (Low)         # optional: overrides desk & global model
+approval: auto                        # optional: auto | telegram (default: desk setting)
+timeout: 30                           # optional, minutes
+mode: plain                           # optional: plain | goal | plan
+expects: out/replies.json             # optional: wait for this file too (relative to desk)
 ---
-The new comments are in /home/me/exports/comments.json.
-Draft a reply for each one and write them to out/replies.json.
+New user comments were exported to /home/me/exports/comments.json.
+Draft a helpful reply for each item and write the JSON array to out/replies.json.
 ```
 
-## Folder layout
+## Folder Layout
 
-```
+```text
 .agts-work-orders/
-  inbox/  running/  done/  failed/  results/
-  desks/wo-<desk>/AGENT.md   desk rules, instructions and memory
-  desks/wo-<desk>/desk.json  desk settings (approval)
+  inbox/                     drop new .md orders here
+  running/                   currently executing or awaiting Telegram approval
+  done/  failed/             archived order specs after completion
+  results/                   agent output (<order-id>.md with STATUS: done|failed)
+  desks/wo-<desk>/AGENT.md   desk role, instructions, and persistent Project Memory
+  desks/wo-<desk>/desk.json  desk settings (approval, model, threadId)
   archive/                   archived desks
   history.json  state.json
 ```

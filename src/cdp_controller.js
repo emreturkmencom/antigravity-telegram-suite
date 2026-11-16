@@ -89,8 +89,9 @@ function parseSelectableSlashCommand(prompt) {
 }
 
 function getSelectableSlashCommandForTarget(prompt, target = {}) {
+    if (isLikelyClassicIDETarget(target)) return null;
     const preferredApp = DriverFactory.getDriver().appType;
-    if (preferredApp === 'ide' || isLikelyClassicIDETarget(target)) return null;
+    if (preferredApp === 'ide' && !(target.url && /127\.0\.0\.1/.test(target.url))) return null;
     return parseSelectableSlashCommand(prompt);
 }
 
@@ -221,47 +222,113 @@ function findConversationIdByTitle(threadName) {
     return null;
 }
 
+function isAgentWebTarget(t = {}) {
+    const url = t.url || '';
+    return (
+        url.includes('/c/') ||
+        url.includes('extensionView=true') ||
+        url.includes('tab=') ||
+        (url.includes('127.0.0.1') && !url.includes('vscode-'))
+    );
+}
+
+function annotateTargetsWithWindows(rawTargets = []) {
+    const byId = new Map();
+    for (const t of rawTargets) {
+        if (t && t.id) byId.set(t.id, t);
+    }
+
+    for (const t of rawTargets) {
+        if (!t) continue;
+        if (t.parentId) {
+            let cur = byId.get(t.parentId);
+            for (let hops = 0; cur && hops < 6; hops++) {
+                if (cur.type === 'page' || !cur.parentId) {
+                    t.windowId = cur.id;
+                    t.windowTitle = cur.title || '';
+                    break;
+                }
+                cur = byId.get(cur.parentId);
+            }
+        }
+        if (t.url && t.url.includes('workspaceUri=')) {
+            try {
+                const u = new URL(t.url);
+                const wsUri = u.searchParams.get('workspaceUri');
+                if (wsUri) {
+                    const decoded = decodeURIComponent(wsUri).replace(/^file:\/\//i, '').replace(/\/+$/, '');
+                    t.workspacePath = decoded;
+                    const base = decoded.split('/').filter(Boolean).pop();
+                    if (base) t.workspaceName = base;
+                }
+            } catch (_) {}
+        }
+        if (!t.workspaceName) {
+            const titleSrc = t.windowTitle || (t.type === 'page' ? t.title : '') || '';
+            if (/antigravity ide/i.test(titleSrc) && titleSrc.includes(' - ')) {
+                t.workspaceName = titleSrc.split(' - ')[0].trim();
+            }
+        }
+    }
+    return rawTargets;
+}
+
+function filterTargetsById(candidates, specificTargetId) {
+    if (!specificTargetId || specificTargetId === 'auto') return candidates;
+    const matched = candidates.filter(t =>
+        (t.id && (t.id === specificTargetId || t.id.startsWith(specificTargetId))) ||
+        (t.windowId && (t.windowId === specificTargetId || t.windowId.startsWith(specificTargetId)))
+    );
+    return matched.length > 0 ? matched : candidates;
+}
+
 async function resolveTargets(port, includeIframe = true) {
     const raw = await httpGet(`http://127.0.0.1:${port}/json`);
-    const targets = JSON.parse(raw);
+    const targets = annotateTargetsWithWindows(JSON.parse(raw));
     const typeFilter = includeIframe
         ? t => (t.type === 'page' || t.type === 'iframe' || t.type === 'webview')
         : t => (t.type === 'page' || t.type === 'webview');
-    const candidates = targets.filter(t => typeFilter(t) &&
-        t.webSocketDebuggerUrl &&
-        !t.url.includes('devtools://') &&
-        !(t.title && t.title.includes('Launchpad')) &&
-        t.title !== 'Manager');
+    const candidates = targets.filter(t => {
+        if (!typeFilter(t) || !t.webSocketDebuggerUrl) return false;
+        const url = t.url || '';
+        if (url.includes('devtools://')) return false;
+        if (url.startsWith('data:')) return false;
+        if (url.startsWith('plugin://')) return false;
+        // Skip outer VS Code webview sandbox wrapper iframes; the inner extensionView=true iframe is a separate target
+        if (t.type === 'iframe' && url.startsWith('vscode-webview://')) return false;
+        // Skip Antigravity Settings / Customizations editor-tab iframes so chat/autoaccept never target settings UI
+        if (/\/(settings(?:-standalone)?|customizations)(?:[/?#]|$)/i.test(url)) return false;
+        if (t.title && t.title.includes('Launchpad')) return false;
+        if (t.title === 'Manager') return false;
+        return true;
+    });
 
-    const preferredApp = DriverFactory.getDriver().appType;
+    const normalize = (s) => (s || '').toLowerCase().replace(/[-_]/g, ' ').trim();
+    const targetMatchLabel = (t) => `${t.workspaceName || ''} ${t.windowTitle || ''} ${t.title || ''}`;
 
     candidates.sort((a, b) => {
-        // Preferred target by ID always wins (set via /window command)
+        // 1. Preferred target/window by ID always wins (set via /window command)
         if (preferredTargetId) {
-            if (a.id === preferredTargetId) return -1;
-            if (b.id === preferredTargetId) return 1;
+            const aPref = (a.id === preferredTargetId || a.windowId === preferredTargetId) ? 1 : 0;
+            const bPref = (b.id === preferredTargetId || b.windowId === preferredTargetId) ? 1 : 0;
+            if (aPref !== bPref) return bPref - aPref;
         }
 
-        // Prioritize based on preferred app ('agent' vs 'ide')
-        const aIsAgent = a.url && (a.url.includes('/c/') || a.url.includes('tab=') || (a.url.includes('127.0.0.1') && !a.url.includes('vscode-')));
-        const bIsAgent = b.url && (b.url.includes('/c/') || b.url.includes('tab=') || (b.url.includes('127.0.0.1') && !b.url.includes('vscode-')));
-
-        if (preferredApp === 'agent') {
-            if (aIsAgent && !bIsAgent) return -1;
-            if (!aIsAgent && bIsAgent) return 1;
-        } else if (preferredApp === 'ide') {
-            if (!aIsAgent && bIsAgent) return -1;
-            if (aIsAgent && !bIsAgent) return 1;
-        }
-
-        // Dynamic fallback: prefer the target matching the active workspace
+        // 2. Prefer targets belonging to the active workspace when set
         if (activeWorkspaceName) {
-            const normalize = (s) => (s || '').toLowerCase().replace(/[-_]/g, ' ');
             const searchName = normalize(activeWorkspaceName);
-            const aMatch = normalize(a.title).includes(searchName) ? 1 : 0;
-            const bMatch = normalize(b.title).includes(searchName) ? 1 : 0;
-            if (aMatch !== bMatch) return bMatch - aMatch;
+            const aWsExact = a.workspaceName && normalize(a.workspaceName) === searchName ? 2 : (normalize(targetMatchLabel(a)).includes(searchName) ? 1 : 0);
+            const bWsExact = b.workspaceName && normalize(b.workspaceName) === searchName ? 2 : (normalize(targetMatchLabel(b)).includes(searchName) ? 1 : 0);
+            if (aWsExact !== bWsExact) return bWsExact - aWsExact;
         }
+
+        // 3. Always prioritize live Agent UI targets (Standalone page or IDE 2.6+ extensionView iframe)
+        // ahead of outer workbench shells that contain no chat input.
+        const aIsAgent = isAgentWebTarget(a);
+        const bIsAgent = isAgentWebTarget(b);
+        if (aIsAgent && !bIsAgent) return -1;
+        if (!aIsAgent && bIsAgent) return 1;
+
         return 0;
     });
 
@@ -325,8 +392,9 @@ function getChatExtractExpr() {
                     text = text.replace(/GPT[\\s\\w\\.]+\\([^)]*\\)/gi, '');
                     text = text.replace(/\\bSend\\b\\s*\\b(mic)?\\b/gi, '');
                     text = text.replace(/\\bmic\\b/gi, '');
-                    text = text.replace(/Worked for \\d+s/gi, '');
-                    text = text.replace(/Thought for \\d+s/gi, '');
+                    text = text.replace(/Worked for \\d+[ms](?:\\s+\\d+s)?/gi, '');
+                    text = text.replace(/Thought for \\d+[ms](?:\\s+\\d+s)?/gi, '');
+                    text = text.replace(/^\\s*(Agent said|You said)\\s*$/gm, '');
                     text = text.replace(/Ran command[^\\n]*/gi, '');
                     text = text.replace(/Ran \\d+ tools?[^\\n]*/gi, '');
                     text = text.replace(/Running \\d+ commands?[^\\n]*/gi, '');
@@ -440,8 +508,8 @@ function getChatExtractExpr() {
 
                     if (!isClassic) {
                         const cardNodes = Array.from(container.querySelectorAll('.rounded-xl.bg-card-border, .rounded-2xl.bg-card-border'));
-                        const hasStandaloneArticles = !!container.querySelector('[role="article"][aria-label="Agent response"]');
-                        const agentInsideCard = cardNodes.some(n => n.querySelector('[role="article"][aria-label="Agent response"]') || n.getAttribute('aria-label') === 'Agent response');
+                        const hasStandaloneArticles = !!container.querySelector('[role="article"][aria-label="Agent response"], [data-testid="agent-response"]');
+                        const agentInsideCard = cardNodes.some(n => n.querySelector('[role="article"][aria-label="Agent response"], [data-testid="agent-response"]') || n.getAttribute('aria-label') === 'Agent response' || n.getAttribute('data-testid') === 'agent-response');
                         if (cardNodes.length > 0 && (!hasStandaloneArticles || agentInsideCard)) {
                             messageNodes = cardNodes;
                         }
@@ -450,12 +518,17 @@ function getChatExtractExpr() {
                     if (messageNodes.length === 0 && list) {
                         messageNodes = Array.from(list.children).filter(el => el.tagName !== 'H1' && !el.classList.contains('sr-only'));
                     }
+                    if (messageNodes.length === 0 && !isClassic) {
+                        const turnSteps = Array.from(container.querySelectorAll('[data-testid="user-message"], [data-testid="agent-response"], [role="article"][aria-label="User message"], [role="article"][aria-label="Agent response"]'))
+                            .filter((el, _, arr) => !arr.some(other => other !== el && other.contains(el)));
+                        if (turnSteps.length > 0) messageNodes = turnSteps;
+                    }
                 if (messageNodes.length > 0) {
                     const msgs = [];
                     for (let child of messageNodes) {
                         let clone = child.cloneNode(true);
                         
-                        Array.from(clone.querySelectorAll('style, .katex-mathml, math, annotation, .material-icons, .material-symbols-outlined, .material-symbols-rounded, .google-symbols, .codicon, [class*="icon"]')).forEach(el => el.remove());
+                        Array.from(clone.querySelectorAll('style, .sr-only, .katex-mathml, math, annotation, .material-icons, .material-symbols-outlined, .material-symbols-rounded, .google-symbols, .codicon, [class*="icon"]')).forEach(el => el.remove());
                         
                         // Use centralized logic to remove Thought blocks
                         AG_UI.removeThoughtBlocks(clone);
@@ -478,9 +551,9 @@ function getChatExtractExpr() {
                             }
                         });
                         
-                        let userNodes = Array.from(clone.querySelectorAll('[role="article"][aria-label="User message"], [aria-label*="User message"], .bg-input, [data-message-author="user"], [class*="group/user-input-step"], .interactive-request, .chat-request'));
+                        let userNodes = Array.from(clone.querySelectorAll('[data-testid="user-message"], [role="article"][aria-label="User message"], [aria-label*="User message"], .bg-input, [data-message-author="user"], [class*="group/user-input-step"], .interactive-request, .chat-request'));
                         userNodes = userNodes.filter((el, _, arr) => !arr.some(other => other !== el && other.contains(el)));
-                        if (userNodes.length === 0 && ((clone.getAttribute && (clone.getAttribute('aria-label') === 'User message' || clone.getAttribute('data-message-author') === 'user')) || (clone.className && (clone.className.includes('user-message') || clone.className.includes('interactive-request') || clone.className.includes('chat-request') || clone.className.includes('user-input') || (clone.className.includes('rounded-xl') && clone.className.includes('bg-card-border') && !clone.className.includes('rounded-2xl')))))) {
+                        if (userNodes.length === 0 && ((clone.getAttribute && (clone.getAttribute('data-testid') === 'user-message' || clone.getAttribute('aria-label') === 'User message' || clone.getAttribute('data-message-author') === 'user')) || (clone.className && (clone.className.includes('user-message') || clone.className.includes('interactive-request') || clone.className.includes('chat-request') || clone.className.includes('user-input') || (clone.className.includes('rounded-xl') && clone.className.includes('bg-card-border') && !clone.className.includes('rounded-2xl')))))) {
                             userNodes = [clone];
                         }
                         
@@ -496,7 +569,7 @@ function getChatExtractExpr() {
                             
                             if (!isEntireRowUser) {
                                 // First try: look for a dedicated agent response article element
-                                const agentArticle = clone.querySelector('[role="article"][aria-label="Agent response"], [data-message-author="agent"], [data-message-author="assistant"]');
+                                const agentArticle = clone.querySelector('[data-testid="agent-response"], [role="article"][aria-label="Agent response"], [data-message-author="agent"], [data-message-author="assistant"]');
                                 if (agentArticle) {
                                     // Remove model selectors, thought/tool headers, status spinners
                                     Array.from(agentArticle.querySelectorAll('style, svg, .katex-mathml, math, annotation, [data-testid*="worked-for"], [data-testid*="thought"], [data-testid*="model"], [class*="animate-spin"]')).forEach(el => el.remove());
@@ -654,12 +727,8 @@ function httpGet(url, timeoutMs = 5000) {
 async function snapshotChatState(port, specificTargetId = null, threadName = null) {
     lastResolvedThreadId = null; // ALWAYS clear stale cache before attempting to anchor
 
-    // STRATEGY 0: Extract exact UUID from active page URL (Standalone App)
-    let candidates = await resolveTargets(port, false);
-    if (specificTargetId && specificTargetId !== 'auto') {
-        const filtered = candidates.filter(t => t.id === specificTargetId);
-        if (filtered.length > 0) candidates = filtered;
-    }
+    // STRATEGY 0: Extract exact UUID from active page/extensionView URL
+    let candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId);
     for (const target of candidates) {
         if (target.url) {
             const uuidMatch = target.url.match(/\/c\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
@@ -698,9 +767,7 @@ async function snapshotChatState(port, specificTargetId = null, threadName = nul
     if (threadName && specificTargetId) {
         try {
             const candidates = await resolveTargets(port, true);
-            const targetCandidates = candidates.filter(c => c.id === specificTargetId);
-            // Also include iframe/webview variants that belong to the same window
-            if (targetCandidates.length === 0) targetCandidates.push(...candidates.slice(0, 2));
+            const targetCandidates = filterTargetsById(candidates, specificTargetId);
             
             for (const target of targetCandidates) {
                 try {
@@ -798,10 +865,7 @@ async function snapshotChatState(port, specificTargetId = null, threadName = nul
     }
     
     // Strategy 3: DOM fallback for legacy behavior
-    let candidates2 = await resolveTargets(port);
-    if (specificTargetId) {
-        candidates2 = candidates2.filter(t => t.id === specificTargetId);
-    }
+    let candidates2 = filterTargetsById(await resolveTargets(port, true), specificTargetId);
     for (const target of candidates2) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
@@ -846,10 +910,7 @@ async function snapshotChatState(port, specificTargetId = null, threadName = nul
  * also called directly on window switch for auto-latest.
  */
 async function _domLatestExtraction(port, specificTargetId = null) {
-    let candidates = await resolveTargets(port);
-    if (specificTargetId) {
-        const filtered = candidates.filter(t => t.id === specificTargetId); if (filtered.length > 0) candidates = filtered;
-    }
+    let candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId);
     for (const target of candidates) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
@@ -915,8 +976,7 @@ async function _domLatestExtraction(port, specificTargetId = null) {
 }
 
 async function getInteractiveModalState(port, specificTargetId = null) {
-    let candidates = await resolveTargets(port);
-    if (specificTargetId) { const filtered = candidates.filter(t => t.id === specificTargetId); if (filtered.length > 0) candidates = filtered; }
+    let candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId);
     
     for (const target of candidates) {
         try {
@@ -1357,12 +1417,8 @@ async function waitForAgentResponse(port, timeoutMs = 450000, onProgress = null,
         // Re-fetch targets on each iteration to avoid stale WebSocket connections
         let candidates;
         try {
-            const raw = await resolveTargets(port);
-            if (specificTargetId) {
-                candidates = raw.filter(t => t.id === specificTargetId);
-            } else {
-                candidates = raw;
-            }
+            const raw = await resolveTargets(port, true);
+            candidates = filterTargetsById(raw, specificTargetId);
         } catch(e) {
             await new Promise(r => setTimeout(r, 2000));
             continue;
@@ -1506,19 +1562,13 @@ async function sendViaCDP(text, port, specificTargetId = null) {
     let sortedCandidates = candidates;
 
     if (specificTargetId) {
-        sortedCandidates = candidates.filter(t => t.id && t.id.startsWith(specificTargetId));
+        sortedCandidates = filterTargetsById(candidates, specificTargetId);
     } else if (preferredTargetId) {
-        const pref = candidates.find(t => t.id === preferredTargetId);
-        if (pref && pref.title) {
-            const shortTitle = pref.title.substring(0, 15); // Match base workspace name
-            sortedCandidates = candidates.filter(t => t.id === preferredTargetId || (t.title && t.title.includes(shortTitle)));
-        } else {
-            sortedCandidates = candidates.filter(t => t.id === preferredTargetId);
-        }
+        sortedCandidates = filterTargetsById(candidates, preferredTargetId);
     } else if (activeWorkspaceName) {
         const normalize = (s) => (s || '').toLowerCase().replace(/[-_]/g, ' ');
         const searchName = normalize(activeWorkspaceName);
-        sortedCandidates = candidates.filter(t => normalize(t.title).includes(searchName));
+        sortedCandidates = candidates.filter(t => normalize(`${t.workspaceName || ''} ${t.windowTitle || ''} ${t.title || ''}`).includes(searchName));
         if (sortedCandidates.length === 0) sortedCandidates = candidates; // Fallback if none match
     }
 
@@ -2066,20 +2116,24 @@ async function sendViaCDP(text, port, specificTargetId = null) {
                     }
                 } catch(e) {}
                 await client.close();
-                console.log(`sendViaCDP: Successfully sent via ${val.method} on "${target.title?.substring(0, 40)}"`);
-                return target.id;
+                console.log(`sendViaCDP: Successfully sent via ${val.method} on "${(target.windowTitle || target.title || '').substring(0, 40)}"`);
+                return (specificTargetId && target.windowId && target.windowId.startsWith(specificTargetId))
+                    ? target.windowId
+                    : target.id;
             } else if (val && val.reason === "invalid_modal_option") {
                 await client.close();
                 return "INVALID_MODAL_OPTION";
             }
             
-            if (val) errors.push(`${target.title?.substring(0, 25)}: ${val.reason || 'no_editor'}`);
+            if (val) errors.push(`${(target.windowTitle || target.title || '').substring(0, 25)}: ${val.reason || 'no_editor'}`);
             await client.close();
         } catch(e) {
             if (e.message.includes('Promise was collected')) {
-                console.log(`[sendViaCDP] Ignoring Promise was collected for ${target.title}, assuming success!`);
+                console.log(`[sendViaCDP] Ignoring Promise was collected for ${target.windowTitle || target.title}, assuming success!`);
                 try { if (client) await client.close(); } catch(_) {}
-                return target.id;
+                return (specificTargetId && target.windowId && target.windowId.startsWith(specificTargetId))
+                    ? target.windowId
+                    : target.id;
             }
             errors.push(`${target.title?.substring(0, 25)}: ${e.message}`);
             try { if (client) await client.close(); } catch(_) {}
@@ -2089,9 +2143,15 @@ async function sendViaCDP(text, port, specificTargetId = null) {
     throw new Error("no_chat_input");
 }
 
-async function triggerNewChat(port, wsName = null) {
-    const candidates = await resolveTargets(port, false);
+async function triggerNewChat(port, wsName = null, specificTargetId = null) {
+    let candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId || preferredTargetId);
     const effectiveWs = wsName || activeWorkspaceName;
+    if (effectiveWs && !specificTargetId) {
+        const normWs = (s) => (s || '').toLowerCase().replace(/[-_]/g, ' ').trim();
+        const targetWsNorm = normWs(effectiveWs);
+        const wsMatches = candidates.filter(t => t.workspaceName && normWs(t.workspaceName) === targetWsNorm);
+        if (wsMatches.length > 0) candidates = [...wsMatches, ...candidates.filter(t => !wsMatches.includes(t))];
+    }
     const activeWsStr = effectiveWs ? JSON.stringify(effectiveWs.toLowerCase()) : 'null';
 
     for (const target of candidates) {
@@ -2103,8 +2163,9 @@ async function triggerNewChat(port, wsName = null) {
                 expression: `
                     ${DriverFactory.getDriver().getLocatorsScript()}
                     (async () => {
+                        const isExtensionView = /extensionView=true/i.test(window.location.search || '');
                         let activeWs = ${activeWsStr};
-                        if (!activeWs) {
+                        if (!activeWs && !isExtensionView) {
                             const crumbs = Array.from(document.querySelectorAll('[data-testid="breadcrumb-segment"]'));
                             if (crumbs.length >= 1) {
                                 const candidateWs = crumbs[0].textContent.trim().toLowerCase();
@@ -2112,7 +2173,9 @@ async function triggerNewChat(port, wsName = null) {
                             }
                         }
 
-                        if (activeWs) {
+                        // In IDE 2.6+ extensionView, each window is already bound to its workspaceUri;
+                        // click the pane's New Conversation button directly rather than searching Standalone project headers.
+                        if (!isExtensionView && activeWs) {
                             const normalize = s => (s || '').toLowerCase().replace(/[^\\p{L}\\p{N}]/gu, '');
                             const targetNorm = normalize(activeWs);
                             const baseNorm = normalize(activeWs.split('/').filter(Boolean).pop() || activeWs);
@@ -2211,11 +2274,11 @@ async function triggerNewChat(port, wsName = null) {
     return false;
 }
 
-async function verifyChatMessageSent(port, snippet, expectedThreadId = null) {
+async function verifyChatMessageSent(port, snippet, expectedThreadId = null, specificTargetId = null) {
     const cleanSnippet = String(snippet || '').replace(/\s+/g, ' ').trim().slice(0, 80);
     if (!cleanSnippet) return false;
 
-    const candidates = await resolveTargets(port, false);
+    const candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId);
     const snippetStr = JSON.stringify(cleanSnippet);
     const expectedIdStr = JSON.stringify(expectedThreadId || null);
 
@@ -2234,7 +2297,8 @@ async function verifyChatMessageSent(port, snippet, expectedThreadId = null) {
                         const norm = (s) => (s || '').replace(/\\s+/g, ' ').trim();
 
                         const urlMatch = window.location.pathname.match(/\\/c\\/([0-9a-f-]{36})/i);
-                        const urlThreadId = urlMatch ? urlMatch[1] : null;
+                        const selectedCascadeId = document.querySelector('[data-testid="conversation-row-sidebar"][data-selected="true"]')?.getAttribute('data-cascade-id') || null;
+                        const urlThreadId = urlMatch ? urlMatch[1] : selectedCascadeId;
                         if (expectedId && urlThreadId && urlThreadId !== expectedId) {
                             return { verified: false, reason: 'thread_mismatch', urlThreadId };
                         }
@@ -2298,8 +2362,7 @@ async function verifyChatMessageSent(port, snippet, expectedThreadId = null) {
 
 
 async function triggerModelMenu(port) {
-    const raw = await resolveTargets(port, false);
-    const candidates = raw;
+    const candidates = await resolveTargets(port, true);
 
     for (const target of candidates) {
         try {
@@ -2379,7 +2442,7 @@ async function triggerModelMenu(port) {
 }
 
 async function listAgentThreads(port) {
-    const candidates = await resolveTargets(port, false);
+    const candidates = await resolveTargets(port, true);
     const normalize = (s) => (s || '').toLowerCase().replace(/[-_]/g, ' ');
     const allWorkspaces = [];
     const driver = DriverFactory.getDriver();
@@ -2392,7 +2455,8 @@ async function listAgentThreads(port) {
             const { Runtime } = client;
             await Runtime.enable();
             
-            if (driver.appType === 'ide') {
+            const isModernWebUI = driver.appType === 'agent' || isAgentWebTarget(target);
+            if (!isModernWebUI) {
                 if (!popupCollected) {
                     const openRes = await Runtime.evaluate({
                         expression: `(() => {
@@ -2424,6 +2488,7 @@ async function listAgentThreads(port) {
 
                         const popupRes = await Runtime.evaluate({
                             expression: driver.getListAgentThreadsScript(),
+                            awaitPromise: true,
                             returnByValue: true
                         });
                         
@@ -2454,7 +2519,7 @@ async function listAgentThreads(port) {
                     }
                 }
             } else {
-                // Standalone 2.0 extraction
+                // Standalone 2.0 & IDE 2.6+ extensionView extraction
                 const homeRes = await Runtime.evaluate({
                     expression: driver.getListAgentThreadsScript(),
                     awaitPromise: true,
@@ -2474,14 +2539,14 @@ async function listAgentThreads(port) {
                 }
                 
                 if (homeWorkspaces.length > 0) {
-                    // Standalone targets usually have all threads on a single target if it's the home screen
+                    // Both Standalone and IDE 2.6+ extensionView expose the full shared conversation list in a single sidebar
                     popupCollected = true; 
                 }
             }
             
             await client.close();
             
-            if (popupCollected && driver.appType !== 'ide') {
+            if (popupCollected && isModernWebUI) {
                 break;
             }
         } catch(e) { console.debug(`[listAgentThreads] window error: ${e.message}`); }
@@ -2497,7 +2562,13 @@ function setActiveWorkspace(name) {
 }
 
 async function switchAgentThread(port, threadName, targetWorkspaceName = null, targetThreadId = null) {
-    const candidates = await resolveTargets(port, false);
+    let candidates = await resolveTargets(port, true);
+    if (targetWorkspaceName) {
+        const normWs = (s) => (s || '').toLowerCase().replace(/[-_]/g, ' ').trim();
+        const desired = normWs(targetWorkspaceName);
+        const wsMatches = candidates.filter(t => t.workspaceName && normWs(t.workspaceName) === desired);
+        if (wsMatches.length > 0) candidates = [...wsMatches, ...candidates.filter(t => !wsMatches.includes(t))];
+    }
     for (const target of candidates) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
@@ -2508,7 +2579,7 @@ async function switchAgentThread(port, threadName, targetWorkspaceName = null, t
             const threadNameStr = JSON.stringify(threadName);
             const targetWsNameStr = targetWorkspaceName ? JSON.stringify(targetWorkspaceName.toLowerCase()) : 'null';
             
-            if (driver.appType === 'agent') {
+            if (driver.appType === 'agent' || isAgentWebTarget(target)) {
                 let threadId = targetThreadId;
                 if (!threadId && threadNameToIdCache.has(threadName)) {
                     threadId = threadNameToIdCache.get(threadName);
@@ -2518,7 +2589,8 @@ async function switchAgentThread(port, threadName, targetWorkspaceName = null, t
                     const directRes = await Runtime.evaluate({
                         expression: `(async () => {
                             const targetId = ${JSON.stringify(threadId)};
-                            let link = document.querySelector('a[href*="' + targetId + '"]');
+                            let link = document.querySelector('[data-testid="conversation-row-sidebar"][data-cascade-id="' + targetId + '"] a') ||
+                                       document.querySelector('a[href*="' + targetId + '"]');
                             if (link) {
                                 link.click();
                                 return 'clicked';
@@ -2539,7 +2611,8 @@ async function switchAgentThread(port, threadName, targetWorkspaceName = null, t
                                         scrollEl.scrollTop = pos;
                                         await new Promise(r => setTimeout(r, 60));
                                     }
-                                    link = document.querySelector('a[href*="' + targetId + '"]');
+                                    link = document.querySelector('[data-testid="conversation-row-sidebar"][data-cascade-id="' + targetId + '"] a') ||
+                                           document.querySelector('a[href*="' + targetId + '"]');
                                     if (link) {
                                         link.click();
                                         scrollEl.scrollTop = origScroll;
@@ -2548,7 +2621,7 @@ async function switchAgentThread(port, threadName, targetWorkspaceName = null, t
                                 }
                                 scrollEl.scrollTop = origScroll;
                             }
-                            window.location.href = window.location.origin + '/c/' + targetId;
+                            window.location.href = window.location.origin + '/c/' + targetId + (window.location.search || '');
                             return 'clicked';
                         })()`,
                         awaitPromise: true,
@@ -2562,7 +2635,7 @@ async function switchAgentThread(port, threadName, targetWorkspaceName = null, t
                         lastResolvedThreadId = threadId;
                         _notifyThreadResolved(threadId);
                         threadNameToIdCache.set(threadName, threadId);
-                        return target.id;
+                        return target.windowId || target.id;
                     }
                 }
 
@@ -2575,25 +2648,30 @@ async function switchAgentThread(port, threadName, targetWorkspaceName = null, t
                 await client.close();
                 
                 if (clickRes.result?.value === 'clicked') {
-                    console.log(`[switchAgentThread] Clicked standalone thread "${threadName}", waiting 2500ms...`);
+                    console.log(`[switchAgentThread] Clicked thread "${threadName}", waiting 2500ms...`);
                     await new Promise(r => setTimeout(r, 2500));
                     
-                    // Read the new URL from the page to extract conversation ID directly
+                    // Read the new URL or selected cascade row from the page to extract conversation ID directly
                     try {
                         const client2 = await CDP({ target: target.webSocketDebuggerUrl });
                         const { Runtime: Runtime2 } = client2;
                         await Runtime2.enable();
                         const urlRes = await Runtime2.evaluate({
-                            expression: `window.location.href`,
+                            expression: `(() => ({
+                                href: window.location.href,
+                                cascadeId: document.querySelector('[data-testid="conversation-row-sidebar"][data-selected="true"]')?.getAttribute('data-cascade-id') || null
+                            }))()`,
                             returnByValue: true
                         });
                         await client2.close();
                         
-                        const href = urlRes.result?.value || '';
-                        const uuidMatch = href.match(/\/c\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+                        const href = urlRes.result?.value?.href || '';
+                        const cascadeId = urlRes.result?.value?.cascadeId || '';
+                        const uuidMatch = href.match(/\/c\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i) ||
+                                          cascadeId.match(/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
                         if (uuidMatch) {
                             const conversationId = uuidMatch[1];
-                            console.log(`[switchAgentThread] Extracted conversation ID from URL: ${conversationId}`);
+                            console.log(`[switchAgentThread] Extracted conversation ID: ${conversationId}`);
                             lastResolvedThreadId = conversationId;
                             _notifyThreadResolved(conversationId);
                             threadNameToIdCache.set(threadName, conversationId);
@@ -2602,12 +2680,12 @@ async function switchAgentThread(port, threadName, targetWorkspaceName = null, t
                         console.log(`[switchAgentThread] Could not read URL after click: ${urlErr.message}`);
                     }
                     
-                    return target.id;
+                    return target.windowId || target.id;
                 } else if (clickRes.result?.value === 'already-active') {
                     console.log(`[switchAgentThread] Thread "${threadName}" is already active.`);
-                    return target.id;
+                    return target.windowId || target.id;
                 }
-                console.log(`[switchAgentThread] Standalone thread "${threadName}" not found. Result: ${clickRes.result?.value}`);
+                console.log(`[switchAgentThread] Thread "${threadName}" not found. Result: ${clickRes.result?.value}`);
                 continue;
             }
             
@@ -2752,10 +2830,7 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
     let standaloneTargetResponded = false;
     const driver = DriverFactory.getDriver();
 
-    let candidates = await resolveTargets(port, false);
-    if (specificTargetId) {
-        const filtered = candidates.filter(t => t.id === specificTargetId); if (filtered.length > 0) candidates = filtered;
-    }
+    let candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId);
     // 1. Try to get Name, Workspace, and Thread ID from the DOM
     for (const target of candidates) {
         try {
@@ -2769,7 +2844,7 @@ async function getActiveThreadInfo(port, specificTargetId = null) {
             }), 3000, "Evaluate timeout");
             await client.close();
             if (res.result?.value) {
-                if (driver.appType === 'agent' && /127\.0\.0\.1/.test(target.url || '')) {
+                if (/127\.0\.0\.1/.test(target.url || '')) {
                     standaloneTargetResponded = true;
                 }
                 if (res.result.value.name && !threadName) threadName = res.result.value.name;
@@ -2897,10 +2972,7 @@ async function getActiveThreadId(port, specificTargetId = null) {
     return info ? info.id : null;
 }
 async function isAgentWorking(port, specificTargetId = null) {
-    let candidates = await resolveTargets(port, false);
-    if (specificTargetId) {
-        const filtered = candidates.filter(t => t.id === specificTargetId); if (filtered.length > 0) candidates = filtered;
-    }
+    let candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId);
     for (const target of candidates) {
         try {
             const client = await withTimeout(CDP({ target: target.webSocketDebuggerUrl }), 2000, "CDP timeout");
@@ -2946,7 +3018,7 @@ async function isAgentWorking(port, specificTargetId = null) {
 let lastKnownModel = null;
 
 async function getCurrentModel(port) {
-    const candidates = await resolveTargets(port, false);
+    const candidates = await resolveTargets(port, true);
     for (const target of candidates) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
@@ -3005,7 +3077,7 @@ function normalizePermissionMode(rawText) {
 }
 
 async function getCurrentPermissionMode(port) {
-    const candidates = await resolveTargets(port, false);
+    const candidates = await resolveTargets(port, true);
     for (const target of candidates) {
         try {
             const client = await withTimeout(CDP({ target: target.webSocketDebuggerUrl }), 2000, "CDP timeout");
@@ -3041,7 +3113,7 @@ async function selectPermissionMode(port, modeInput) {
     else if (raw === 'default' || raw.includes('default')) modeKey = 'default';
     else return { ok: false, reason: 'invalid_mode' };
 
-    const candidates = await resolveTargets(port, false);
+    const candidates = await resolveTargets(port, true);
     for (const target of candidates) {
         let client;
         try {
@@ -3081,7 +3153,7 @@ async function selectPermissionMode(port, modeInput) {
 
 async function switchStandaloneWorkspace(port, wsName, wsPath = null) {
     if (!wsName) return false;
-    const candidates = await resolveTargets(port, false);
+    const candidates = await resolveTargets(port, true);
     const targetFolder = wsPath || (wsName.startsWith('/') ? wsName : null);
     for (const target of candidates) {
         try {
@@ -3329,7 +3401,7 @@ async function switchStandaloneWorkspace(port, wsName, wsPath = null) {
 }
 
 async function listStandaloneWorkspaces(port) {
-    const candidates = await resolveTargets(port, false);
+    const candidates = await resolveTargets(port, true);
     for (const target of candidates) {
         try {
             const client = await CDP({ target: target.webSocketDebuggerUrl });
@@ -3391,15 +3463,8 @@ async function listStandaloneWorkspaces(port) {
  * @returns {Promise<boolean>} true if the button was found and clicked
  */
 async function clickArtifactButton(buttonLabel, port, specificTargetId = null) {
-    const candidates = await resolveTargets(port);
-    let targets = candidates;
-
-    if (specificTargetId) {
-        targets = candidates.filter(t => t.id && t.id.startsWith(specificTargetId));
-    } else if (preferredTargetId) {
-        targets = candidates.filter(t => t.id === preferredTargetId);
-        if (targets.length === 0) targets = candidates;
-    }
+    const candidates = await resolveTargets(port, true);
+    let targets = filterTargetsById(candidates, specificTargetId || preferredTargetId);
 
     const labelLower = buttonLabel.toLowerCase();
 
@@ -3475,10 +3540,10 @@ async function clickArtifactButton(buttonLabel, port, specificTargetId = null) {
 
 // Announcement/tip cards and first-run panels pile up after every app update and
 // block clicks. Sweep them on all app windows (see AG_UI.dismissTipCards).
-async function dismissPopups(port) {
+async function dismissPopups(port, specificTargetId = null) {
     let total = 0;
     let candidates = [];
-    try { candidates = await resolveTargets(port, true); } catch (_) { return 0; }
+    try { candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId); } catch (_) { return 0; }
     const script = DriverFactory.getDriver().getLocatorsScript();
     for (const t of candidates) {
         if (!/127\.0\.0\.1/.test(t.url || '')) continue;
@@ -3529,7 +3594,7 @@ module.exports = {
     closeAllEditors,
     listAgentThreads,
     switchAgentThread,
-    CHAT_EXTRACT_EXPR,
+    get CHAT_EXTRACT_EXPR() { return getChatExtractExpr(); },
     getChatExtractExpr,
     getActiveThreadId,
     getActiveThreadInfo,
@@ -3541,7 +3606,7 @@ module.exports = {
 };
 
 async function captureFullIDEScreenshot(port) {
-    const candidates = await resolveTargets(port);
+    const candidates = await resolveTargets(port, false);
 
     for (const target of candidates) {
         try {
@@ -3563,8 +3628,7 @@ async function captureFullIDEScreenshot(port) {
 }
 
 async function getAvailableModels(port) {
-    const raw = await resolveTargets(port, false);
-    const candidates = raw;
+    const candidates = await resolveTargets(port, true);
 
     for (const target of candidates) {
         try {
@@ -3713,11 +3777,7 @@ async function getAvailableModels(port) {
 }
 
 async function selectModel(port, modelName, specificTargetId = null) {
-    const raw = await resolveTargets(port, false);
-    let candidates = raw;
-    if (specificTargetId) {
-        const filtered = candidates.filter(t => t.id === specificTargetId); if (filtered.length > 0) candidates = filtered;
-    }
+    const candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId);
 
     for (const target of candidates) {
         try {
@@ -3916,8 +3976,8 @@ async function selectModel(port, modelName, specificTargetId = null) {
     return false;
 }
 
-async function stopAgent(port) {
-    const candidates = await resolveTargets(port, false);
+async function stopAgent(port, specificTargetId = null) {
+    const candidates = filterTargetsById(await resolveTargets(port, true), specificTargetId);
 
     for (const target of candidates) {
         try {
@@ -3952,7 +4012,7 @@ async function stopAgent(port) {
             });
 
             await client.close();
-            return res.result?.value?.stopped || false;
+            if (res.result?.value?.stopped) return true;
         } catch(e) {}
     }
     return false;
@@ -4193,7 +4253,8 @@ async function closeWindow(port) {
 }
 
 async function closeAllEditors(port) {
-    const activeTarget = await resolveTargets(port, true);
+    const candidates = await resolveTargets(port, false);
+    const activeTarget = candidates[0];
     if (!activeTarget) throw new Error("No active workspace found.");
     
     const client = await CDP({ port, target: activeTarget.webSocketDebuggerUrl });

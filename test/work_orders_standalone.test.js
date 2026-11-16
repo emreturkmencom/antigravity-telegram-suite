@@ -468,6 +468,7 @@ async function runTests() {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agts-wo-verify-ok-'));
         const notes = [];
         let activeThread = { id: 'user-orig-uuid', name: 'User Chat', workspace: 'main' };
+        let activeModel = 'Claude Opus 5.5 (High)';
         let lastSentText = '';
 
         const handlers = createStandaloneHandlers({
@@ -484,7 +485,10 @@ async function runTests() {
                 return true;
             },
             dismissPopups: async () => 0,
+            getCurrentModel: async () => activeModel,
+            selectModel: async (_port, m) => { activeModel = m; return true; },
             sendViaCDP: async (text) => {
+                assert.strictEqual(activeModel, 'Gemini 3.8 Flash (Low)', 'Order model must be selected before sending prompt');
                 lastSentText = text;
                 activeThread = { id: 'brand-new-thread-uuid', name: 'Work Order', workspace: 'wo-yzturkey-gelistirme' };
                 const m = text.match(/write your final answer to this file: `([^`]+)`/);
@@ -504,6 +508,7 @@ async function runTests() {
             deps: {
                 listDeskWindows: async () => [],
                 openDeskWindow: handlers.openStandaloneDesk,
+                selectModel: handlers.selectStandaloneModel,
                 sendToWindow: handlers.sendToStandaloneWindow,
                 closeWindow: async () => {},
                 checkAgent: handlers.checkStandaloneAgent,
@@ -516,7 +521,7 @@ async function runTests() {
 
         fs.writeFileSync(
             path.join(dir, 'inbox', 'good-order.md'),
-            '---\ndesk: yzturkey-gelistirme\n---\nImplement automatic work orders'
+            '---\ndesk: yzturkey-gelistirme\nmodel: "Gemini 3.8 Flash (Low)"\n---\nImplement automatic work orders'
         );
         await wo.tick();
         await Promise.all([...wo.running]);
@@ -527,7 +532,8 @@ async function runTests() {
         const cfg = desks.readDeskConfig(dir, 'yzturkey-gelistirme');
         assert.strictEqual(cfg.threadId, 'brand-new-thread-uuid', 'Verified new threadId saved to desk.json');
         assert.strictEqual(activeThread.id, 'user-orig-uuid', 'Original user chat restored after completion');
-        console.log('  ✅ Verification: new thread ID + visible message saves desk.json and completes order');
+        assert.strictEqual(activeModel, 'Claude Opus 5.5 (High)', 'Original user model restored after completion');
+        console.log('  ✅ Verification: new thread ID + model switch/restore + visible message saves desk.json and completes order');
     }
 
     console.log('✅ All Work Orders Standalone backend tests passed successfully!');

@@ -1,6 +1,9 @@
 function buildIDEObserverScript(buttonTexts, blockedCommands, allowedCommands) {
     return `
 (function() {
+    if (typeof window !== 'undefined' && window.location && /\/(settings(?:-standalone)?|customizations)(?:[/?#]|$)/i.test(window.location.pathname || '')) {
+        return 'skipped-settings';
+    }
     if (window.__AA_BOT_OBSERVER_ACTIVE) {
         if (window.__AA_BOT_OBSERVER_INSTANCE) {
             window.__AA_BOT_OBSERVER_INSTANCE.disconnect();
@@ -18,8 +21,8 @@ function buildIDEObserverScript(buttonTexts, blockedCommands, allowedCommands) {
     }
 
     var AMBIGUOUS_TEXTS = { 'run': true, 'accept': true, 'allow': true, 'retry': true, 'continue': true, 'çalıştır': true, 'kabul et': true, 'izin ver': true, 'yeniden dene': true, 'devam et': true };
-    var SIDEBAR_SELECTORS = '[role="tree"], [role="treeitem"], [role="listbox"], [role="option"], .monaco-list, .conversation-list, .chat-list, .sidebar-list';
-    var EXCLUDED_SELECTORS = '.settings-editor, .settings-body, .preferences-editor, .explorer-viewlet, .menubar, .statusbar, .notes-editor, [class*="SettingsEditor"], [class*="settings-widget"], [role="tabpanel"][aria-label*="Settings"], [role="tabpanel"][aria-label*="Ayarlar"], .dialog-shadow, .quick-input-widget, pre, code, [class*="thought-"], details.thought, [data-testid*="question"], form, [class*="question-card"]';
+    var SIDEBAR_SELECTORS = '[role="tree"], [role="treeitem"], [role="listbox"], [role="option"], .monaco-list, .conversation-list, .chat-list, .sidebar-list, [data-testid="conversation-list-sidebar"], [data-testid="conversation-row-sidebar"], [data-testid="side-panel-popover-content"], aside, nav, [role="navigation"]';
+    var EXCLUDED_SELECTORS = '.settings-editor, .settings-body, .preferences-editor, .explorer-viewlet, .menubar, .statusbar, .notes-editor, [class*="SettingsEditor"], [class*="settings-widget"], [role="tabpanel"][aria-label*="Settings"], [role="tabpanel"][aria-label*="Ayarlar"], .dialog-shadow, .quick-input-widget, pre, code, [class*="thought-"], details.thought, [data-testid*="question"], form, [class*="question-card"], [data-testid="agent-input-box"], [id*="SidePanelInputBox"]';
 
     var NEVER_CLICK_TEXTS = { 'proceed': true, 'cancel': true, 'iptal': true, 'onayla': true, 'devam': true };
     function isArtifactFeedbackButton(btn, matchedText) {
@@ -207,7 +210,7 @@ function buildIDEObserverScript(buttonTexts, blockedCommands, allowedCommands) {
     }
 
     function getScanRoots() {
-        var selector = '#conversation, #chat, #cascade, .interactive-session, .antigravity-agent-side-panel, .relative.flex.flex-col.gap-y-3, [role="dialog"], [role="alertdialog"], .monaco-dialog-box, .notification-toast, .notifications-toasts, [class*="permission"], [class*="tool-call"], .monaco-workbench .editor-group-container, .monaco-editor, .zone-widget, .inline-chat-widget, [class*="diff"], [class*="review"], .floating-click-widget';
+        var selector = '#conversation, #chat, #cascade, .interactive-session, .antigravity-agent-side-panel, [data-testid="autoscroll-viewport"], [data-testid="turn-cards-container"], [data-testid="agent-response"], .relative.flex.flex-col.gap-y-3, [role="dialog"], [role="alertdialog"], .monaco-dialog-box, .notification-toast, .notifications-toasts, [class*="permission"], [class*="tool-call"], .monaco-workbench .editor-group-container, .monaco-editor, .zone-widget, .inline-chat-widget, [class*="diff"], [class*="review"], .floating-click-widget';
         var nodes = document.querySelectorAll(selector);
         if (nodes.length === 0) return [document.body];
         return Array.from(nodes);

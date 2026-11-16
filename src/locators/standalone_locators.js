@@ -148,7 +148,7 @@ const STANDALONE_LOCATORS_SCRIPT = `
         isClassicIDE: () => false,
 
         getVisibleChatContainer: () => {
-            const chatList = document.querySelector('.relative.flex.flex-col.gap-y-3, .relative.flex.flex-col.gap-y-3.px-4, .chat-messages');
+            const chatList = document.querySelector('.relative.flex.flex-col.gap-y-3, .relative.flex.flex-col.gap-y-3.px-4, .chat-messages, [data-testid="autoscroll-viewport"]');
             if (chatList) return chatList;
             const standaloneContainer = document.querySelector('.theme-standalone') || document.getElementById('root') || document.body;
             return standaloneContainer;
@@ -191,9 +191,10 @@ const STANDALONE_LOCATORS_SCRIPT = `
 
         getStopButton: () => {
             const editor = AG_UI.getChatInput();
-            const card = editor?.closest('.bg-card, form, [class*="composer"], [class*="input-container"]') || editor?.parentElement?.parentElement?.parentElement?.parentElement || document;
+            const card = editor?.closest('[data-testid="agent-input-box"], [id*="SidePanelInputBox"], .bg-card, form, [class*="composer"], [class*="input-container"]') || document;
 
             const selectors = [
+                'button[data-testid="input-cancel-button"]',
                 'button[aria-label*="Cancel" i]',
                 'button[aria-label*="Stop" i]',
                 'button[title*="Cancel" i]',
@@ -209,7 +210,10 @@ const STANDALONE_LOCATORS_SCRIPT = `
             const stopIcon = card.querySelector(
                 "svg.lucide-square, svg.lucide-circle-stop, [data-tooltip-id*='cancel'], [aria-label*='Stop']"
             );
-            if (stopIcon) return stopIcon.closest('button') || stopIcon;
+            if (stopIcon) {
+                const iconBtn = stopIcon.closest('button') || stopIcon;
+                if (AG_UI.isVisible(iconBtn)) return iconBtn;
+            }
             return null;
         },
 
@@ -254,9 +258,13 @@ const STANDALONE_LOCATORS_SCRIPT = `
                 }
             } catch (e) {}
 
-            // 2. Explicit New Conversation test IDs in Standalone 2.23+
-            const explicitBtn = document.querySelector('[data-testid="new-conversation-button"], [data-testid="app-icon-new-conversation-button"], [data-testid="new-chat-button"]');
-            if (explicitBtn && !isInvalidNewChatEl(explicitBtn)) return explicitBtn;
+            // 2. Explicit New Conversation test IDs in Standalone 2.23+ and IDE 2.6+ extensionView
+            const explicitCandidates = Array.from(document.querySelectorAll(
+                '[data-testid="extension-new-conversation"], [data-testid="new-conversation-button"], [data-testid="app-icon-new-conversation-button"], [data-testid="new-chat-button"]'
+            )).filter(el => !isInvalidNewChatEl(el));
+            const visibleExplicit = explicitCandidates.find(AG_UI.isVisible);
+            if (visibleExplicit) return visibleExplicit;
+            if (explicitCandidates.length > 0) return explicitCandidates[0];
 
             // 3. Classic SVG path
             const svgPath = document.querySelector('path[d="M12 4.5v15m7.5-7.5h-15"]');
@@ -317,7 +325,7 @@ const STANDALONE_LOCATORS_SCRIPT = `
             if (visibleExplicit.length > 0) return visibleExplicit[0];
             if (validExplicit.length > 0) return validExplicit[0];
 
-            const modelKeywords = ['gemini', 'claude', 'gpt', 'opus', 'sonnet', 'flash', 'argon', 'llama', 'mistral', 'deepseek'];
+            const modelKeywords = ['gemini', 'claude', 'gpt', 'opus', 'sonnet', 'flash', 'argon', 'carbon', 'hydrogen', 'orchestrator', 'llama', 'mistral', 'deepseek'];
             const allButtons = Array.from(document.querySelectorAll('button, [role="button"]')).filter(el => {
                 if (!AG_UI.isVisible(el)) return false;
                 const inMenu = el.closest('[role="menu"], [role="listbox"], [data-radix-popper-content-wrapper], div[class*="popover"], div[class*="dropdown-content"]');
@@ -340,7 +348,7 @@ const STANDALONE_LOCATORS_SCRIPT = `
 
         getModelOptions: () => {
             const isFile = (str) => /\.(js|jsx|ts|tsx|md|json|py|html|css|txt|sh)$/i.test((str || '').trim());
-            const modelKeywords = ['gemini', 'claude', 'gpt', 'opus', 'sonnet', 'flash', 'argon', 'llama', 'mistral', 'deepseek'];
+            const modelKeywords = ['gemini', 'claude', 'gpt', 'opus', 'sonnet', 'flash', 'argon', 'carbon', 'hydrogen', 'orchestrator', 'llama', 'mistral', 'deepseek'];
             
             const selectorBtn = AG_UI.getModelSelectorButton();
             const ariaControlsId = selectorBtn ? selectorBtn.getAttribute('aria-controls') : null;
@@ -388,7 +396,7 @@ const STANDALONE_LOCATORS_SCRIPT = `
         },
 
         getChatThreadPills: (container = document) => {
-            return Array.from(container.querySelectorAll('a[href*="/c/"], [data-testid^="convo-pill-"], .convo-pill, [class*="conversation-pill"]'));
+            return Array.from(container.querySelectorAll('a[href*="/c/"], [data-testid="conversation-row-sidebar"], [data-testid^="convo-pill-"], .convo-pill, [class*="conversation-pill"]'));
         },
         
         isVisible: (el) => {

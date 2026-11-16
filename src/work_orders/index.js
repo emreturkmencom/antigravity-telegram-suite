@@ -27,10 +27,11 @@ function startWorkOrders(bot, chatIds) {
     let reqSeq = 0;
     const pending = new Map(); // requestId -> resolve
 
-    let activeOrder = null;
+    const activeOrders = new Map(); // orderId -> { id, desk }
     const queuedUserMessages = [];
     let userMessageProcessor = null;
     let lastUserActivityAt = 0;
+    const getBackend = () => (process.env.WORK_ORDERS_BACKEND || 'standalone').toLowerCase();
 
     const send = async (msg) => {
         const extra = msg.buttons && msg.buttons.length
@@ -77,12 +78,13 @@ function startWorkOrders(bot, chatIds) {
             if (!msg || typeof msg !== 'object') return;
             if (msg.type === 'notify') return send(msg);
             if (msg.type === 'order_started') {
-                activeOrder = msg.order;
+                if (msg.order && msg.order.id) activeOrders.set(msg.order.id, msg.order);
                 return;
             }
             if (msg.type === 'order_finished') {
-                activeOrder = null;
-                flushQueue().catch(() => {});
+                if (msg.order && msg.order.id) activeOrders.delete(msg.order.id);
+                else activeOrders.clear();
+                if (activeOrders.size === 0) flushQueue().catch(() => {});
                 return;
             }
             const resolve = pending.get(msg.requestId);
@@ -90,7 +92,7 @@ function startWorkOrders(bot, chatIds) {
         });
         child.on('exit', (code) => {
             child = null;
-            activeOrder = null;
+            activeOrders.clear();
             if (restarts >= 5) {
                 send({ text: `❌ Work orders runner stopped (exit ${code}) after 5 restarts. Check the bot logs.` });
                 return;
@@ -113,7 +115,7 @@ function startWorkOrders(bot, chatIds) {
     });
 
     bot.command('wo_stop', async (ctx) => {
-        if (!activeOrder) {
+        if (activeOrders.size === 0) {
             return ctx.reply(s('no_running_order'));
         }
         await ctx.reply(s('wo_stopping'));
@@ -130,8 +132,9 @@ function startWorkOrders(bot, chatIds) {
     return {
         dir,
         stop: () => { restarts = 99; if (child) child.kill(); },
-        isOrderRunning: () => !!activeOrder,
-        getActiveOrder: () => activeOrder,
+        isOrderRunning: () => activeOrders.size > 0,
+        shouldQueueUserChat: () => getBackend() === 'standalone' && activeOrders.size > 0,
+        getActiveOrder: () => activeOrders.values().next().value || null,
         queueUserMessage: (msg) => { queuedUserMessages.push(msg); },
         recordUserActivity: () => {
             lastUserActivityAt = Date.now();

@@ -9,6 +9,17 @@ const DESK_RE = /^[a-z0-9][a-z0-9._-]{0,31}$/; // ≤32 chars keeps callback_dat
 const INSTR_START = '<!-- wo-desk-instructions -->';
 const INSTR_END = '<!-- /wo-desk-instructions -->';
 
+const MODEL_PRESETS = [
+    { key: '0', label: null, value: null },
+    { key: '1', label: '⚡ Gemini 3.8 Flash (Low)', value: 'Gemini 3.8 Flash (Low)' },
+    { key: '2', label: '⚡ Gemini 3.8 Flash (High)', value: 'Gemini 3.8 Flash (High)' },
+    { key: '3', label: '💎 Gemini 4 Carbon (High)', value: 'Gemini 4 Carbon (High)' },
+    { key: '4', label: '🧠 Gemini 4 Argon (High)', value: 'Gemini 4 Argon (High)' },
+    { key: '5', label: '🔹 Gemini 4 Hydrogen (High)', value: 'Gemini 4 Hydrogen (High)' },
+    { key: '6', label: '🎭 Claude Sonnet 5.5 (High)', value: 'Claude Sonnet 5.5 (High)' },
+    { key: '7', label: '👑 Claude Opus 5.5 (High)', value: 'Claude Opus 5.5 (High)' },
+];
+
 function defaultDir() {
     if (process.env.WORK_ORDERS_DIR) return process.env.WORK_ORDERS_DIR.replace(/^~(?=$|\/)/, os.homedir());
     const { config } = require('../platform');
@@ -81,14 +92,25 @@ function setDeskThreadId(dir, desk, threadId) {
     return cfg;
 }
 
+function setDeskModel(dir, desk, model) {
+    const cfg = readDeskConfig(dir, desk);
+    const cleaned = model && String(model).trim() ? String(model).trim() : null;
+    if (cleaned) cfg.model = cleaned;
+    else delete cfg.model;
+    writeDeskConfig(dir, desk, cfg);
+    return cfg;
+}
+
 // Idempotent: creates the folder/AGENT.md/desk.json only if missing.
-function ensureDesk(dir, desk, { instructions = '', approval, ensureMemory } = {}) {
+function ensureDesk(dir, desk, { instructions = '', approval, model, ensureMemory } = {}) {
     const p = deskPath(dir, desk);
     fs.mkdirSync(p, { recursive: true });
     const agentMd = path.join(p, 'AGENT.md');
     if (!fs.existsSync(agentMd)) fs.writeFileSync(agentMd, deskSeed(desk, instructions));
     if (!fs.existsSync(path.join(p, 'desk.json'))) {
-        writeDeskConfig(dir, desk, { approval: approval || 'auto', createdAt: new Date().toISOString() });
+        const initCfg = { approval: approval || 'auto', createdAt: new Date().toISOString() };
+        if (model && String(model).trim()) initCfg.model = String(model).trim();
+        writeDeskConfig(dir, desk, initCfg);
     }
     if (ensureMemory) ensureMemory(p);
     return p;
@@ -144,7 +166,7 @@ function newOrderId(desk) {
 }
 
 // Writes an order into inbox/ atomically (tmp + rename) so the runner never reads half a file.
-function writeOrder(dir, { desk, body, approval, timeoutMin }) {
+function writeOrder(dir, { desk, body, approval, timeoutMin, model }) {
     // Two orders for the same desk in the same second must not overwrite each other.
     const base = newOrderId(desk);
     let id = base;
@@ -153,6 +175,7 @@ function writeOrder(dir, { desk, body, approval, timeoutMin }) {
     }
     const lines = ['---', `desk: ${desk}`];
     if (approval) lines.push(`approval: ${approval}`);
+    if (model && String(model).trim()) lines.push(`model: "${String(model).trim().replace(/"/g, '')}"`);
     if (timeoutMin) lines.push(`timeout: ${timeoutMin}`);
     lines.push('---', body.trim(), '');
     const tmp = path.join(dir, 'inbox', `.${id}.tmp`);
@@ -194,6 +217,7 @@ function readLiveOrders(dir) {
 
 module.exports = {
     DESK_RE,
+    MODEL_PRESETS,
     defaultDir,
     ensureLayout,
     slugifyDesk,
@@ -206,6 +230,7 @@ module.exports = {
     readDeskConfig,
     writeDeskConfig,
     setDeskThreadId,
+    setDeskModel,
     getInstructions,
     setInstructions,
     archiveDesk,

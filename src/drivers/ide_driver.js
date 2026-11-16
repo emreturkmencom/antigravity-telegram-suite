@@ -1,9 +1,25 @@
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const BaseDriver = require('./base_driver');
+const StandaloneDriver = require('./standalone_driver');
 const { getLocatorsScript } = require('../locators');
+
+function resolveIDEAppDataName() {
+    const geminiDir = path.join(os.homedir(), '.gemini');
+    const migratedMarker = path.join(geminiDir, 'antigravity-ide', '.ide_migration');
+    const unifiedBrain = path.join(geminiDir, 'antigravity', 'brain');
+    const legacyBrain = path.join(geminiDir, 'antigravity-ide', 'brain');
+    if (fs.existsSync(migratedMarker) || fs.existsSync(unifiedBrain) || !fs.existsSync(legacyBrain)) {
+        return 'antigravity';
+    }
+    return 'antigravity-ide';
+}
 
 class IDEDriver extends BaseDriver {
     constructor() {
-        super('ide', 'antigravity-ide', 9222);
+        super('ide', resolveIDEAppDataName(), 9334);
+        this._webDriver = new StandaloneDriver();
     }
 
     getLocatorsScript() {
@@ -11,7 +27,11 @@ class IDEDriver extends BaseDriver {
     }
 
     getActiveThreadInfoScript() {
-        return `(() => {
+        const webScript = this._webDriver.getActiveThreadInfoScript();
+        return `(async () => {
+            if (typeof window !== 'undefined' && (/^https?:$/i.test(window.location.protocol || '') || /extensionView=true/i.test(window.location.search || ''))) {
+                return await (${webScript});
+            }
             let name = null;
             let nameSource = 'none';
             let threadIdVal = null;
@@ -119,6 +139,20 @@ class IDEDriver extends BaseDriver {
     }
 
     getSwitchThreadScript(threadNameStr, targetWsNameStr) {
+        if (threadNameStr !== undefined) {
+            const webScript = this._webDriver.getSwitchThreadScript(threadNameStr, targetWsNameStr || 'null');
+            return `(async () => {
+                if (typeof window !== 'undefined' && (/^https?:$/i.test(window.location.protocol || '') || /extensionView=true/i.test(window.location.search || ''))) {
+                    return await (${webScript});
+                }
+                const existing = document.querySelector('input[placeholder*="Search all"], input[placeholder="Select a conversation"], input[placeholder*="convo"]');
+                if (existing) return "already-open";
+                const icon = document.querySelector('[data-past-conversations-toggle="true"], [data-tooltip-id="history-tooltip"], [data-tooltip-id*="history" i], button[aria-label*="history" i], a[aria-label*="history" i], [role="button"][aria-label*="history" i], button[aria-label*="conversation" i], a[aria-label*="conversation" i], button[title*="Recent Sessions" i], a[title*="Recent Sessions" i], svg.lucide-history, .codicon-history');
+                if (!icon) return "no-icon";
+                (icon.closest("button") || icon.closest("a") || icon.parentElement || icon).click();
+                return "opened";
+            })()`;
+        }
         return `(() => {
             const existing = document.querySelector('input[placeholder*="Search all"], input[placeholder="Select a conversation"], input[placeholder*="convo"]');
             if (existing) return "already-open";
@@ -167,7 +201,11 @@ class IDEDriver extends BaseDriver {
     }
 
     getListAgentThreadsScript() {
-        return `(() => {
+        const webScript = this._webDriver.getListAgentThreadsScript();
+        return `(async () => {
+            if (typeof window !== 'undefined' && (/^https?:$/i.test(window.location.protocol || '') || /extensionView=true/i.test(window.location.search || ''))) {
+                return await (${webScript});
+            }
             const activeWsName = (() => {
                 const sidePanelWs = document.querySelector(".antigravity-agent-side-panel div.text-lg.font-medium")?.textContent.trim();
                 if (sidePanelWs) return sidePanelWs;

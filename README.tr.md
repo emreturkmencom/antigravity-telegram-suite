@@ -12,7 +12,7 @@ Telefonunuzdan mesaj gönderin, yapay zeka modellerini değiştirin, çalışma 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.8.3-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.0-orange.svg)]()
 
 </div>
 
@@ -47,6 +47,7 @@ Telefonunuzdan mesaj gönderin, yapay zeka modellerini değiştirin, çalışma 
 | 🖥️ **Çapraz Platform** | Linux, macOS (Intel & Apple Silicon) ve Windows’ta çalışır |
 | 🔀 **Çift Uygulama Desteği** | Antigravity IDE ve Standalone App arasında sorunsuzca geçiş yapın |
 | 📡 **Telegraph Yayını** | Görev listeleri, planlar ve walkthrough belgeleri 128-bit tahmin edilemez kripto slug URL'leri ile yayınlanabilir (veya sohbette gizli tutulabilir), tam açma/kapama ve silme kontrolü |
+| 🗂 **Work Orders (`/wo`)** | Kendi `AGENT.md` hafızasına sahip uzman ajan "masaları" (desks), masa/iş bazlı AI model seçimi, Telegram onay mekanizması, harici `inbox/` otomasyonu, Standalone sıralı çalışma ve Antigravity IDE üzerinde paralel çoklu pencere yürütme |
 
 ---
 
@@ -184,6 +185,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/plan <görev>` | Kodlamadan önce **uygulama planı** oluşturur |
 | `/schedule_task <görev>` | IDE’de tekrarlayan veya tek seferlik görev planlar |
 | `/agents [arama]` | İnteraktif sohbet yöneticisi (Son sohbetler, proje klasörleri, hızlı arama) |
+| `/wo [masa] [iş]` | **Work Orders** panelini açar veya uzman bir masaya iş emri gönderir (`--model "..."` destekli) |
+| `/wo_stop` | O an çalışan iş emirlerini durdurur |
 | `/quota` | AI kredilerini ve model kullanım limitlerini kontrol eder |
 
 ### Uygulama & Pencere Yönetimi
@@ -260,6 +263,21 @@ Turbo Mod, birden fazla AI modelini otomatik koordine eden bir **Ajan Konseyi** 
 - **Basit uzun görev** (ör. "bu modülü refactor et") → `/goal`
 - **Çoklu model incelemesi gereken görev** (ör. "özellik yap, güvenlik incele, sorunları düzelt") → `/turbo`
 - **Planlama** → `/plan` (plan oluşturur, sonra siz karar verirsiniz)
+- **Tekrarlayan uzmanlık görevleri veya dış orkestrasyon** (ör. yorum yanıtlama, kalite kontrol, cron/Claude Code iş devri) → `/wo`
+
+---
+
+## 🗂 Work Orders (Uzman Ajan Masaları)
+
+**Work Orders** (`/wo`), her biri kendi klasörüne, `AGENT.md` kurallarına/hafızasına, onay politikasına (`⚡ Otomatik` veya `🔒 Onaylı`) ve özel AI modeline (`🤖 Model`) sahip kalıcı uzman masalar kurmanızı sağlar.
+
+- **Telegram Üzerinden:** `/wo` ile masa oluşturun, masa bazlı varsayılan model seçin, bekleyen işleri onaylayın veya `/wo video-qa --model "Gemini 3.8 Flash (Low)" Son paketi kontrol et` gibi tek satırlık iş emirleri gönderin.
+- **Dış Orkestratörler ve Scriptler:** Claude Code, CI scriptleri veya cron görevleri `.agts-work-orders/inbox/` klasörüne bir Markdown dosyası bırakarak iş emri verebilir ve yapılandırılmış çıktıyı `results/<id>.md` + Telegram bildirimi olarak alabilir.
+- **İki Çalışma Modu (`WORK_ORDERS_BACKEND`):**
+  - `standalone` *(varsayılan)*: Antigravity Standalone (`AGENT_CDP_PORT`) üzerinde sıralı çalışır; kullanıcı sohbeti `60` saniye boşta kalana kadar bekler ve iş bitince önceki sohbetinizi ve AI modelinizi otomatik geri yükler.
+  - `ide`: Her masayı kendi **Antigravity IDE 2.6+** penceresinde (`IDE_CDP_PORT`) açarak farklı masaların **aynı anda paralel** çalışmasını sağlar; normal Telegram sohbetinizi bloklamaz ve sırada iş yoksa boşta kalan IDE pencerelerini `3` dakika sonra otomatik kapatır (`WORK_ORDERS_IDLE_CLOSE_MIN=3`).
+
+📖 Detaylı rehber ve YAML şeması: **[docs/WORK_ORDERS.md](docs/WORK_ORDERS.md)**
 
 ---
 
@@ -318,7 +336,7 @@ Bot eşzamanlı çalışan **iki Antigravity uygulamasını** destekler:
 
 | Sorun | Detay |
 |-------|---------|
-| **Standalone Uygulama Desteği** | Tüm komutlar Antigravity 2.0 Standalone App ile tam uyumlu çalışmaktadır. `/agents`, model seçimi, otomatik onay ve sohbet takibi dahil tüm özellikler desteklenmektedir. |
+| **Standalone ve IDE 2.6+ Desteği** | Tüm komutlar hem Antigravity Standalone App (2.29+) hem de Antigravity IDE (2.6+ / 1.107.0+) ile tam uyumlu çalışır (`/agents`, `/wo` paralel çoklu pencere masaları, model/efor seçimi, oto-onay ve sohbet takibi dahil). |
 | **IDE 2.0 Oto-Güncellemeleri** | Antigravity IDE kendini güncellerse, DOM seçicileri bot da güncellenene kadar geçici olarak bozulabilir. |
 | **Turbo Mod Model Erişimi** | Turbo Mod, hem Claude hem de Gemini modellerine erişim gerektirir. Biri eksikse işlem başarısız olur. |
 

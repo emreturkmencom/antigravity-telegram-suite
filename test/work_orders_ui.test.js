@@ -106,9 +106,26 @@ async function run() {
     assert.strictEqual(desks.getInstructions(dir, 'yorum-masasi'), 'New rules only.');
     assert(md2.includes('## Rules for every order') && md2.includes(MARKER_START));
 
-    // Approval toggle, desk view, status, last result (none yet).
+    // Approval toggle, model picker (preset + custom + inline --model), desk view, status, last result (none yet).
     await press('wom:ap:yorum-masasi');
     assert.strictEqual(desks.readDeskConfig(dir, 'yorum-masasi').approval, 'auto');
+    await press('wom:m:yorum-masasi');
+    assert(/Model/.test(last()));
+    await press('wom:ms:yorum-masasi:2'); // Gemini 3.8 Flash (High)
+    assert.strictEqual(desks.readDeskConfig(dir, 'yorum-masasi').model, 'Gemini 3.8 Flash (High)');
+    await press('wom:mc:yorum-masasi');
+    await say('Claude Opus 5.5 (High)');
+    assert.strictEqual(desks.readDeskConfig(dir, 'yorum-masasi').model, 'Claude Opus 5.5 (High)');
+    await press('wom:mc:yorum-masasi');
+    await say('-');
+    assert.strictEqual(desks.readDeskConfig(dir, 'yorum-masasi').model, undefined, 'dash resets desk model to default');
+    const beforeInbox = new Set(fs.readdirSync(path.join(dir, 'inbox')));
+    await bot.commands.wo(makeCtx(replies, { message: { text: '/wo yorum-masasi --model "Gemini 3.8 Flash (Low)" fast check' } }));
+    const newInboxFile = fs.readdirSync(path.join(dir, 'inbox')).find(f => f.endsWith('.md') && !beforeInbox.has(f));
+    assert(newInboxFile, 'new order file created');
+    const lastOrderParsed = parseOrder(fs.readFileSync(path.join(dir, 'inbox', newInboxFile), 'utf8'));
+    assert.strictEqual(lastOrderParsed.model, 'Gemini 3.8 Flash (Low)');
+    assert.strictEqual(lastOrderParsed.body, 'fast check');
     await press('wom:d:yorum-masasi');
     assert(last().includes('yorum-masasi'));
     await press('wom:st');

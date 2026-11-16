@@ -114,7 +114,7 @@ async function checkObserverStatus(port) {
                         paused: !!window.__AA_BOT_PAUSED,
                         clicks: window.__AA_BOT_CLICK_COUNT || 0,
                         clickLog: (window.__AA_BOT_CLICK_LOG || []).slice(-5),
-                        hasAgentPanel: !!(document.querySelector('#conversation, #chat, .interactive-session, .react-app-container') || document.querySelector('[class*="agent"]'))
+                        hasAgentPanel: !!(document.querySelector('#conversation, #chat, .interactive-session, .react-app-container, [data-testid="agent-input-box"], [data-testid="autoscroll-viewport"]') || document.querySelector('[class*="agent"]'))
                     };
                 })()
             `);
@@ -393,7 +393,35 @@ function getBlockedCommands() {
     return [...blockedCommands];
 }
 
+function buildIDEObserverDefaultScript() {
+    const buttonTexts = [
+        'yes, allow this time', 'yes, and always allow', 'yes, always allow', 'allow running this command',
+        'allow url access', 'allow reading url', 'allow external link', 'allow external site', 'allow domain', 'allow access',
+        'run', 'accept all', 'accept changes', 'accept all changes', 'accept', 'always allow', 'allow this conversation',
+        'allow', 'retry', 'continue', 'grant', 'open link', 'open', 'confirm',
+        'url erişimine izin ver', 'siteye erişime izin ver', 'erişime izin ver', 'alana izin ver', 'çalıştır',
+        'tümünü kabul et', 'değişiklikleri kabul et', 'tüm değişiklikleri kabul et', 'kabul et', 'her zaman izin ver',
+        'bu seferlik izin ver', 'izin ver', 'yeniden dene', 'devam et', 'onayla', 'bağlantıyı aç'
+    ];
+    return buildIDEObserverScript(buttonTexts, blockedCommands, allowedCommands);
+}
+
+async function ensureIDETargetsObserver(port, targetWsUrls = []) {
+    const script = buildIDEObserverDefaultScript();
+    let count = 0;
+    for (const wsUrl of targetWsUrls) {
+        if (!wsUrl) continue;
+        try {
+            const r = await cdpEval(wsUrl, `window.__AA_BOT_OBSERVER_ACTIVE ? 'already-active' : (${script})`);
+            if (r === 'observer-installed' || r === 'already-active') count++;
+        } catch (_) {}
+    }
+    return count;
+}
+
 module.exports = { buildObserverScript,
+    buildIDEObserverDefaultScript,
+    ensureIDETargetsObserver,
     enable,
     disable,
     getStatus,

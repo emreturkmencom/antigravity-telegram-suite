@@ -3587,8 +3587,11 @@ async function doLaunchWorkspace(ctx, workspace) {
                     });
                     if (targets && targets.length > 0) {
                         const targetWsName = workspace ? path.basename(workspace).toLowerCase() : null;
-                        const foundNew = targetWsName ? targets.some(t => t.title && t.title.toLowerCase().includes(targetWsName)) : true;
-                        if (foundNew) {
+                        const foundWin = targetWsName ? targets.some(t => t.title && t.title.toLowerCase().includes(targetWsName)) : true;
+                        const foundPanel = targetWsName
+                            ? targets.some(t => /extensionView=true/i.test(t.url || '') && decodeURIComponent(t.url || '').toLowerCase().includes(targetWsName))
+                            : targets.some(t => /extensionView=true/i.test(t.url || ''));
+                        if (foundPanel || (foundWin && i >= 6)) {
                             cdpReady = true;
                             break;
                         }
@@ -3857,9 +3860,17 @@ bot.action(/pref_app_(.+)/, async (ctx) => {
             console.error('[App Switch] Auto-start failed:', err.message);
         }
         
-        // Autoaccept status reload for new port
-        if (autoaccept.isEnabled) {
+        // Autoaccept & TaskWatcher sync for new app/port
+        if (selectedApp === 'ide' && (autoaccept.isEnabled || process.env.AUTOACCEPT_DEFAULT === 'true')) {
             autoaccept.enable(CDP_PORT).catch(() => {});
+        } else if (selectedApp === 'agent' && autoaccept.isEnabled) {
+            autoaccept.disable(getCDPPort('ide')).catch(() => {});
+        }
+        if (global.__taskWatcher) {
+            const DriverFactory = require('./drivers');
+            const newAppData = DriverFactory.getDriver(selectedApp).appDataName;
+            global.__taskWatcher.appDataName = newAppData;
+            global.__taskWatcher.brainPath = path.join(os.homedir(), '.gemini', newAppData, 'brain');
         }
         
         if (autoStarted) {
@@ -4555,6 +4566,13 @@ function buildPermissionModeKeyboard(currentId) {
 }
 
 async function handlePermissionMode(ctx) {
+    const preferredApp = (process.env.ANTIGRAVITY_PREFERRED_APP || 'agent').toLowerCase();
+    if (preferredApp === 'ide') {
+        const nativeMode = await getCurrentPermissionMode(CDP_PORT).catch(() => null);
+        if (!nativeMode) {
+            return handleAutoAccept(ctx);
+        }
+    }
     const rawText = (ctx.message?.text || '').trim();
     let arg = '';
     if (rawText.startsWith('/')) {
@@ -4810,10 +4828,13 @@ let isAgentBusy = false;
         explicitTargetId = ctx.message.reply_to_message.reply_markup.inline_keyboard[0][0].callback_data.replace('focus_', '');
     }
 
-    // Work Orders: check user activity and queue if an order is running
+    // Work Orders: check user activity and queue only if Standalone single-window backend is busy
     if (workOrdersManager) {
         workOrdersManager.recordUserActivity();
-        if (workOrdersManager.isOrderRunning()) {
+        const shouldQueue = typeof workOrdersManager.shouldQueueUserChat === 'function'
+            ? workOrdersManager.shouldQueueUserChat()
+            : workOrdersManager.isOrderRunning();
+        if (shouldQueue) {
             workOrdersManager.queueUserMessage({
                 ctx,
                 query,
@@ -5177,7 +5198,8 @@ async function init() {
 
     // Initialize Task Watcher — monitors agent's proactive notifications
     const preferredApp = (process.env.ANTIGRAVITY_PREFERRED_APP || 'ide').toLowerCase();
-    const appDataName = preferredApp === 'agent' ? 'antigravity' : 'antigravity-ide';
+    const DriverFactory = require('./drivers');
+    const appDataName = DriverFactory.getDriver(preferredApp).appDataName;
     
     // Track last proactive notification message per chat for edit-in-place
     const proactiveMessageIds = new Map(); // chatId -> { messageId, timestamp, hasFeedback }

@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.9.0] - 2026-11-16
+
+### Added
+- **Work Orders — Specialist Agent Desks & External Orchestration (`/wo`, `/wo_stop`)**:
+  - Create persistent domain-specific agent "desks" (`desks/wo-<desk>/`) from Telegram (`/wo`), each equipped with its own `AGENT.md` instructions & Project Memory and `desk.json` configuration (`approval`, `model`, `threadId`).
+  - **Dual Execution Backends (`WORK_ORDERS_BACKEND`)**:
+    - `standalone` *(default)*: Runs sequentially on Antigravity Standalone (`AGENT_CDP_PORT`) with a `60s` user-idle guard (`WORK_ORDERS_IDLE_SEC=60`), automatic Telegram message queueing during execution, and full restoration of the user's previous chat thread and AI model when finished.
+    - `ide`: Opens each desk in its own isolated **Antigravity IDE 2.6+** window (`IDE_CDP_PORT`) up to `WORK_ORDERS_MAX_WINDOWS`, running multiple different desks **in parallel** without blocking normal Telegram chats.
+  - **3-Tier AI Model Selection**: Configure models per order (`model:` YAML frontmatter or `/wo <desk> --model "..." <body>`), per desk (`/wo` → Desk → `🤖 Model` presets + custom name), or globally (`WORK_ORDERS_DEFAULT_MODEL`).
+  - **External Script & Orchestrator Protocol**: Drop atomic `.md` files into `.agts-work-orders/inbox/` from Claude Code, cron jobs, or CI pipelines and receive structured `results/<id>.md` outputs + Telegram notifications.
+  - **Fast Idle Window Auto-Close**: Idle IDE desk windows without queued orders automatically close after `3` minutes by default (`WORK_ORDERS_IDLE_CLOSE_MIN=3`, or `0` for immediate close upon completion).
+
+### Fixed
+- **Full Antigravity IDE 2.6+ (`1.107.0+`) Integration**:
+  - Updated `resolveTargets` and `annotateTargetsWithWindows` in `cdp_controller.js` to discover IDE 2.6+'s inner `http://127.0.0.1:<port>/?extensionView=true` React/Lexical agent iframes, walk `parentId` chains to associate each iframe with its owning `workbench.html` window (`windowId`, `windowTitle`, `workspaceUri`), and exclude `/settings-standalone` & `/customizations` editor tabs.
+  - Added `HYBRID_IDE_LOCATORS_SCRIPT` and `IDEDriver` delegation so all commands (`/model`, `/new`, `/agents`, `/stop`, `/window`, `/workspace`, `/autoaccept`, `/latest`, and Work Orders) work seamlessly on IDE 2.6+ while retaining backward compatibility with legacy IDE targets.
+  - Auto-detected IDE 2.6+'s unified `~/.gemini/antigravity` storage migration (`.ide_migration`) for `TaskWatcher` and transcript extraction.
+  - Fixed `getStopButton()` in `standalone_locators.js` to scope to `[data-testid="agent-input-box"]` and match `button[data-testid="input-cancel-button"]`, accurately detecting active agent generation in Standalone 2.29+ and IDE 2.6+.
+  - Hardened cold-boot IDE Work Order execution (`isPanelComposerReady`) to wait for Lexical composer mount before prompt injection and guarded `ide_autoaccept.js` against clicking buttons inside Settings/Customizations tabs or composer/sidebar chrome.
+
 ## [3.8.7] - 2026-10-14
 
 ### Added

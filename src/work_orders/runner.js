@@ -18,8 +18,12 @@ const {
     triggerNewChat,
     dismissPopups,
     stopAgent,
+    selectModel,
+    getCurrentModel,
 } = require('../cdp_controller');
 const { launchIDE } = require('../platform');
+const { ensureIDETargetsObserver } = require('../autoaccept');
+const { STANDALONE_LOCATORS_SCRIPT } = require('../locators/standalone_locators');
 const { ensureMemoryConvention } = require('../memory_convention');
 const { WorkOrders } = require('./core');
 const { deskFolderName, defaultDir, readDeskConfig, writeDeskConfig } = require('./desks');
@@ -34,6 +38,10 @@ const port = isStandalone
 
 const dir = defaultDir();
 const num = (v, d) => (Number.isFinite(parseInt(v, 10)) && parseInt(v, 10) > 0 ? parseInt(v, 10) : d);
+const numNonNeg = (v, d) => {
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) && n >= 0 ? n : d;
+};
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const notify = (msg) => { if (process.send) process.send({ type: 'notify', ...msg }); };
 
@@ -59,8 +67,12 @@ async function listDeskWindows() {
     try { targets = await resolveTargets(port, false); } catch (_) { return []; }
     const out = [];
     for (const t of targets) {
-        const m = (t.title || '').match(/(?:^|\s-\s)wo-([a-z0-9][a-z0-9._-]*)(?:\s-\s|$)/);
-        if (m) out.push({ desk: m[1], targetId: t.id, ws: t.webSocketDebuggerUrl });
+        const wsFromUri = t.workspaceName || '';
+        const candidateStr = `${wsFromUri} - ${t.title || ''}`;
+        const m = candidateStr.match(/(?:^|\s-\s)wo-([a-z0-9][a-z0-9._-]*)(?:\s-\s|$)/);
+        if (m && !out.some(x => x.targetId === t.id)) {
+            out.push({ desk: m[1], targetId: t.id, ws: t.webSocketDebuggerUrl });
+        }
     }
     return out;
 }
@@ -70,23 +82,52 @@ async function findPanel(win) {
     try { raw = JSON.parse(await (await fetch(`http://127.0.0.1:${port}/json`)).text()); } catch (_) { return null; }
     const parent = new Map(raw.map(t => [t.id, t.parentId]));
     for (const t of raw) {
-        if (!/extensionView=true/.test(t.url || '')) continue;
+        const url = t.url || '';
+        if (!/extensionView=true/.test(url)) continue;
+        if (/\/(settings(?:-standalone)?|customizations)(?:[/?#]|$)/i.test(url)) continue;
         let p = parent.get(t.id);
         for (let hops = 0; p && hops < 5; hops++) {
-            if (p === win.targetId) return t.id;
+            if (p === win.targetId) return { id: t.id, ws: t.webSocketDebuggerUrl };
             p = parent.get(p);
         }
     }
     return null;
 }
 
+async function isPanelComposerReady(wsUrl) {
+    if (!wsUrl) return false;
+    let client;
+    try {
+        client = await CDP({ target: wsUrl });
+        await client.Runtime.enable();
+        const r = await client.Runtime.evaluate({
+            expression: `(() => {
+                ${STANDALONE_LOCATORS_SCRIPT}
+                try { AG_UI.dismissConsentModals && AG_UI.dismissConsentModals(); } catch (_) {}
+                return !!AG_UI.getChatInput();
+            })()`,
+            returnByValue: true,
+        });
+        await client.close();
+        return !!(r && r.result && r.result.value);
+    } catch (_) {
+        try { if (client) await client.close(); } catch (_) {}
+        return false;
+    }
+}
+
 async function withPanel(win) {
     for (let i = 0; i < 40; i++) {
-        const panelId = await findPanel(win);
-        if (panelId) return { ...win, panelId };
+        const panel = await findPanel(win);
+        if (panel && await isPanelComposerReady(panel.ws)) {
+            if (process.env.WORK_ORDERS_IDE_AUTOACCEPT !== 'false') {
+                await ensureIDETargetsObserver(port, [win.ws, panel.ws]).catch(() => {});
+            }
+            return { ...win, panelId: panel.id, panelWs: panel.ws };
+        }
         await sleep(1500);
     }
-    throw new Error(`agent panel of desk "${win.desk}" did not load within 60 s (Antigravity IDE 2.6+ required)`);
+    throw new Error(`agent panel composer of desk "${win.desk}" did not become ready within 60 s (Antigravity IDE 2.6+ required)`);
 }
 
 async function openDeskWindow(desk, deskDir) {
@@ -98,7 +139,10 @@ async function openDeskWindow(desk, deskDir) {
         const w = (await listDeskWindows()).find(x => x.desk === desk);
         if (w) {
             const ready = await withPanel(w);
-            await sleep(4000); // let the panel finish rendering before typing
+            await sleep(500); // brief settle after Lexical composer mounts
+            if (process.env.WORK_ORDERS_IDE_AUTOACCEPT !== 'false') {
+                await ensureIDETargetsObserver(port, [ready.ws, ready.panelWs]).catch(() => {});
+            }
             return ready;
         }
     }
@@ -106,17 +150,53 @@ async function openDeskWindow(desk, deskDir) {
 }
 
 async function sendToWindow(win, text) {
-    await sendViaCDP(flattenForChat(text), port, win.panelId || win.targetId);
+    const targetId = win.panelId || win.targetId;
+    const flattened = flattenForChat(text);
+    const snippet = extractVerificationSnippet(flattened);
+
+    await dismissPopups(port, targetId).catch(() => {});
+    await sendViaCDP(flattened, port, targetId);
+
+    if (snippet) {
+        let verified = false;
+        for (let i = 0; i < 8; i++) {
+            await sleep(750);
+            if (await verifyChatMessageSent(port, snippet, null, targetId).catch(() => false)) {
+                verified = true;
+                break;
+            }
+        }
+        if (!verified) {
+            // One retry if cold-opened extensionView swallowed focus on first attempt
+            await dismissPopups(port, targetId).catch(() => {});
+            await sendViaCDP(flattened, port, targetId);
+            for (let i = 0; i < 8; i++) {
+                await sleep(750);
+                if (await verifyChatMessageSent(port, snippet, null, targetId).catch(() => false)) {
+                    verified = true;
+                    break;
+                }
+            }
+        }
+        if (!verified) {
+            throw new Error(`work order message did not appear in IDE desk "${win.desk}" panel after sending`);
+        }
+    }
 }
 
 async function checkAgent(win) {
     const id = win.panelId || win.targetId;
+    if (process.env.WORK_ORDERS_IDE_AUTOACCEPT !== 'false') {
+        await ensureIDETargetsObserver(port, [win.ws, win.panelWs]).catch(() => {});
+    }
     let lastText = '';
     try {
         const r = await getFullLatestResponse(port, id);
         lastText = typeof r === 'string' ? r : (r && r.text) || '';
     } catch (_) { return { working: true }; }
-    return { working: !AGENT_ERROR_RE.test(lastText), lastText };
+    if (AGENT_ERROR_RE.test(lastText)) return { working: false, lastText };
+    const working = await isAgentWorking(port, id).catch(() => true);
+    return { working: working || !lastText.trim(), lastText };
 }
 
 async function closeWindow(win) {
@@ -126,6 +206,17 @@ async function closeWindow(win) {
         await client.close();
     } catch (e) {
         console.log(`[work-orders] close ${win.desk} failed: ${e.message}`);
+    }
+}
+
+async function selectWindowModel(win, modelName) {
+    if (!modelName) return;
+    const targetId = (win && (win.panelId || win.targetId)) || null;
+    try {
+        const ok = await selectModel(port, modelName, targetId);
+        if (!ok) console.warn(`[work-orders] selectModel("${modelName}") did not match on desk "${win && win.desk}"`);
+    } catch (e) {
+        console.warn(`[work-orders] selectModel("${modelName}") error: ${e.message}`);
     }
 }
 
@@ -141,12 +232,15 @@ function createStandaloneHandlers({
     sendViaCDP: sendPrompt = sendViaCDP,
     verifyChatMessageSent: verifyMessage = verifyChatMessageSent,
     getFullLatestResponse: getLatestResponse = getFullLatestResponse,
+    selectModel: chooseModel = selectModel,
+    getCurrentModel: readModel = getCurrentModel,
     notify: notifyFn = notify,
     sleep: sleepFn = sleep,
     verifyAttempts = 12,
     verifyIntervalMs = 1000,
 } = {}) {
     let lastOriginalThread = null;
+    let lastOriginalModel = null;
 
     async function openStandaloneDesk(desk, deskDir) {
         // 1. Record current active thread and workspace before switching
@@ -289,40 +383,67 @@ function createStandaloneHandlers({
         return { working: !AGENT_ERROR_RE.test(lastText), lastText };
     }
 
+    async function selectStandaloneModel(win, modelName) {
+        if (!modelName) return;
+        const targetPort = (win && win.port) || cdpPort;
+        try {
+            const cur = await readModel(targetPort);
+            if (cur) {
+                lastOriginalModel = cur;
+                if (win) win.originalModel = cur;
+            }
+        } catch (_) {}
+        try {
+            const ok = await chooseModel(targetPort, modelName);
+            if (!ok) console.warn(`[work-orders] standalone selectModel("${modelName}") did not match`);
+        } catch (e) {
+            console.warn(`[work-orders] standalone selectModel("${modelName}") error: ${e.message}`);
+        }
+    }
+
     async function afterStandaloneOrder(order, win) {
         const orig = (win && win.originalThread) || lastOriginalThread;
+        const origModel = (win && win.originalModel) || lastOriginalModel;
         lastOriginalThread = null;
-        if (!orig) return;
-        const { id, name, workspace } = orig;
-        if (!id && !workspace) return;
-
+        lastOriginalModel = null;
         const targetPort = (win && win.port) || cdpPort;
-        let restored = false;
-        try {
-            if (id) {
-                const res = await switchThread(targetPort, name, workspace, id);
-                if (res) {
-                    await sleepFn(1000);
-                    const info = await getThreadInfo(targetPort);
-                    if (info && info.id === id) {
-                        restored = true;
+
+        if (orig && (orig.id || orig.workspace)) {
+            const { id, name, workspace } = orig;
+            let restored = false;
+            try {
+                if (id) {
+                    const res = await switchThread(targetPort, name, workspace, id);
+                    if (res) {
+                        await sleepFn(1000);
+                        const info = await getThreadInfo(targetPort);
+                        if (info && info.id === id) {
+                            restored = true;
+                        }
                     }
+                } else if (workspace) {
+                    await switchWorkspace(targetPort, workspace);
+                    restored = true;
                 }
-            } else if (workspace) {
-                await switchWorkspace(targetPort, workspace);
-                restored = true;
+            } catch (e) {
+                console.debug('[work-orders] failed to restore chat:', e.message);
             }
-        } catch (e) {
-            console.debug('[work-orders] failed to restore chat:', e.message);
+
+            if (!restored) {
+                notifyFn({ text: s('cant_return_chat') });
+            }
         }
 
-        if (!restored) {
-            notifyFn({ text: s('cant_return_chat') });
+        if (origModel && order && order.model && origModel.toLowerCase() !== order.model.toLowerCase()) {
+            try {
+                await chooseModel(targetPort, origModel);
+            } catch (_) {}
         }
     }
 
     return {
         openStandaloneDesk,
+        selectStandaloneModel,
         sendToStandaloneWindow,
         checkStandaloneAgent,
         afterStandaloneOrder,
@@ -332,6 +453,7 @@ function createStandaloneHandlers({
 const standaloneHandlers = createStandaloneHandlers();
 const {
     openStandaloneDesk,
+    selectStandaloneModel,
     sendToStandaloneWindow,
     checkStandaloneAgent,
     afterStandaloneOrder,
@@ -356,6 +478,7 @@ if (require.main === module) {
     const deps = isStandalone ? {
         listDeskWindows: async () => [],
         openDeskWindow: (desk, deskDir) => openStandaloneDesk(desk, deskDir),
+        selectModel: (win, modelName) => selectStandaloneModel(win, modelName),
         sendToWindow: (win, text) => sendToStandaloneWindow(win, text),
         closeWindow: async () => {},
         checkAgent: (win) => checkStandaloneAgent(win),
@@ -374,10 +497,17 @@ if (require.main === module) {
     } : {
         listDeskWindows,
         openDeskWindow,
+        selectModel: selectWindowModel,
         sendToWindow,
         closeWindow,
         checkAgent,
-        stopAgent: async () => {},
+        stopAgent: async (order) => {
+            if (!order || !order.desk) return;
+            const win = (await listDeskWindows()).find(w => w.desk === order.desk);
+            if (!win) return;
+            const panel = await findPanel(win);
+            await stopAgent(port, (panel && panel.id) || win.targetId).catch(() => {});
+        },
         onOrderStarted: (order) => {
             if (process.send) process.send({ type: 'order_started', order: { id: order.id, desk: order.desk } });
         },
@@ -395,8 +525,9 @@ if (require.main === module) {
         options: {
             maxConcurrent: isStandalone ? 1 : null,
             maxWindows: num(process.env.WORK_ORDERS_MAX_WINDOWS, 3),
-            idleCloseMin: num(process.env.WORK_ORDERS_IDLE_CLOSE_MIN, 15),
+            idleCloseMin: numNonNeg(process.env.WORK_ORDERS_IDLE_CLOSE_MIN, 3),
             timeoutMin: num(process.env.WORK_ORDERS_TIMEOUT_MIN, 60),
+            defaultModel: process.env.WORK_ORDERS_DEFAULT_MODEL || null,
         },
     });
 

@@ -15,25 +15,69 @@ class StandaloneDriver extends BaseDriver {
             let name = document.title || null;
             let nameSource = document.title ? 'document-title' : 'none';
             let threadIdVal = null;
-            
+            let isExtensionView = false;
+            let workspace = null;
+
+            const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
             try {
                 const url = window.location.href;
                 const urlMatch = url.match(/\\/c\\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
                 if (urlMatch) threadIdVal = urlMatch[1];
+
+                const params = new URLSearchParams(window.location.search || '');
+                isExtensionView = params.get('extensionView') === 'true';
+                const wsUri = params.get('workspaceUri');
+                if (wsUri) {
+                    const decoded = decodeURIComponent(wsUri).replace(/^file:\\/\\//i, '').replace(/\\/+$/, '');
+                    const base = decoded.split('/').filter(Boolean).pop();
+                    if (base) workspace = base;
+                }
             } catch (e) {}
 
-            let workspace = null;
+            // IDE 2.6+ extensionView and Standalone 2.29+: selected sidebar row carries data-cascade-id & data-subtext
+            const selectedRow = document.querySelector('[data-testid="conversation-row-sidebar"][data-selected="true"]');
+            if (selectedRow) {
+                if (!threadIdVal) {
+                    const cascadeId = selectedRow.getAttribute('data-cascade-id') || '';
+                    if (uuidRegex.test(cascadeId)) {
+                        threadIdVal = cascadeId.match(uuidRegex)[0];
+                    } else {
+                        const rowHref = selectedRow.querySelector('a')?.getAttribute('href') || '';
+                        const hm = rowHref.match(/\\/c\\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+                        if (hm) threadIdVal = hm[1];
+                    }
+                }
+                if (!workspace) {
+                    const sub = (selectedRow.getAttribute('data-subtext') || '').split('/')[0].trim();
+                    if (sub) workspace = sub;
+                }
+            }
 
-            // Fast path: Standalone 2.23+ titlebar breadcrumbs
+            // Fast path: Standalone 2.23+ / IDE 2.6+ titlebar breadcrumbs
             const crumbs = Array.from(document.querySelectorAll('[data-testid="breadcrumb-segment"]'));
             if (crumbs.length >= 2) {
-                workspace = crumbs[0].textContent.trim();
+                if (!workspace) workspace = crumbs[0].textContent.trim();
                 name = crumbs[1].textContent.trim();
                 nameSource = 'breadcrumb';
             } else if (crumbs.length === 1) {
                 const seg = crumbs[0].textContent.trim();
                 if (seg && seg.toLowerCase() !== 'antigravity') {
-                    workspace = seg;
+                    if (isExtensionView) {
+                        // In IDE 2.6+ extensionView (hideWelcomePrefix=true), the single breadcrumb is the conversation title
+                        name = seg;
+                        nameSource = 'breadcrumb';
+                    } else if (!workspace) {
+                        workspace = seg;
+                    }
+                }
+            }
+
+            if (!workspace) {
+                const projBtn = document.querySelector('[data-testid="project-selector-trigger"]');
+                const projTxt = projBtn ? (projBtn.textContent || '').trim() : '';
+                if (projTxt && !/^(select project|proje seç)/i.test(projTxt)) {
+                    workspace = projTxt;
                 }
             }
 
@@ -259,11 +303,16 @@ class StandaloneDriver extends BaseDriver {
                         if (headerWs) lastKnownWs = headerWs;
 
                         let rowWs = null;
-                        const row = link.closest("div") || link.parentElement;
-                        if (row && row.innerText) {
-                            const rowLines = row.innerText.split("\\n").map(s => s.trim()).filter(Boolean);
-                            if (rowLines.length >= 2 && rowLines[0] === title && !/^[0-9]+[smhd]$|^[0-9]+:[0-9]+|^[0-9]+\\s*(min|hour|day|sec|mo|wk|yr)/i.test(rowLines[1])) {
-                                rowWs = rowLines[1];
+                        const row = link.closest('[data-testid="conversation-row-sidebar"]') || link.closest("div") || link.parentElement;
+                        if (row) {
+                            const subAttr = (row.getAttribute("data-subtext") || "").split("/")[0].trim();
+                            if (subAttr) {
+                                rowWs = subAttr;
+                            } else if (row.innerText) {
+                                const rowLines = row.innerText.split("\\n").map(s => s.trim()).filter(Boolean);
+                                if (rowLines.length >= 2 && rowLines[0] === title && !/^[0-9]+[smhd]$|^[0-9]+:[0-9]+|^[0-9]+\\s*(min|hour|day|sec|mo|wk|yr)/i.test(rowLines[1])) {
+                                    rowWs = rowLines[1];
+                                }
                             }
                         }
 

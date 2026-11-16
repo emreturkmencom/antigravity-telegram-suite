@@ -16,8 +16,9 @@ const desks = require('./desks');
 const DEFAULTS = {
     maxWindows: 3,
     maxConcurrent: null,
-    idleCloseMin: 15,
+    idleCloseMin: 3,
     timeoutMin: 60,
+    defaultModel: null,
     pollSec: 10,
     resultSettleMs: 5000,
     // An agent that stops (error, crash, waiting on a dialog) without writing the
@@ -54,7 +55,9 @@ function parseOrder(text) {
     const timeoutMin = meta.timeout ? parseInt(meta.timeout, 10) : null;
     if (meta.timeout && !(timeoutMin > 0)) throw new Error(`timeout must be minutes > 0 (got "${meta.timeout}")`);
 
-    return { desk, approval, mode, timeoutMin, expects: meta.expects || null, body };
+    const model = meta.model && meta.model.trim() ? meta.model.trim() : null;
+
+    return { desk, approval, mode, model, timeoutMin, expects: meta.expects || null, body };
 }
 
 class WorkOrders {
@@ -119,7 +122,9 @@ class WorkOrders {
                 this.deps.notify({ text: `❌ Work order ${id} rejected: ${e.message}` });
                 continue;
             }
-            if (!parsed.approval) parsed.approval = desks.readDeskConfig(this.dir, parsed.desk).approval || 'auto';
+            const deskCfg = desks.readDeskConfig(this.dir, parsed.desk);
+            if (!parsed.approval) parsed.approval = deskCfg.approval || 'auto';
+            if (!parsed.model) parsed.model = deskCfg.model || this.opt.defaultModel || null;
             const finalId = this.orders.has(id) ? `${id}-${this.now()}` : id;
             const runningFile = path.join(this.dir, 'running', `${finalId}.md`);
             fs.renameSync(src, runningFile);
@@ -227,8 +232,12 @@ First line: "STATUS: done" or "STATUS: failed". Write it even if the order faile
         try {
             const deskDir = this.ensureDesk(order.desk);
             win = await this.deps.openDeskWindow(order.desk, deskDir);
+            if (order.model && this.deps.selectModel) {
+                await this.deps.selectModel(win, order.model, order);
+            }
             await this.deps.sendToWindow(win, this.buildPrompt(order));
-            this.deps.notify({ text: `▶️ Work order ${order.id} started on desk ${order.desk}.` });
+            const modelTag = order.model ? ` (🤖 ${order.model})` : '';
+            this.deps.notify({ text: `▶️ Work order ${order.id} started on desk ${order.desk}${modelTag}.` });
 
             const timeoutMs = (order.timeoutMin || this.opt.timeoutMin) * 60000;
             const result = await this._waitForResult(order, timeoutMs, win);
@@ -260,6 +269,12 @@ First line: "STATUS: done" or "STATUS: failed". Write it even if the order faile
             }
             ds.busyWith = null;
             ds.lastActive = this.now();
+            if (win && this.opt.idleCloseMin === 0) {
+                const hasQueued = [...this.orders.values()].some(o => o.desk === order.desk && o.status === 'queued');
+                if (!hasQueued && this.deps.closeWindow) {
+                    try { await this.deps.closeWindow(win); ds.lastActive = 0; } catch (_) {}
+                }
+            }
         }
     }
 
@@ -323,6 +338,13 @@ First line: "STATUS: done" or "STATUS: failed". Write it even if the order faile
         for (const w of open) {
             const ds = this._desk(w.desk);
             if (ds.busyWith) continue;
+            const hasQueued = [...this.orders.values()].some(o => o.desk === w.desk && o.status === 'queued');
+            if (hasQueued) continue;
+            if (limit === 0) {
+                await this.deps.closeWindow(w);
+                ds.lastActive = 0;
+                continue;
+            }
             // lastActive 0 = a desk window we never used in this run (e.g. left open
             // before a restart): treat as idle since now, not as idle forever.
             if (!ds.lastActive) { ds.lastActive = this.now(); continue; }

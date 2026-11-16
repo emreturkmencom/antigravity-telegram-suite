@@ -12,7 +12,7 @@ Send messages, switch AI models, manage workspaces, take screenshots, and run mu
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.8.3-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.0-orange.svg)]()
 
 </div>
 
@@ -48,6 +48,7 @@ Send messages, switch AI models, manage workspaces, take screenshots, and run mu
 | 🔀 **Dual App Support** | Seamlessly switch between Antigravity IDE and Standalone Agent App |
 | 🔐 **Multi-Account Switching** | Authenticate and switch between Google accounts, injecting credentials directly into the IDE database or OS keychain |
 | 📡 **Telegraph Publishing** | Task checklists, implementation plans, and walkthroughs can be published with 128-bit unguessable crypto slug URLs (or kept private in chat), with full toggle and wipe controls |
+| 🗂 **Work Orders (`/wo`)** | Persistent specialist agent "desks" with dedicated `AGENT.md` memory, per-desk/per-order AI model selection, Telegram approval gates, external `inbox/` automation, Standalone sequential mode, and parallel multi-window execution on Antigravity IDE |
 
 
 ---
@@ -206,6 +207,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/plan <task>` | Generate an **implementation plan** before coding |
 | `/schedule_task <prompt>` | Schedule a recurring or one-time task in the IDE |
 | `/agents [query]` | Interactive chat thread manager (Recent chats, project folders, fast search) |
+| `/wo [desk] [order]` | Open **Work Orders** panel or dispatch a job to a specialist desk (`--model "..."` supported) |
+| `/wo_stop` | Abort currently running work order(s) |
 | `/quota` | Check AI model credits and usage quotas |
 
 ### App & Window Management
@@ -294,6 +297,21 @@ Turbo Mode runs an **Agents Council** workflow that coordinates multiple AI mode
 - **Simple long task** (e.g., "refactor this module") → `/goal` 
 - **Complex task needing cross-model review** (e.g., "build this feature, review security, fix issues") → `/turbo`
 - **Planning** → `/plan` (generates plan, then you decide)
+- **Recurring domain tasks or external orchestration** (e.g., comment triage, QA audits, cron/Claude Code delegating jobs) → `/wo`
+
+---
+
+## 🗂 Work Orders (Specialist Agent Desks)
+
+**Work Orders** (`/wo`) lets you spin up persistent specialist desks — each with its own workspace folder, `AGENT.md` instructions & memory, approval policy (`⚡ Auto` or `🔒 Approve`), and dedicated AI model (`🤖 Model`).
+
+- **From Telegram:** Run `/wo` to create desks, configure per-desk models, approve pending jobs, or dispatch one-liners like `/wo video-qa --model "Gemini 3.8 Flash (Low)" Check latest batch`.
+- **From External Orchestrators & Cron:** Any tool (such as Claude Code, CI scripts, or cron jobs) can drop a Markdown file into `.agts-work-orders/inbox/` and read structured results from `results/<id>.md` + Telegram notifications.
+- **Two Execution Backends (`WORK_ORDERS_BACKEND`):**
+  - `standalone` *(default)*: Runs sequentially on Antigravity Standalone (`AGENT_CDP_PORT`), waits for user idle (`60s`), and restores your active chat thread & model afterwards.
+  - `ide`: Opens each desk in an isolated **Antigravity IDE 2.6+** window (`IDE_CDP_PORT`) so multiple desks run **in parallel** without blocking your normal Telegram chat, auto-closing idle windows after `3` minutes (`WORK_ORDERS_IDLE_CLOSE_MIN=3`).
+
+📖 Full guide & YAML schema: **[docs/WORK_ORDERS.md](docs/WORK_ORDERS.md)**
 
 ---
 
@@ -385,7 +403,7 @@ Use `/app` to switch the bot's focus between apps. The `ANTIGRAVITY_PREFERRED_AP
 
 | Issue | Details |
 |-------|---------|
-| **Standalone App Support** | All commands work fully natively with Antigravity 2.0 Standalone App. All features including `/agents`, model selection, auto-accept, and conversation tracking are supported. |
+| **Standalone & IDE 2.6+ Support** | All commands work natively with both Antigravity Standalone App (2.29+) and Antigravity IDE (2.6+ / 1.107.0+), including `/agents`, `/wo` parallel multi-window desks, model & effort selection, auto-accept, and conversation tracking. |
 | **Auto-Update on IDE 2.0** | If Antigravity IDE auto-updates, DOM selectors may break until the bot is also updated. |
 | **Telegraph Privacy & Networks** | Telegraph publishing is enabled by default (`ENABLE_TELEGRAPH=true`) with 128-bit unguessable crypto slug URLs. To disable, set `ENABLE_TELEGRAPH=false` or use `/telegraph off`. If `api.telegra.ph` is blocked on your network, set `TELEGRAPH_API_HOST=api.graph.org` in your `.env` (default). |
 

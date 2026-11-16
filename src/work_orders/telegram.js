@@ -12,6 +12,18 @@ const MAX_MSG = 3800;
 const clip = (text, n = MAX_MSG) => (text.length > n ? text.slice(0, n) + '\n…' : text);
 const kb = (rows) => Markup.inlineKeyboard(rows.map(r => r.map(b => Markup.button.callback(b[0], b[1]))));
 const approvalLabel = (mode) => s(mode === 'telegram' ? 'approval_telegram' : 'approval_auto');
+const modelLabel = (m) => (m && String(m).trim() ? String(m).trim() : s('model_default_short'));
+const shortModelLabel = (m) => {
+    if (!m || !String(m).trim()) return s('model_default_short');
+    return String(m).trim().replace(/^Gemini\s+/i, 'G').replace(/^Claude\s+/i, '').slice(0, 22);
+};
+
+function extractInlineModelArg(rawOrderText) {
+    const str = String(rawOrderText || '');
+    const m = str.match(/^(?:--model|-m)(?:=|\s+)(?:"([^"]+)"|'([^']+)'|(\S+))\s+([\s\S]+)$/i);
+    if (!m) return { model: null, body: str };
+    return { model: (m[1] || m[2] || m[3] || '').trim() || null, body: m[4] };
+}
 
 function registerWorkOrdersUI(bot, { dir }) {
     const flows = new Map(); // chatId -> { flow, step, desk, expires }
@@ -53,14 +65,30 @@ function registerWorkOrdersUI(bot, { dir }) {
         const text = s('desk_view', {
             desk,
             approval: approvalLabel(cfg.approval),
+            model: modelLabel(cfg.model),
             last: last ? `${last.id} — ${last.status}` : s('desk_none'),
             instructions: clip(instr, 1500),
         });
         return ctx.reply(text, kb([
             [[s('btn_new_order'), `wom:o:${desk}`], [s('btn_instructions'), `wom:i:${desk}`]],
-            [[s('btn_approval', { mode: approvalLabel(cfg.approval) }), `wom:ap:${desk}`], [s('btn_last_result'), `wom:r:${desk}`]],
-            [[s('btn_archive'), `wom:x:${desk}`], [s('btn_back'), 'wom:dl']],
+            [[s('btn_approval', { mode: approvalLabel(cfg.approval) }), `wom:ap:${desk}`], [s('btn_model', { model: shortModelLabel(cfg.model) }), `wom:m:${desk}`]],
+            [[s('btn_last_result'), `wom:r:${desk}`], [s('btn_archive'), `wom:x:${desk}`]],
+            [[s('btn_back'), 'wom:dl']],
         ]));
+    };
+
+    const modelPickerView = (ctx, desk) => {
+        if (!desks.deskExists(dir, desk)) return ctx.reply(s('desk_not_found', { desk }));
+        const cfg = desks.readDeskConfig(dir, desk);
+        const cur = cfg.model || null;
+        const rows = desks.MODEL_PRESETS.map(p => {
+            const baseText = p.value ? p.label : s('btn_model_default');
+            const isSelected = (!cur && !p.value) || (cur && p.value && cur.toLowerCase() === p.value.toLowerCase());
+            return [[isSelected ? `${baseText} ✅` : baseText, `wom:ms:${desk}:${p.key}`]];
+        });
+        rows.push([[s('btn_model_custom'), `wom:mc:${desk}`]]);
+        rows.push([[s('btn_back'), `wom:d:${desk}`]]);
+        return ctx.reply(s('choose_model', { desk, model: modelLabel(cur) }), kb(rows));
     };
 
     const statusView = (ctx) => {
@@ -72,9 +100,10 @@ function registerWorkOrdersUI(bot, { dir }) {
         return ctx.reply(clip(parts.join('\n\n')), kb([[[s('btn_back'), 'wom:p']]]));
     };
 
-    const queueOrder = (ctx, desk, body) => {
+    const queueOrder = (ctx, desk, rawBody) => {
         const cfg = desks.readDeskConfig(dir, desk);
-        const id = desks.writeOrder(dir, { desk, body });
+        const { model, body } = extractInlineModelArg(rawBody);
+        const id = desks.writeOrder(dir, { desk, body, model });
         return ctx.reply(s(cfg.approval === 'telegram' ? 'order_queued_approval' : 'order_queued', { id, desk }));
     };
 
@@ -130,6 +159,25 @@ function registerWorkOrdersUI(bot, { dir }) {
         return ctx.reply(s('approval_set', { desk, mode: approvalLabel(cfg.approval) }));
     });
 
+    act(/^wom:m:([a-z0-9][a-z0-9._-]{0,31})$/, (ctx, m) => modelPickerView(ctx, m[1]));
+
+    act(/^wom:ms:([a-z0-9][a-z0-9._-]{0,31}):(\d+)$/, (ctx, m) => {
+        const desk = m[1];
+        const preset = desks.MODEL_PRESETS.find(p => p.key === m[2]);
+        if (!desks.deskExists(dir, desk) || !preset) return ctx.reply(s('desk_not_found', { desk }));
+        const cfg = desks.setDeskModel(dir, desk, preset.value);
+        return ctx.reply(s('model_set', { desk, model: modelLabel(cfg.model) }), kb([
+            [[s('btn_back'), `wom:d:${desk}`]],
+        ]));
+    });
+
+    act(/^wom:mc:([a-z0-9][a-z0-9._-]{0,31})$/, (ctx, m) => {
+        const desk = m[1];
+        if (!desks.deskExists(dir, desk)) return ctx.reply(s('desk_not_found', { desk }));
+        setFlow(ctx.chat.id, { flow: 'model', step: 'name', desk });
+        return ctx.reply(s('ask_custom_model', { desk }));
+    });
+
     act(/^wom:r:(.+)$/, (ctx, m) => {
         const last = desks.lastResult(dir, m[1]);
         if (!last) return ctx.reply(s('no_result', { desk: m[1] }));
@@ -153,7 +201,8 @@ function registerWorkOrdersUI(bot, { dir }) {
         flows.delete(ctx.chat.id);
         const p = desks.ensureDesk(dir, f.desk, { instructions: f.instructions, approval: m[1], ensureMemory: ensureDeskMemory });
         return ctx.reply(s('desk_created', { desk: f.desk, path: p }), kb([
-            [[s('btn_first_order'), `wom:o:${f.desk}`], [s('btn_desks'), 'wom:dl']],
+            [[s('btn_first_order'), `wom:o:${f.desk}`], [s('btn_set_model'), `wom:m:${f.desk}`]],
+            [[s('btn_desks'), 'wom:dl']],
         ]));
     });
 
@@ -195,6 +244,14 @@ function registerWorkOrdersUI(bot, { dir }) {
             flows.delete(chatId);
             desks.setInstructions(dir, f.desk, text);
             return ctx.reply(s('instructions_saved', { desk: f.desk }));
+        }
+        if (f.flow === 'model') {
+            flows.delete(chatId);
+            const nextModel = text.trim() === '-' ? null : text.trim();
+            const cfg = desks.setDeskModel(dir, f.desk, nextModel);
+            return ctx.reply(s('model_set', { desk: f.desk, model: modelLabel(cfg.model) }), kb([
+                [[s('btn_back'), `wom:d:${f.desk}`]],
+            ]));
         }
         return next();
     });

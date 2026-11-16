@@ -2,7 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { WorkOrders, parseOrder } = require('../src/work_orders/core');
+const { WorkOrders, parseOrder, DEFAULTS } = require('../src/work_orders/core');
 
 function makeEnv({ agent, options } = {}) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agts-wo-'));
@@ -184,17 +184,62 @@ async function run() {
         assert(fs.existsSync(path.join(e.dir, 'failed', 'r1.md')));
     }
 
-    // Idle close after idleCloseMin.
+    // Idle close after idleCloseMin (default 3 min), skipped when queued orders remain, immediate on 0.
+    assert.strictEqual(DEFAULTS.idleCloseMin, 3, 'default idleCloseMin should be 3 minutes');
     {
-        const e = makeEnv({ agent: doneAgent, options: { idleCloseMin: 15 } });
+        const e = makeEnv({ agent: doneAgent }); // uses default idleCloseMin = 3
         e.drop('i1.md', '---\ndesk: idle\n---\nquick');
         await e.wo.tick();
         await e.settle();
         await e.wo.closeIdleWindows();
         assert.deepStrictEqual(e.closed, [], 'not closed right away');
-        e.advance(16 * 60000);
+        e.advance(2 * 60000);
         await e.wo.closeIdleWindows();
-        assert.deepStrictEqual(e.closed, ['idle']);
+        assert.deepStrictEqual(e.closed, [], 'still warm at 2 min');
+        // If a new order is queued for this desk, closeIdleWindows must keep the window open!
+        e.drop('i2.md', '---\ndesk: idle\n---\nqueued next');
+        e.wo.scanInbox();
+        e.advance(2 * 60000);
+        await e.wo.closeIdleWindows();
+        assert.deepStrictEqual(e.closed, [], 'must not close while a queued order waits for this desk');
+        await e.wo.dispatch();
+        await e.settle();
+        e.advance(3 * 60000 + 1000);
+        await e.wo.closeIdleWindows();
+        assert.deepStrictEqual(e.closed, ['idle'], 'closed after 3 idle minutes with empty queue');
+    }
+
+    // Immediate close when idleCloseMin === 0 (unless another order is queued for that desk).
+    {
+        const e = makeEnv({ agent: doneAgent, options: { idleCloseMin: 0 } });
+        e.drop('z1.md', '---\ndesk: zero\n---\none shot');
+        await e.wo.tick();
+        await e.settle();
+        assert.deepStrictEqual(e.closed, ['zero'], 'closed immediately when idleCloseMin is 0');
+    }
+
+    // 3-tier model selection precedence: order frontmatter > desk.json > defaultModel.
+    {
+        const selectedModels = [];
+        const e = makeEnv({ agent: doneAgent, options: { defaultModel: 'Gemini 3.8 Flash (Low)' } });
+        e.wo.deps.selectModel = async (win, model) => { selectedModels.push({ desk: win.desk, model }); };
+        const desksMod = require('../src/work_orders/desks');
+        desksMod.ensureDesk(e.dir, 'pro-desk', { model: 'Claude Sonnet 5.5 (High)' });
+
+        e.drop('m1.md', '---\ndesk: fallback-desk\n---\nuses global default');
+        e.drop('m2.md', '---\ndesk: pro-desk\n---\nuses desk default');
+        e.drop('m3.md', '---\ndesk: pro-desk\nmodel: "Claude Opus 5.5 (High)"\n---\norder override wins');
+        await e.wo.tick();
+        await e.settle();
+        await e.wo.tick(); // dispatch m3 on pro-desk after m2 finishes
+        await e.settle();
+
+        assert.deepStrictEqual(selectedModels, [
+            { desk: 'fallback-desk', model: 'Gemini 3.8 Flash (Low)' },
+            { desk: 'pro-desk', model: 'Claude Sonnet 5.5 (High)' },
+            { desk: 'pro-desk', model: 'Claude Opus 5.5 (High)' },
+        ]);
+        assert(e.notes.some(n => n.text.includes('Claude Opus 5.5 (High)')));
     }
 
     console.log('✅ work_orders tests passed!');
