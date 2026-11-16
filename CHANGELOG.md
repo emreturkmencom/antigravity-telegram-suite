@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.9.4] - 2026-11-17
+
+### Added
+- **Crisp Dark-Mode Table-to-Image Cards in Telegram (`src/table_renderer.js`, `RENDER_TABLES_AS_IMAGES=true`)**:
+  - Automatically renders Markdown pipe tables and DOM-extracted `<table>` blocks into sharp, dark-mode dashboard PNG cards via off-screen HTML5 `<canvas>` inside the live Antigravity Chromium/Electron CDP target (zero native npm dependencies, zero visible DOM mutation/flicker).
+  - Includes preceding-heading title bars with `rows×cols` badges, cyan header accents, zebra rows, auto numeric right-alignment, centered status pills (`AKTİF`/`ACTIVE`, `KAPALI`/`CLOSED`, `BEKLEMEDE`/`PENDING`, `HATA`/`ERROR`), emerald/rose signed delta coloring (`+$...` / `-$...`), automatic 30-row pagination (`(1/N)`), and dynamic HiDPI scaling capped at `2500px` so Telegram `sendPhoto` never blurs wide tables.
+  - Integrated across both `sendLongMessage` (chat replies, `/ask`, `/latest`) and `TaskWatcher` proactive notifications with 7-language localized captions/placeholders (`table.image_placeholder`, `table.image_caption`), `sendDocument` fallback, and lossless Markdown text fallback whenever CDP rendering is unavailable or `RENDER_TABLES_AS_IMAGES=false`.
+
 ## [3.9.3] - 2026-11-16
 
 ### Added

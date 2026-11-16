@@ -608,5 +608,9 @@
     "deactivated": "💤 Prevención de reposo (Caffeinate) desactivada.",
     "activated_cb": "Caffeinate Activado",
     "deactivated_cb": "Caffeinate Desactivado"
+  },
+  "table": {
+    "image_placeholder": "📊 [Tabla {index} adjunta como imagen]",
+    "image_caption": "📊 <b>Tabla {index}</b>{title}"
   }
 }

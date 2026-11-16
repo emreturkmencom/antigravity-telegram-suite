@@ -608,5 +608,9 @@
     "deactivated": "💤 Prévention de mise en veille (Caffeinate) désactivée.",
     "activated_cb": "Caffeinate Activé",
     "deactivated_cb": "Caffeinate Désactivé"
+  },
+  "table": {
+    "image_placeholder": "📊 [Tableau {index} joint en image]",
+    "image_caption": "📊 <b>Tableau {index}</b>{title}"
   }
 }

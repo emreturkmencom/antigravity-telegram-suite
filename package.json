@@ -1,6 +1,6 @@
 {
   "name": "antigravity-telegram-suite",
-  "version": "3.9.3",
+  "version": "3.9.4",
   "description": "Control your Antigravity IDE remotely via Telegram. Send messages, switch models, manage workspaces, take screenshots — all from your phone.",
   "main": "src/index.js",
   "scripts": {
@@ -9,7 +9,7 @@
     "watchdog": "node src/watchdog.js",
     "setup": "bash scripts/install.sh",
     "setup:win": "powershell -ExecutionPolicy Bypass -File scripts/install.ps1",
-    "test": "node test/i18n.test.js && node test/updater.test.js && node test/local_media.test.js && node test/cdp_health.test.js && node test/cdp_slash_command.test.js && node test/ide_integration.test.js && node test/agents_menu.test.js && node test/model_utils.test.js && node test/memory_convention.test.js && node test/work_orders.test.js && node test/work_orders_ui.test.js && node test/work_orders_standalone.test.js && node test/telegraph.test.js && node test/skills_menu.test.js && node test/oauth_scopes.test.js && node test/caffeinate.test.js",
+    "test": "node test/i18n.test.js && node test/updater.test.js && node test/local_media.test.js && node test/cdp_health.test.js && node test/cdp_slash_command.test.js && node test/ide_integration.test.js && node test/agents_menu.test.js && node test/table_renderer.test.js && node test/model_utils.test.js && node test/memory_convention.test.js && node test/work_orders.test.js && node test/work_orders_ui.test.js && node test/work_orders_standalone.test.js && node test/telegraph.test.js && node test/skills_menu.test.js && node test/oauth_scopes.test.js && node test/caffeinate.test.js",
     "test:smoke": "node test/smoke.test.js",
     "test:all": "npm test && npm run test:smoke",
     "i18n:validate": "node scripts/validate_i18n.js",

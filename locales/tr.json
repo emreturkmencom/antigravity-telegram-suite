@@ -608,5 +608,9 @@
     "deactivated": "💤 Uyku önleme (Caffeinate) kapatıldı.",
     "activated_cb": "Caffeinate Aktifleştirildi",
     "deactivated_cb": "Caffeinate Kapatıldı"
+  },
+  "table": {
+    "image_placeholder": "📊 [Tablo {index} görsel olarak eklendi]",
+    "image_caption": "📊 <b>Tablo {index}</b>{title}"
   }
 }

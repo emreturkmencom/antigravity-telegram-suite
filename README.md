@@ -12,7 +12,7 @@ Send messages, switch AI models, manage workspaces, take screenshots, and orches
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.3-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.4-orange.svg)]()
 
 </div>
 
@@ -49,6 +49,7 @@ Send messages, switch AI models, manage workspaces, take screenshots, and orches
 | 🔐 **Multi-Account Switching** | Authenticate and switch between Google accounts, injecting credentials directly into the IDE database or OS keychain |
 | 📡 **Telegraph Publishing** | Task checklists, implementation plans, and walkthroughs can be published with 128-bit unguessable crypto slug URLs (or kept private in chat), with full toggle and wipe controls |
 | 🤝 **Connect Claude Code & Parallel Agents (`/wo`)** | Bridge **Claude Code**, CLI tools, cron jobs, or webhooks to Antigravity — run **multiple specialist agents at the same time** in isolated IDE windows, assign a custom AI model per agent, and receive results on disk & Telegram |
+| 📊 **Dark-Mode Table Cards** | Automatically renders Markdown tables into crisp dark-mode dashboard PNG cards with status pills and color-coded deltas so wide tables stay readable on mobile |
 
 
 ---

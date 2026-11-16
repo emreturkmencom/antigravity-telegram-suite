@@ -608,5 +608,9 @@
     "deactivated": "💤 Ruhezustandsverhinderung (Caffeinate) deaktiviert.",
     "activated_cb": "Caffeinate Aktiviert",
     "deactivated_cb": "Caffeinate Deaktiviert"
+  },
+  "table": {
+    "image_placeholder": "📊 [Tabelle {index} als Bild angehängt]",
+    "image_caption": "📊 <b>Tabelle {index}</b>{title}"
   }
 }

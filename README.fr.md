@@ -12,7 +12,7 @@ Envoyez des messages, changez de modèle d'IA, gérez les espaces de travail, pr
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.3-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.4-orange.svg)]()
 
 </div>
 
@@ -48,6 +48,7 @@ Envoyez des messages, changez de modèle d'IA, gérez les espaces de travail, pr
 | 🔀 **Prise en charge double application** | Basculez facilement entre Antigravity IDE et Standalone Agent App |
 | 📡 **Publication Telegraph** | Les listes de tâches, plans et walkthroughs peuvent être publiés avec des URL avec slug cryptographique indéchiffrable 128 bits (ou conservés privés dans le chat), avec contrôle total d'activation et de suppression |
 | 🤝 **Connectez Claude Code & Agents Parallèles (`/wo`)** | Reliez **Claude Code**, outils CLI, tâches cron ou apps locales à Antigravity — faites tourner **plusieurs agents spécialisés en même temps** dans des fenêtres IDE isolées, assignez un modèle IA par agent et recevez les résultats sur disque & Telegram |
+| 📊 **Cartes de Tableaux en Mode Sombre** | Convertit automatiquement les larges tableaux Markdown en cartes PNG nettes en mode sombre avec badges d'état et variations colorées pour une lecture fluide sur mobile |
 
 ---
 

@@ -608,5 +608,9 @@
     "deactivated": "💤 절전 방지 (Caffeinate) 기능이 비활성화되었습니다.",
     "activated_cb": "Caffeinate 활성화됨",
     "deactivated_cb": "Caffeinate 비활성화됨"
+  },
+  "table": {
+    "image_placeholder": "📊 [표 {index} 이미지로 첨부됨]",
+    "image_caption": "📊 <b>표 {index}</b>{title}"
   }
 }

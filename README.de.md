@@ -12,7 +12,7 @@ Sende Nachrichten, wechsle KI-Modelle, verwalte Arbeitsbereiche, nimm Screenshot
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.3-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.4-orange.svg)]()
 
 </div>
 
@@ -47,6 +47,7 @@ Sende Nachrichten, wechsle KI-Modelle, verwalte Arbeitsbereiche, nimm Screenshot
 | 🔀 **Dual-App-Unterstützung** | Nahtloser Wechsel zwischen Antigravity IDE und Standalone Agent App |
 | 📡 **Telegraph-Veröffentlichung** | Aufgabenlisten, Pläne und Walkthroughs können mit unerratbaren 128-Bit Krypto-Slug-URLs veröffentlicht (oder privat im Chat gehalten) werden, mit voller Umschalt- und Löschkontrolle |
 | 🤝 **Claude Code verbinden & Parallele Agenten (`/wo`)** | Verbinde **Claude Code**, CLI-Tools, Cronjobs oder lokale Apps mit Antigravity — lasse **mehrere Spezial-Agenten gleichzeitig** in isolierten IDE-Fenstern arbeiten, weise jedem Agenten ein eigenes KI-Modell zu und erhalte Ergebnisse auf der Festplatte & in Telegram |
+| 📊 **Dark-Mode-Tabellenkarten** | Rendert breite Markdown-Tabellen automatisch als gestochen scharfe Dark-Mode-PNG-Karten mit Status-Badges und farbcodierten Deltas für perfekte Lesbarkeit auf dem Smartphone |
 
 ---
 

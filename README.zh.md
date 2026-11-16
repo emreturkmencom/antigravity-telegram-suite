@@ -12,7 +12,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.3-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.4-orange.svg)]()
 
 </div>
 
@@ -48,6 +48,7 @@
 | 🔀 **双应用支持** | 在 Antigravity IDE 和 Standalone Agent App 之间无缝切换 |
 | 📡 **Telegraph 发布** | 任务清单、计划和走查文档可以使用 128 位不可猜测的加密 Slug URL 发布（或在聊天中保持私密），提供完整的开关与清空控制 |
 | 🤝 **连接 Claude Code 与并行代理 (`/wo`)** | 将 **Claude Code**、CLI 工具、定时任务或本地应用桥接到 Antigravity — 在隔离的 IDE 窗口中**同时并行运行多个专家代理**，为每个代理分配专属 AI 模型，并在磁盘与 Telegram 中获取结果 |
+| 📊 **深色仪表盘表格图片** | 自动将宽排 Markdown 表格渲染为带有状态徽章与盈亏配色的清晰深色 PNG 卡片，告别移动端换行错乱 |
 
 ---
 

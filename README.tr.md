@@ -12,7 +12,7 @@ Telefonunuzdan veya terminalinizden mesaj gönderin, AI modellerini değiştirin
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.3-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.4-orange.svg)]()
 
 </div>
 
@@ -48,6 +48,7 @@ Telefonunuzdan veya terminalinizden mesaj gönderin, AI modellerini değiştirin
 | 🔀 **Çift Uygulama Desteği** | Antigravity IDE ve Standalone App arasında sorunsuzca geçiş yapın |
 | 📡 **Telegraph Yayını** | Görev listeleri, planlar ve walkthrough belgeleri 128-bit tahmin edilemez kripto slug URL'leri ile yayınlanabilir (veya sohbette gizli tutulabilir), tam açma/kapama ve silme kontrolü |
 | 🤝 **Claude Code Bağlantısı & Paralel Ajanlar (`/wo`)** | **Claude Code**, CLI araçları, cron görevleri veya yerel uygulamaları Antigravity'ye bağlayın — izole IDE pencerelerinde **aynı anda birden fazla uzman ajanı paralel** çalıştırın, her ajana özel AI modeli atayın ve çıktıları hem diskten hem Telegram'dan alın |
+| 📊 **Koyu Mod Tablo Görselleri** | Geniş Markdown tablolarını mobil ekranda dağılmaması için durum rozetli ve renkli metrikli net koyu mod PNG kartlarına otomatik dönüştürür |
 
 ---
 

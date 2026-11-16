@@ -12,7 +12,7 @@ Telegram으로 Antigravity AI 에이전트를 원격 제어하고, **Claude Code
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.3-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.4-orange.svg)]()
 
 </div>
 
@@ -48,6 +48,7 @@ Telegram으로 Antigravity AI 에이전트를 원격 제어하고, **Claude Code
 | 🔀 **듀얼 앱 지원** | Antigravity IDE와 Standalone Agent App 사이를 매끄럽게 전환합니다 |
 | 📡 **Telegraph 게시** | 작업 체크리스트, 계획 및 워크스루를 128비트 암호화 난수 슬러그 URL로 게시(또는 비공개 유지)할 수 있으며, 전체 전환 및 삭제 제어가 가능합니다 |
 | 🤝 **Claude Code 연동 및 병렬 에이전트 (`/wo`)** | **Claude Code**, CLI 도구, cron 작업 또는 외부 앱을 Antigravity에 연결 — 격리된 IDE 창에서 **여러 전문 에이전트를 동시에 병렬 실행**하고, 에이전트별 AI 모델을 지정하며 결과를 디스크와 Telegram으로 받아봅니다 |
+| 📊 **다크 모드 표 이미지 카드** | 넓은 Markdown 표를 상태 배지와 색상 지표가 포함된 선명한 다크 모드 PNG 카드로 자동 변환하여 모바일에서도 깔끔하게 표시합니다 |
 
 ---
 

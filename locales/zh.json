@@ -608,5 +608,9 @@
     "deactivated": "💤 防睡眠功能 (Caffeinate) 已停用。",
     "activated_cb": "Caffeinate 已激活",
     "deactivated_cb": "Caffeinate 已停用"
+  },
+  "table": {
+    "image_placeholder": "📊 [表格 {index} 已作为图片附在下方]",
+    "image_caption": "📊 <b>表格 {index}</b>{title}"
   }
 }

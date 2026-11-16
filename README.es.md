@@ -12,7 +12,7 @@ Envía mensajes, cambia modelos de IA, administra espacios de trabajo, toma capt
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.3-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.4-orange.svg)]()
 
 </div>
 
@@ -48,6 +48,7 @@ Envía mensajes, cambia modelos de IA, administra espacios de trabajo, toma capt
 | 🔀 **Soporte de Aplicación Dual** | Cambia sin problemas entre Antigravity IDE y Standalone Agent App |
 | 📡 **Publicación en Telegraph** | Las listas de tareas, planes y recorridos se pueden publicar con URLs con slug criptográfico indescifrable de 128 bits (o mantenerse privados en el chat), con control total de activación y borrado |
 | 🤝 **Conecta Claude Code y Agentes en Paralelo (`/wo`)** | Conecta **Claude Code**, herramientas CLI, cron jobs o apps locales a Antigravity — ejecuta **múltiples agentes especialistas al mismo tiempo** en ventanas aisladas del IDE, asigna un modelo de IA por agente y recibe resultados en disco y Telegram |
+| 📊 **Tarjetas de Tabla en Modo Oscuro** | Convierte automáticamente tablas Markdown anchas en nítidas tarjetas PNG en modo oscuro con insignias de estado y variaciones coloreadas para una lectura perfecta en el móvil |
 
 ---
 

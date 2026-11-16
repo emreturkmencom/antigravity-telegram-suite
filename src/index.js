@@ -16,6 +16,7 @@ const autoaccept = require('./autoaccept');
 const updater = require('./updater');
 const TaskWatcher = require('./task_watcher');
 const { extractLocalImageMarkdown } = require('./local_media');
+const { extractAndRenderMarkdownTables } = require('./table_renderer');
 const { ensureCdpReady, isConnectionRefusedError } = require('./cdp_health');
 const accountManager = require('./account_manager');
 const { ensureMemoryConvention } = require('./memory_convention');
@@ -645,6 +646,42 @@ async function sendExtractedImage(ctx, image, replyToMsgId = null) {
     );
 }
 
+function isTableImageRenderingEnabled() {
+    const raw = String(process.env.RENDER_TABLES_AS_IMAGES || 'true').trim().toLowerCase();
+    return raw !== 'false' && raw !== '0' && raw !== 'off';
+}
+
+async function sendRenderedTableImage({ ctx = null, telegram = null, chatId = null, tblImg, replyToMsgId = null, kbOpts = null }) {
+    const cleanTitle = tblImg.title ? ` — <i>${escHtml(tblImg.title.slice(0, 180))}</i>` : '';
+    const caption = t('table.image_caption', { index: tblImg.index, title: cleanTitle });
+    const opts = { caption, parse_mode: 'HTML' };
+
+    if (kbOpts) {
+        if (Array.isArray(kbOpts)) {
+            if (kbOpts.length > 0) opts.reply_markup = { inline_keyboard: kbOpts };
+        } else if (kbOpts.reply_markup) {
+            opts.reply_markup = kbOpts.reply_markup;
+        }
+    }
+    if (replyToMsgId) {
+        opts.reply_parameters = { message_id: replyToMsgId, allow_sending_without_reply: true };
+    }
+
+    const mediaSource = { source: tblImg.buffer, filename: tblImg.filename || `table-${tblImg.index}.png` };
+    try {
+        if (ctx) {
+            return await ctx.replyWithPhoto(mediaSource, opts);
+        }
+        return await telegram.sendPhoto(chatId, mediaSource, opts);
+    } catch (photoErr) {
+        console.warn(`[table_renderer] sendPhoto failed (${photoErr.message}), retrying as document...`);
+        if (ctx) {
+            return await ctx.replyWithDocument(mediaSource, opts);
+        }
+        return await telegram.sendDocument(chatId, mediaSource, opts);
+    }
+}
+
 // Helper: Send long messages safely within Telegram's 4096 char limit
 async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMsgId = null) {
     const MAX_LEN = 3500;
@@ -707,6 +744,35 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
             console.warn(`[local_media] Failed to send image ${image.path}: ${err.message}`);
         }
     }
+
+    let tableImages = [];
+    let skipPlaceholderOnlyBubble = false;
+    if (isTableImageRenderingEnabled() && text && text.includes('|')) {
+        try {
+            const placeholderTokens = [];
+            const rendered = await extractAndRenderMarkdownTables(text, {
+                port: CDP_PORT,
+                placeholderFn: (idx) => {
+                    const ph = `*${t('table.image_placeholder', { index: idx })}*`;
+                    placeholderTokens.push(ph);
+                    return ph;
+                },
+            });
+            tableImages = rendered.tableImages || [];
+            if (tableImages.length > 0) {
+                text = rendered.text;
+                let remaining = text;
+                for (const ph of placeholderTokens) {
+                    remaining = remaining.split(ph).join('');
+                }
+                if (!prefix && remaining.trim().length === 0) {
+                    skipPlaceholderOnlyBubble = true;
+                }
+            }
+        } catch (tblErr) {
+            console.warn(`[table_renderer] Failed to render table(s), keeping text fallback: ${tblErr.message}`);
+        }
+    }
     
     // Parse text to HTML and preserve prefix formatting
     const htmlText = prefix ? `<b>${prefix}</b>\n\n${markdownToTelegramHtml(text)}` : markdownToTelegramHtml(text);
@@ -744,9 +810,10 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
     }
 
     try {
-        const chunks = splitTelegramHtmlChunks(htmlText, MAX_LEN);
+        const chunks = skipPlaceholderOnlyBubble ? [] : splitTelegramHtmlChunks(htmlText, MAX_LEN);
         let currentReplyId = replyToMsgId;
         const sentMsgIds = [];
+        let trackedLastMsgId = null;
 
         for (let i = 0; i < chunks.length; i++) {
             const isLast = i === chunks.length - 1;
@@ -754,17 +821,40 @@ async function sendLongMessage(ctx, text, prefix = '', buttons = null, replyToMs
             if (sentMsg) {
                 currentReplyId = sentMsg.message_id;
                 sentMsgIds.push(sentMsg.message_id);
+                trackedLastMsgId = sentMsg.message_id;
             }
         }
-        if (sentMsgIds && sentMsgIds.length > 0) {
-            const lastMsgId = sentMsgIds[sentMsgIds.length - 1];
+
+        for (let i = 0; i < tableImages.length; i++) {
+            const isLastImg = i === tableImages.length - 1;
+            const attachKb = (chunks.length === 0 && isLastImg) ? finalButtons : null;
+            try {
+                const sentPhoto = await sendRenderedTableImage({
+                    ctx,
+                    tblImg: tableImages[i],
+                    replyToMsgId: currentReplyId,
+                    kbOpts: attachKb,
+                });
+                if (sentPhoto && sentPhoto.message_id) {
+                    currentReplyId = sentPhoto.message_id;
+                    sentMsgIds.push(sentPhoto.message_id);
+                    if (!trackedLastMsgId) {
+                        trackedLastMsgId = sentPhoto.message_id;
+                    }
+                }
+            } catch (photoErr) {
+                console.warn(`[table_renderer] Failed to send rendered table ${tableImages[i].index}: ${photoErr.message}`);
+            }
+        }
+
+        if (trackedLastMsgId) {
             lastSentMessageIdMap.set(ctx.chat.id, {
-                messageId: lastMsgId,
+                messageId: trackedLastMsgId,
                 chatId: ctx.chat.id,
                 baseKeyboard: buttons
             });
         }
-        console.log(`sendLongMessage: Sent successfully (${chunks.length} chunk(s))`);
+        console.log(`sendLongMessage: Sent successfully (${chunks.length} chunk(s), ${tableImages.length} table image(s))`);
         return sentMsgIds;
     } catch (err) {
         console.error('sendLongMessage final error:', err.message);
@@ -5423,10 +5513,25 @@ async function init() {
         onNotification: async ({ conversationId, text, type }) => {
             console.log(`[TaskWatcher] 📬 Proactive notification (${type}, conv: ${conversationId?.substring(0, 8)}, ${text.length} chars)`);
 
+            let processedText = text;
+            let tableImages = [];
+            if (isTableImageRenderingEnabled() && processedText && processedText.includes('|')) {
+                try {
+                    const rendered = await extractAndRenderMarkdownTables(processedText, {
+                        port: CDP_PORT,
+                        placeholderFn: (idx) => `*${t('table.image_placeholder', { index: idx })}*`,
+                    });
+                    processedText = rendered.text;
+                    tableImages = rendered.tableImages || [];
+                } catch (tblErr) {
+                    console.warn(`[TaskWatcher] Failed to render table(s), keeping text fallback: ${tblErr.message}`);
+                }
+            }
+
             const header = '🔔 <b>' + t('task_watcher.proactive_msg') + '</b>\n\n';
-            const fullHtml = header + markdownToTelegramHtml(text);
+            const fullHtml = header + markdownToTelegramHtml(processedText);
             const chunks = splitTelegramHtmlChunks(fullHtml, 3500);
-            if (chunks.length === 0) return;
+            if (chunks.length === 0 && tableImages.length === 0) return;
             const isFeedback = type === 'agent_proactive_feedback';
 
             for (const chatId of ALLOWED_CHAT_IDS) {
@@ -5434,9 +5539,9 @@ async function init() {
                     const existing = proactiveMessageIds.get(chatId);
                     const now = Date.now();
 
-                    // If we have a recent message and the notification fits in a single chunk, try to edit it
+                    // If we have a recent message and the notification fits in a single chunk (and has no table images), try to edit it
                     // BUT: never overwrite a feedback message (with Proceed/Cancel) with a plain notification
-                    if (chunks.length === 1 && existing && (now - existing.timestamp) < PROACTIVE_RESET_MS) {
+                    if (tableImages.length === 0 && chunks.length === 1 && existing && (now - existing.timestamp) < PROACTIVE_RESET_MS) {
                         if (existing.hasFeedback && !isFeedback) {
                             console.log(`[TaskWatcher] Existing msg ${existing.messageId} has Proceed/Cancel buttons — sending new msg instead of overwriting`);
                         } else {
@@ -5499,9 +5604,30 @@ async function init() {
                             }
                         }
                     }
-                    if (lastSent) {
+
+                    let replyToId = lastSent ? lastSent.message_id : null;
+                    for (const tblImg of tableImages) {
+                        try {
+                            const sentPhoto = await sendRenderedTableImage({
+                                telegram: bot.telegram,
+                                chatId,
+                                tblImg,
+                                replyToMsgId: replyToId,
+                            });
+                            if (sentPhoto && sentPhoto.message_id) {
+                                replyToId = sentPhoto.message_id;
+                            }
+                        } catch (photoErr) {
+                            console.warn(`[TaskWatcher] Failed to send rendered table image: ${photoErr.message}`);
+                        }
+                    }
+
+                    if (lastSent && tableImages.length === 0) {
                         proactiveMessageIds.set(chatId, { messageId: lastSent.message_id, timestamp: now, hasFeedback: isFeedback });
                         console.log(`[TaskWatcher] Sent notification (${chunks.length} chunk(s)), last msg ${lastSent.message_id}`);
+                    } else {
+                        proactiveMessageIds.delete(chatId);
+                        console.log(`[TaskWatcher] Sent notification (${chunks.length} chunk(s), ${tableImages.length} table image(s))`);
                     }
                 } catch (e) {
                     console.error('[TaskWatcher] Failed to send notification:', e.message);

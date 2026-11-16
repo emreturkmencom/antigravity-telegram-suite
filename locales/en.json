@@ -608,5 +608,9 @@
     "deactivated": "💤 Sleep prevention (Caffeinate) deactivated.",
     "activated_cb": "Caffeinate Activated",
     "deactivated_cb": "Caffeinate Deactivated"
+  },
+  "table": {
+    "image_placeholder": "📊 [Table {index} attached as image]",
+    "image_caption": "📊 <b>Table {index}</b>{title}"
   }
 }
