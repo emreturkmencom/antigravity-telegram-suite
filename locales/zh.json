@@ -199,7 +199,9 @@
     "caffeinate_desc": "切换 macOS 防睡眠模式",
     "rename_desc": "重命名当前活动会话",
     "wo_desc": "管理工单与专家工位",
-    "wo_stop_desc": "停止运行中的工单"
+    "wo_stop_desc": "停止运行中的工单",
+    "pin_desc": "置顶当前活动会话",
+    "unpin_desc": "取消置顶当前活动会话"
   },
   "telegraph": {
     "enabled": "🌐 <b>Telegraph 发布：</b>已启用\n\n产物将使用不可猜测的 URL 发布到 Telegraph/graph.org。",
@@ -326,7 +328,18 @@
     "rename_cancelled": "✖️ 已取消重命名。",
     "prev_page_btn": "⬅️ 上一页",
     "next_page_btn": "下一页 ➡️",
-    "show_all_projects_btn": "📂 显示全部项目 ({count})"
+    "show_all_projects_btn": "📂 显示全部项目 ({count})",
+    "rename_short_btn": "✏️ 重命名",
+    "pin_active_btn": "📌 置顶",
+    "unpin_active_btn": "📍 取消置顶",
+    "pin_pick_btn": "📌 置顶 / 取消…",
+    "pin_pick_title": "📌 <b>点击会话以切换置顶状态</b> (<code>{workspace}</code>)：",
+    "pin_success": "📌 已置顶会话：<b>{name}</b>",
+    "unpin_success": "📍 已取消置顶：<b>{name}</b>",
+    "pin_failed": "❌ 无法更新置顶状态：{reason}",
+    "pin_no_active": "ℹ️ 当前没有打开的活动会话。请先打开会话或在项目中选择。",
+    "pinned_toast": "📌 已置顶: {name}",
+    "unpinned_toast": "📍 已取消置顶: {name}"
   },
   "artifacts": {
     "list_title": "📎 <b>当前聊天的产物：</b>\n\n",

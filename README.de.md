@@ -12,7 +12,7 @@ Sende Nachrichten, wechsle KI-Modelle, verwalte Arbeitsbereiche, nimm Screenshot
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.2-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.3-orange.svg)]()
 
 </div>
 
@@ -183,6 +183,7 @@ chmod +x scripts/install.sh
 | `/schedule_task <Aufgabe>` | Wiederkehrende oder einmalige Aufgabe in der IDE planen |
 | `/agents` | Chat-Threads verwalten (Top 5 angepinnt, Top 5 aktuell mit Zeitangabe, max. 10 pro Projektseite) |
 | `/rename [Titel]` | Aktiven Chat umbenennen (oder beliebigen Chat über `/agents` umbenennen) |
+| `/pin` / `/unpin` | Aktiven Chat anpinnen / lösen (oder beliebigen Chat über `/agents` umschalten) |
 | `/wo [Desk] [Auftrag]` | **Work-Orders**-Panel öffnen oder einen Job an einen Spezial-Desk senden (`--model "..."` unterstützt) |
 | `/wo_stop` | Aktuell laufende Work Orders abbrechen |
 | `/quota` | KI-Guthaben und Modell-Nutzungslimits überprüfen |

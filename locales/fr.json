@@ -199,7 +199,9 @@
     "caffeinate_desc": "Basculer la prévention de veille macOS",
     "rename_desc": "Renommer la discussion active",
     "wo_desc": "Gérer les Work Orders et bureaux spécialisés",
-    "wo_stop_desc": "Arrêter les Work Orders en cours"
+    "wo_stop_desc": "Arrêter les Work Orders en cours",
+    "pin_desc": "Épingler la discussion active",
+    "unpin_desc": "Désépingler la discussion active"
   },
   "telegraph": {
     "enabled": "🌐 <b>Publication Telegraph :</b> ACTIVÉE\n\nLes artefacts seront publiés sur Telegraph/graph.org avec des URL indéchiffrables.",
@@ -326,7 +328,18 @@
     "rename_cancelled": "✖️ Renommage annulé.",
     "prev_page_btn": "⬅️ Préc.",
     "next_page_btn": "Suiv. ➡️",
-    "show_all_projects_btn": "📂 Afficher Tous les Projets ({count})"
+    "show_all_projects_btn": "📂 Afficher Tous les Projets ({count})",
+    "rename_short_btn": "✏️ Renommer",
+    "pin_active_btn": "📌 Épingler",
+    "unpin_active_btn": "📍 Désépingler",
+    "pin_pick_btn": "📌 Épingler / Désépingler…",
+    "pin_pick_title": "📌 <b>Appuyez sur une discussion pour l'épingler ou la désépingler</b> (<code>{workspace}</code>) :",
+    "pin_success": "📌 Discussion épinglée : <b>{name}</b>",
+    "unpin_success": "📍 Discussion désépinglée : <b>{name}</b>",
+    "pin_failed": "❌ Impossible de modifier l'épinglage : {reason}",
+    "pin_no_active": "ℹ️ Aucune discussion active ouverte actuellement. Ouvrez une discussion ou choisissez-en une dans un projet.",
+    "pinned_toast": "📌 Épinglée : {name}",
+    "unpinned_toast": "📍 Désépinglée : {name}"
   },
   "artifacts": {
     "list_title": "📎 <b>Artefacts du fil actuel :</b>\n\n",

@@ -11,7 +11,7 @@ const { config, isIDERunning, killIDE, cleanLockFile, launchIDE, getLastWorkspac
 
 // Initialize sleep prevention on macOS if enabled in .env
 initCaffeinate();
-const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, clickArtifactButton, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, getCurrentPermissionMode, selectPermissionMode, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getPreferredTargetId, getCachedWindows, closeWindow, closeAllEditors, listAgentThreads, switchAgentThread, renameAgentThread, getActiveThreadId, getActiveThreadInfo, setActiveWorkspace, switchStandaloneWorkspace, listStandaloneWorkspaces, getLastResolvedThreadId, setLastResolvedThreadId, setOnThreadResolved } = require('./cdp_controller');
+const { isAgentWorking, getFullLatestResponse, snapshotChatState, captureAgentScreenshot, captureFullIDEScreenshot, waitForAgentResponse, sendViaCDP, clickArtifactButton, triggerNewChat, triggerModelMenu, getAvailableModels, selectModel, getCurrentModel, getCurrentPermissionMode, selectPermissionMode, stopAgent, getQuota, listWindows, setPreferredWindow, getPreferredWindow, getPreferredTargetId, getCachedWindows, closeWindow, closeAllEditors, listAgentThreads, switchAgentThread, renameAgentThread, setAgentThreadPinned, getActiveThreadId, getActiveThreadInfo, setActiveWorkspace, switchStandaloneWorkspace, listStandaloneWorkspaces, getLastResolvedThreadId, setLastResolvedThreadId, setOnThreadResolved } = require('./cdp_controller');
 const autoaccept = require('./autoaccept');
 const updater = require('./updater');
 const TaskWatcher = require('./task_watcher');
@@ -1623,12 +1623,24 @@ function applyRenamedThreadToCache(threadId, newTitle) {
     }
 }
 
+function applyPinnedThreadToCache(threadId, pinned) {
+    if (!threadId || typeof pinned !== 'boolean') return;
+    for (const th of cachedAgentThreads) {
+        if (th.threadId === threadId) th.pinned = pinned;
+    }
+    for (const ws of cachedWorkspacesList || []) {
+        for (const th of ws.threads || []) {
+            if (th.threadId === threadId) th.pinned = pinned;
+        }
+    }
+}
+
 async function renderAgentsKeyboard(workspaces, activeInfo, options = {}) {
     return buildAgentsKeyboard(workspaces, activeInfo, cachedAgentThreads, options);
 }
 
-function renderProjectThreadsKeyboard(ws, wsIdx, page = 0, renameMode = false) {
-    return buildProjectThreadsKeyboard(ws, wsIdx, cachedAgentThreads, page, renameMode);
+function renderProjectThreadsKeyboard(ws, wsIdx, page = 0, mode = 'view') {
+    return buildProjectThreadsKeyboard(ws, wsIdx, cachedAgentThreads, page, mode);
 }
 
 async function executeAgentThreadSwitch(ctx, thread, isCallback = false) {
@@ -1809,6 +1821,22 @@ bot.command('rename', async (ctx) => {
     return ctx.reply(t('agents.rename_prompt', { name: escapeHtml(currentName) }), { parse_mode: 'HTML' });
 });
 
+async function handlePinCommand(ctx, desiredPinned) {
+    const res = await setAgentThreadPinned(CDP_PORT, null, desiredPinned);
+    if (res && res.ok) {
+        applyPinnedThreadToCache(res.threadId, res.pinned);
+        const key = res.pinned ? 'agents.pin_success' : 'agents.unpin_success';
+        return ctx.reply(t(key, { name: escapeHtml(res.title || 'Untitled Conversation') }), { parse_mode: 'HTML' });
+    }
+    if (res && res.reason === 'no_active_thread') {
+        return ctx.reply(t('agents.pin_no_active'));
+    }
+    return ctx.reply(t('agents.pin_failed', { reason: escapeHtml((res && res.reason) || 'unknown') }), { parse_mode: 'HTML' });
+}
+
+bot.command('pin', (ctx) => handlePinCommand(ctx, true));
+bot.command('unpin', (ctx) => handlePinCommand(ctx, false));
+
 bot.action(/^ag_th:(\d+)$/, async (ctx) => {
     const num = parseInt(ctx.match[1], 10);
     if (num > 0 && num <= cachedAgentThreads.length) {
@@ -1857,7 +1885,7 @@ bot.action(/^ag_rnp:(\d+):(\d+)$/, async (ctx) => {
     const page = parseInt(ctx.match[2], 10);
     if (wsIdx >= 0 && wsIdx < cachedWorkspacesList.length) {
         const ws = cachedWorkspacesList[wsIdx];
-        const view = renderProjectThreadsKeyboard(ws, wsIdx, page, true);
+        const view = renderProjectThreadsKeyboard(ws, wsIdx, page, 'rename');
         try {
             await ctx.answerCbQuery();
             await ctx.editMessageText(view.text, { parse_mode: 'HTML', reply_markup: view.reply_markup });
@@ -1867,6 +1895,82 @@ bot.action(/^ag_rnp:(\d+):(\d+)$/, async (ctx) => {
     } else {
         try { await ctx.answerCbQuery(); } catch(_) {}
     }
+});
+
+bot.action(/^ag_pnp:(\d+):(\d+)$/, async (ctx) => {
+    const wsIdx = parseInt(ctx.match[1], 10);
+    const page = parseInt(ctx.match[2], 10);
+    if (wsIdx >= 0 && wsIdx < cachedWorkspacesList.length) {
+        const ws = cachedWorkspacesList[wsIdx];
+        const view = renderProjectThreadsKeyboard(ws, wsIdx, page, 'pin');
+        try {
+            await ctx.answerCbQuery();
+            await ctx.editMessageText(view.text, { parse_mode: 'HTML', reply_markup: view.reply_markup });
+        } catch (e) {
+            console.debug('[ag_pnp] edit failed:', e.message);
+        }
+    } else {
+        try { await ctx.answerCbQuery(); } catch(_) {}
+    }
+});
+
+bot.action(/^ag_pn:(\d+):(\d+):(\d+)$/, async (ctx) => {
+    const wsIdx = parseInt(ctx.match[1], 10);
+    const page = parseInt(ctx.match[2], 10);
+    const num = parseInt(ctx.match[3], 10);
+    if (num <= 0 || num > cachedAgentThreads.length) {
+        try { await ctx.answerCbQuery(t('agents.invalid_number'), { show_alert: true }); } catch (_) {}
+        return;
+    }
+    const thread = cachedAgentThreads[num - 1];
+    if (!thread.threadId) {
+        try { await ctx.answerCbQuery(t('agents.not_found'), { show_alert: true }); } catch (_) {}
+        return;
+    }
+    const res = await setAgentThreadPinned(CDP_PORT, thread.threadId, !thread.pinned);
+    if (!res || !res.ok) {
+        try {
+            await ctx.answerCbQuery(
+                t('agents.pin_failed', { reason: (res && res.reason) || 'unknown' }).replace(/<[^>]+>/g, ''),
+                { show_alert: true }
+            );
+        } catch (_) {}
+        return;
+    }
+    applyPinnedThreadToCache(res.threadId, res.pinned);
+    const toastKey = res.pinned ? 'agents.pinned_toast' : 'agents.unpinned_toast';
+    try { await ctx.answerCbQuery(t(toastKey, { name: (res.title || thread.name || '').slice(0, 40) })); } catch (_) {}
+
+    if (wsIdx >= 0 && wsIdx < cachedWorkspacesList.length) {
+        const ws = cachedWorkspacesList[wsIdx];
+        const view = renderProjectThreadsKeyboard(ws, wsIdx, page, 'pin');
+        try {
+            await ctx.editMessageText(view.text, { parse_mode: 'HTML', reply_markup: view.reply_markup });
+        } catch (_) {}
+    }
+});
+
+bot.action('ag_pin_active', async (ctx) => {
+    const activeInfo = await getActiveThreadInfo(CDP_PORT).catch(() => null);
+    const activeId = activeInfo && (activeInfo.threadId || activeInfo.id);
+    if (!activeId) {
+        try { await ctx.answerCbQuery(t('agents.pin_no_active'), { show_alert: true }); } catch (_) {}
+        return;
+    }
+    const res = await setAgentThreadPinned(CDP_PORT, activeId, null);
+    if (!res || !res.ok) {
+        try {
+            await ctx.answerCbQuery(
+                t('agents.pin_failed', { reason: (res && res.reason) || 'unknown' }).replace(/<[^>]+>/g, ''),
+                { show_alert: true }
+            );
+        } catch (_) {}
+        return;
+    }
+    applyPinnedThreadToCache(res.threadId, res.pinned);
+    const toastKey = res.pinned ? 'agents.pinned_toast' : 'agents.unpinned_toast';
+    try { await ctx.answerCbQuery(t(toastKey, { name: (res.title || activeInfo.name || '').slice(0, 40) })); } catch (_) {}
+    await renderAndSendAgentThreads(ctx, CDP_PORT, ctx.callbackQuery?.message?.message_id).catch(() => {});
 });
 
 bot.action('ag_rn_active', async (ctx) => {
@@ -4478,6 +4582,8 @@ function getMenuCommands() {
         { command: 'telegraph', description: t('menu.telegraph_desc') || 'Toggle Telegraph artifact uploads' },
         { command: 'cleartelegraph', description: t('menu.cleartelegraph_desc') || 'Wipe published Telegraph pages' },
         { command: 'rename', description: t('menu.rename_desc') || 'Rename the active conversation' },
+        { command: 'pin', description: t('menu.pin_desc') || 'Pin the active conversation' },
+        { command: 'unpin', description: t('menu.unpin_desc') || 'Unpin the active conversation' },
         { command: 'wo', description: t('menu.wo_desc') || 'Manage Work Orders & specialist desks' },
         { command: 'wo_stop', description: t('menu.wo_stop_desc') || 'Stop running Work Order(s)' },
         { command: 'caffeinate', description: t('menu.caffeinate_desc') || 'Toggle macOS sleep prevention' }
@@ -4912,7 +5018,7 @@ let isAgentBusy = false;
         'version', 'menu', 'app', 'fix_shortcuts', 'restart', 'goal', 'plan', 'schedule_task', 'schedule_setup',
         'schedule_list', 'schedule_add', 'schedule_del', 'schedule_status', 'login', 'logincode', 'accounts',
         'switchacc', 'getinfo', 'delacc', 'gettask', 'getplan', 'getwalk', 'watcher', 'turbo', 'mode', 'permissions', 'panel', 'ask',
-        'wo', 'wo_stop', 'rename', 'cancel'
+        'wo', 'wo_stop', 'rename', 'pin', 'unpin', 'cancel'
     ]);
 
     bot.on('text', async (ctx, next) => {

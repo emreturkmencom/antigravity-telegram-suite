@@ -51,8 +51,8 @@ async function runTests() {
     const rows = mainView.reply_markup.inline_keyboard;
     const flatButtons = rows.flat();
 
-    const pinnedButtons = flatButtons.filter(b => b.text.startsWith('📌 '));
-    const recentButtons = flatButtons.filter(b => b.text.startsWith('💬 '));
+    const pinnedButtons = flatButtons.filter(b => b.callback_data.startsWith('ag_th:') && b.text.startsWith('📌 '));
+    const recentButtons = flatButtons.filter(b => b.callback_data.startsWith('ag_th:') && b.text.startsWith('💬 '));
     const wsButtons = flatButtons.filter(b => b.text.startsWith('📁 '));
 
     assert.strictEqual(pinnedButtons.length, TOP_PINNED_LIMIT, 'Should show at most 5 pinned chats');
@@ -69,6 +69,17 @@ async function runTests() {
     assert.strictEqual(wsButtons.length, MAIN_WORKSPACES_LIMIT, 'Initial view should cap workspaces at 12');
     assert(flatButtons.some(b => b.callback_data === 'ag_ws_all'), 'Should render Show All Projects button when >12 workspaces exist');
     assert(flatButtons.some(b => b.callback_data === 'ag_rn_active'), 'Should render Rename Active Chat button');
+    const activePinBtn = flatButtons.find(b => b.callback_data === 'ag_pin_active');
+    assert(activePinBtn && activePinBtn.text.includes('Unpin'), `Pinned active chat should show Unpin button, got: ${activePinBtn?.text}`);
+
+    // Unpinned active chat should show Pin button
+    const unpinnedActiveView = renderAgentsKeyboard(workspaces, {
+        name: 'Chat 1-2',
+        workspace: 'proj-1',
+        threadId: '00000000-0000-0000-0000-000000000001',
+    }, cached);
+    const unpinnedPinBtn = unpinnedActiveView.reply_markup.inline_keyboard.flat().find(b => b.callback_data === 'ag_pin_active');
+    assert(unpinnedPinBtn && unpinnedPinBtn.text.includes('Pin') && !unpinnedPinBtn.text.includes('Unpin'), `Unpinned active chat should show Pin button, got: ${unpinnedPinBtn?.text}`);
 
     const expandedView = renderAgentsKeyboard(workspaces, activeInfo, cached, { showAllWorkspaces: true });
     const expandedWsButtons = expandedView.reply_markup.inline_keyboard.flat().filter(b => b.text.startsWith('📁 '));
@@ -98,16 +109,23 @@ async function runTests() {
     assert(page0ChatBtns[2].text.startsWith('📌 '), 'Pinned chat inside project view should show 📌 icon');
     assert(page0.reply_markup.inline_keyboard.flat().some(b => b.callback_data === 'ag_wsp:0:1'), 'Page 0 should include Next button');
     assert(page0.reply_markup.inline_keyboard.flat().some(b => b.callback_data === 'ag_rnp:0:0'), 'Page 0 should include Rename a Chat button');
+    assert(page0.reply_markup.inline_keyboard.flat().some(b => b.callback_data === 'ag_pnp:0:0'), 'Page 0 should include Pin / Unpin button');
 
     const page2 = renderProjectThreadsKeyboard(bigWs, 0, cached, 2, false);
     const page2ChatBtns = page2.reply_markup.inline_keyboard.flat().filter(b => b.callback_data.startsWith('ag_th:'));
     assert.strictEqual(page2ChatBtns.length, 4, 'Last page of 24 items should have 4 items');
 
-    const renamePicker = renderProjectThreadsKeyboard(bigWs, 0, cached, 1, true);
+    const renamePicker = renderProjectThreadsKeyboard(bigWs, 0, cached, 1, 'rename');
     const renameBtns = renamePicker.reply_markup.inline_keyboard.flat().filter(b => b.callback_data.startsWith('ag_rn:'));
     assert.strictEqual(renameBtns.length, 10, 'Rename picker mode on page 1 must show 10 ✏️ rename buttons');
     assert(renameBtns[0].text.startsWith('✏️ Feature Task 11 (11h)'), `Unexpected rename button label: ${renameBtns[0].text}`);
-    console.log('  ✅ Project max-10 pagination & rename picker mode passed');
+
+    const pinPicker = renderProjectThreadsKeyboard(bigWs, 0, cached, 0, 'pin');
+    const pinBtns = pinPicker.reply_markup.inline_keyboard.flat().filter(b => b.callback_data.startsWith('ag_pn:0:0:'));
+    assert.strictEqual(pinBtns.length, 10, 'Pin picker mode on page 0 must show 10 toggle buttons');
+    assert(pinBtns[0].text.startsWith('▫️ Feature Task 1 (1h)'), `Unpinned item in pin picker should show ▫️, got: ${pinBtns[0].text}`);
+    assert(pinBtns[2].text.startsWith('📌 Feature Task 3 (3h)'), `Pinned item in pin picker should show 📌, got: ${pinBtns[2].text}`);
+    console.log('  ✅ Project max-10 pagination, rename picker & pin/unpin picker modes passed');
 
     // 3. StandaloneDriver Redux fast-path script (filters archived, 0-step empty, and wo-* desks; sorts by updatedAt)
     const dom = new JSDOM('<!DOCTYPE html><body><div id="root"></div></body>', { runScripts: 'dangerously' });

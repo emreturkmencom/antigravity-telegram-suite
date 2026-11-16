@@ -12,7 +12,7 @@ Telegram으로 Antigravity AI 에이전트를 원격 제어하고, **Claude Code
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.2-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.3-orange.svg)]()
 
 </div>
 
@@ -186,6 +186,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/schedule_task <task>` | IDE에서 반복 작업 또는 1회성 작업을 예약합니다 |
 | `/agents` | 대화 스레드 관리 (상단 고정 5개, 시간 표시 최신 5개, 프로젝트당 최대 10개 페이지네이션) |
 | `/rename [제목]` | 현재 대화 이름 변경 (또는 `/agents`에서 원하는 대화 이름 변경) |
+| `/pin` / `/unpin` | 현재 대화 상단 고정 / 고정 해제 (또는 `/agents`에서 원하는 대화 고정 토글) |
 | `/wo [데스크] [작업]` | **Work Orders(작업 지시)** 패널을 열거나 전문 데스크에 작업을 전달합니다 (`--model "..."` 지원) |
 | `/wo_stop` | 현재 실행 중인 작업 지시를 중지합니다 |
 | `/quota` | AI 크레딧과 모델 사용 한도를 확인합니다 |

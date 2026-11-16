@@ -3655,6 +3655,7 @@ module.exports = {
     listAgentThreads,
     switchAgentThread,
     renameAgentThread,
+    setAgentThreadPinned,
     get CHAT_EXTRACT_EXPR() { return getChatExtractExpr(); },
     getChatExtractExpr,
     getActiveThreadId,
@@ -3799,6 +3800,130 @@ async function renameAgentThread(port, targetThreadId = null, newTitle = '', spe
             if (val && val.reason && val.reason !== 'unsupported_target') {
                 return val;
             }
+        } catch (_) {
+            try { if (client) await client.close(); } catch (__) {}
+        }
+    }
+
+    return { ok: false, reason: 'window_not_found' };
+}
+
+async function setAgentThreadPinned(port, targetThreadId = null, pinned = null, specificTargetId = null) {
+    const candidates = filterTargetsById(await resolveTargets(port, true, { specificTargetId: specificTargetId || preferredTargetId }), specificTargetId || preferredTargetId);
+    for (const target of candidates) {
+        let client;
+        try {
+            client = await CDP({ target: target.webSocketDebuggerUrl });
+            const { Runtime } = client;
+            await Runtime.enable();
+
+            const evalRes = await Runtime.evaluate({
+                expression: `(async () => {
+                    try {
+                        const requestedId = ${JSON.stringify(targetThreadId || null)};
+                        const requestedPinned = ${JSON.stringify(typeof pinned === 'boolean' ? pinned : null)};
+                        const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+                        const root = document.getElementById("root");
+                        const fk = root && Object.keys(root).find(k => k.startsWith("__reactContainer") || k.startsWith("__reactFiber"));
+                        let ctxVal = null, agentSvc = null, reduxStore = null;
+                        const seen = new Set();
+                        const q = [root && fk ? root[fk] : null];
+                        let steps = 0;
+                        while (q.length && steps++ < 8000) {
+                            const n = q.shift();
+                            if (!n || seen.has(n)) continue;
+                            seen.add(n);
+                            const v = n.memoizedProps && n.memoizedProps.value;
+                            if (v && typeof v === "object") {
+                                if (v.core && !ctxVal) ctxVal = v;
+                                if (typeof v.updateConversationAnnotations === "function" && !agentSvc) agentSvc = v;
+                                if (v.store && typeof v.store.getState === "function" && !reduxStore) reduxStore = v.store;
+                            }
+                            if (n.child) q.push(n.child);
+                            if (n.sibling) q.push(n.sibling);
+                        }
+
+                        const st = reduxStore ? reduxStore.getState() : null;
+                        const activeCascadeId = (() => {
+                            const um = (window.location.href || "").match(/\\/c\\/([0-9a-f-]{36})/i);
+                            if (um && uuidRe.test(um[1])) return um[1];
+                            const sel = document.querySelector('[data-testid="conversation-row-sidebar"][data-selected="true"]')?.getAttribute("data-cascade-id");
+                            if (sel && uuidRe.test(sel)) return sel;
+                            const stId = st?.conversation?.convoState?.cascadeId;
+                            if (stId && uuidRe.test(stId)) return stId;
+                            return null;
+                        })();
+
+                        const cascadeId = (requestedId && uuidRe.test(requestedId)) ? requestedId : activeCascadeId;
+                        if (!cascadeId) {
+                            return { ok: false, reason: "no_active_thread" };
+                        }
+
+                        const existingSummary = st?.trajectorySummaries?.summaries?.[cascadeId] || null;
+                        const currentPinned = Boolean(existingSummary?.annotations?.pinned);
+                        const nextPinned = typeof requestedPinned === "boolean" ? requestedPinned : !currentPinned;
+                        const title = (existingSummary?.annotations?.title || existingSummary?.summary || "").trim() || "Untitled Conversation";
+
+                        const patch = (nextPinned && existingSummary?.annotations?.conversationGroupId)
+                            ? { pinned: true, conversationGroupId: "" }
+                            : { pinned: nextPinned };
+
+                        const ann = existingSummary?.annotations
+                            ? { ...existingSummary.annotations, ...patch }
+                            : {
+                                $typeName: "exa.jetski_cortex_pb.ConversationAnnotations",
+                                tags: [],
+                                cls: [],
+                                sideQuestionCascadeIds: [],
+                                sideQuestionTitles: {},
+                                ...patch,
+                            };
+
+                        if (agentSvc && typeof agentSvc.updateConversationAnnotations === "function") {
+                            await agentSvc.updateConversationAnnotations([cascadeId], ann, true);
+                            if (reduxStore && typeof reduxStore.dispatch === "function") {
+                                try {
+                                    reduxStore.dispatch({
+                                        type: "trajectorySummaries/applyOptimisticAnnotation",
+                                        payload: { cascadeId, annotations: patch },
+                                    });
+                                } catch (_) {}
+                            }
+                            return { ok: true, method: "agentService", threadId: cascadeId, pinned: nextPinned, title };
+                        }
+
+                        const ls = ctxVal?.core?.projectManagementService?.lsClient;
+                        if (ls && typeof ls.updateConversationAnnotations === "function") {
+                            await ls.updateConversationAnnotations({
+                                cascadeIds: [cascadeId],
+                                annotations: ann,
+                                mergeAnnotations: true,
+                            });
+                            if (reduxStore && typeof reduxStore.dispatch === "function") {
+                                try {
+                                    reduxStore.dispatch({
+                                        type: "trajectorySummaries/applyOptimisticAnnotation",
+                                        payload: { cascadeId, annotations: patch },
+                                    });
+                                } catch (_) {}
+                            }
+                            return { ok: true, method: "lsClient", threadId: cascadeId, pinned: nextPinned, title };
+                        }
+
+                        return { ok: false, reason: "unsupported_target" };
+                    } catch (err) {
+                        return { ok: false, reason: err.message || String(err) };
+                    }
+                })()`,
+                awaitPromise: true,
+                returnByValue: true,
+            });
+
+            await client.close();
+            const val = evalRes && evalRes.result && evalRes.result.value;
+            if (val && val.ok) return val;
+            if (val && val.reason && val.reason !== 'unsupported_target') return val;
         } catch (_) {
             try { if (client) await client.close(); } catch (__) {}
         }

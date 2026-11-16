@@ -12,7 +12,7 @@ Envía mensajes, cambia modelos de IA, administra espacios de trabajo, toma capt
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.2-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.3-orange.svg)]()
 
 </div>
 
@@ -186,6 +186,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/schedule_task <tarea>` | Programar una tarea recurrente o única en el IDE |
 | `/agents` | Gestor de chats (Top 5 fijados, Top 5 recientes con tiempo, máx. 10 por página de proyecto) |
 | `/rename [título]` | Renombrar el chat activo (o cualquier chat desde `/agents`) |
+| `/pin` / `/unpin` | Fijar o desfijar el chat activo (o cualquier chat desde `/agents`) |
 | `/wo [desk] [orden]` | Abrir el panel **Work Orders** o enviar un trabajo a un escritorio especialista (soporta `--model "..."`) |
 | `/wo_stop` | Detener las órdenes de trabajo en ejecución |
 | `/quota` | Consultar los créditos de IA y los límites de uso de modelos |

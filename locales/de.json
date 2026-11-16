@@ -199,7 +199,9 @@
     "caffeinate_desc": "macOS-Ruhezustandsverhinderung umschalten",
     "rename_desc": "Aktiven Chat umbenennen",
     "wo_desc": "Work Orders & Spezial-Desks verwalten",
-    "wo_stop_desc": "Laufende Work Orders stoppen"
+    "wo_stop_desc": "Laufende Work Orders stoppen",
+    "pin_desc": "Aktiven Chat anpinnen",
+    "unpin_desc": "Aktiven Chat lösen"
   },
   "telegraph": {
     "enabled": "🌐 <b>Telegraph-Veröffentlichung:</b> AKTIVIERT\n\nArtefakte werden auf Telegraph/graph.org mit unerratbaren URLs veröffentlicht.",
@@ -326,7 +328,18 @@
     "rename_cancelled": "✖️ Umbenennen abgebrochen.",
     "prev_page_btn": "⬅️ Zurück",
     "next_page_btn": "Weiter ➡️",
-    "show_all_projects_btn": "📂 Alle Projekte anzeigen ({count})"
+    "show_all_projects_btn": "📂 Alle Projekte anzeigen ({count})",
+    "rename_short_btn": "✏️ Umbenennen",
+    "pin_active_btn": "📌 Anpinnen",
+    "unpin_active_btn": "📍 Lösen",
+    "pin_pick_btn": "📌 Anpinnen / Lösen…",
+    "pin_pick_title": "📌 <b>Tippe auf einen Chat zum Anpinnen oder Lösen</b> (<code>{workspace}</code>):",
+    "pin_success": "📌 Chat angepinnt: <b>{name}</b>",
+    "unpin_success": "📍 Chat gelöst: <b>{name}</b>",
+    "pin_failed": "❌ Pin-Status konnte nicht geändert werden: {reason}",
+    "pin_no_active": "ℹ️ Aktuell ist kein aktiver Chat geöffnet. Öffne zuerst einen Chat oder wähle einen im Projekt.",
+    "pinned_toast": "📌 Angepinnt: {name}",
+    "unpinned_toast": "📍 Gelöst: {name}"
   },
   "artifacts": {
     "list_title": "📎 <b>Artefakte für aktuellen Thread:</b>\n\n",

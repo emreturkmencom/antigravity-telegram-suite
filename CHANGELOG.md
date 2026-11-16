@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.9.3] - 2026-11-16
+
+### Added
+- **Conversation Pin & Unpin (`/pin`, `/unpin` & `/agents` Controls)**:
+  - Added `/pin` and `/unpin` commands to instantly pin or unpin the active conversation in both Antigravity Standalone (2.29+) and Antigravity IDE (2.6+) via `updateConversationAnnotations` + Redux `applyOptimisticAnnotation`.
+  - Added dynamic `[ ✏️ Rename | 📌 Pin / 📍 Unpin ]` quick-action row for the active conversation on the main `/agents` screen and interactive `📌 Pin / Unpin…` toggle picker inside project views (`▫️` ↔ `📌` live in-place updates), translated across all 7 languages.
+
 ## [3.9.2] - 2026-11-16
 
 ### Added

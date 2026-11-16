@@ -199,7 +199,9 @@
     "caffeinate_desc": "macOS uyku önlemeyi (caffeinate) aç/kapat",
     "rename_desc": "Aktif sohbeti yeniden adlandır",
     "wo_desc": "İş emirlerini ve uzman masaları yönet",
-    "wo_stop_desc": "Çalışan iş emirlerini durdur"
+    "wo_stop_desc": "Çalışan iş emirlerini durdur",
+    "pin_desc": "Aktif sohbeti sabitle",
+    "unpin_desc": "Aktif sohbetin sabitlemesini kaldır"
   },
   "telegraph": {
     "enabled": "🌐 <b>Telegraph Yayını:</b> AKTİF\n\nArtefaktlar tahmin edilemez URL'ler ile Telegraph/graph.org üzerinde yayınlanacak.",
@@ -326,7 +328,18 @@
     "rename_cancelled": "✖️ Yeniden adlandırma iptal edildi.",
     "prev_page_btn": "⬅️ Önceki",
     "next_page_btn": "Sonraki ➡️",
-    "show_all_projects_btn": "📂 Tüm Projeleri Göster ({count})"
+    "show_all_projects_btn": "📂 Tüm Projeleri Göster ({count})",
+    "rename_short_btn": "✏️ Yeniden Adlandır",
+    "pin_active_btn": "📌 Sabitle",
+    "unpin_active_btn": "📍 Sabitlemeyi Kaldır",
+    "pin_pick_btn": "📌 Sabitle / Kaldır…",
+    "pin_pick_title": "📌 <b>Sabitlemek veya kaldırmak için bir sohbete dokunun</b> (<code>{workspace}</code>):",
+    "pin_success": "📌 Sohbet sabitlendi: <b>{name}</b>",
+    "unpin_success": "📍 Sohbet sabitlemesi kaldırıldı: <b>{name}</b>",
+    "pin_failed": "❌ Sabitleme durumu güncellenemedi: {reason}",
+    "pin_no_active": "ℹ️ Şu an açık bir aktif sohbet yok. Önce bir sohbet açın veya proje içinden seçin.",
+    "pinned_toast": "📌 Sabitlendi: {name}",
+    "unpinned_toast": "📍 Kaldırıldı: {name}"
   },
   "artifacts": {
     "list_title": "📎 <b>Mevcut Sohbetin Artifact'leri:</b>\n\n",

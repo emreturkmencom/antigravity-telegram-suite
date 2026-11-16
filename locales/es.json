@@ -199,7 +199,9 @@
     "caffeinate_desc": "Alternar prevención de reposo en macOS",
     "rename_desc": "Renombrar la conversación activa",
     "wo_desc": "Gestionar Work Orders y escritorios especialistas",
-    "wo_stop_desc": "Detener Work Orders en ejecución"
+    "wo_stop_desc": "Detener Work Orders en ejecución",
+    "pin_desc": "Fijar la conversación activa",
+    "unpin_desc": "Desfijar la conversación activa"
   },
   "telegraph": {
     "enabled": "🌐 <b>Publicación en Telegraph:</b> HABILITADA\n\nLos artefactos se publicarán en Telegraph/graph.org con URLs indescifrables.",
@@ -326,7 +328,18 @@
     "rename_cancelled": "✖️ Cambio de nombre cancelado.",
     "prev_page_btn": "⬅️ Ant.",
     "next_page_btn": "Sig. ➡️",
-    "show_all_projects_btn": "📂 Mostrar Todos los Proyectos ({count})"
+    "show_all_projects_btn": "📂 Mostrar Todos los Proyectos ({count})",
+    "rename_short_btn": "✏️ Renombrar",
+    "pin_active_btn": "📌 Fijar",
+    "unpin_active_btn": "📍 Desfijar",
+    "pin_pick_btn": "📌 Fijar / Desfijar…",
+    "pin_pick_title": "📌 <b>Toca un chat para fijarlo o desfijarlo</b> (<code>{workspace}</code>):",
+    "pin_success": "📌 Chat fijado: <b>{name}</b>",
+    "unpin_success": "📍 Chat desfijado: <b>{name}</b>",
+    "pin_failed": "❌ No se pudo cambiar el estado fijado: {reason}",
+    "pin_no_active": "ℹ️ No hay ninguna conversación activa abierta ahora mismo. Abre un chat primero o elige uno en un proyecto.",
+    "pinned_toast": "📌 Fijado: {name}",
+    "unpinned_toast": "📍 Desfijado: {name}"
   },
   "artifacts": {
     "list_title": "📎 <b>Artefactos del chat actual:</b>\n\n",

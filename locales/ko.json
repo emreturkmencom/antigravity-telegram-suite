@@ -30,7 +30,18 @@
     "rename_cancelled": "✖️ 이름 변경이 취소되었습니다.",
     "prev_page_btn": "⬅️ 이전",
     "next_page_btn": "다음 ➡️",
-    "show_all_projects_btn": "📂 모든 프로젝트 보기 ({count})"
+    "show_all_projects_btn": "📂 모든 프로젝트 보기 ({count})",
+    "rename_short_btn": "✏️ 이름 변경",
+    "pin_active_btn": "📌 고정",
+    "unpin_active_btn": "📍 고정 해제",
+    "pin_pick_btn": "📌 고정 / 해제…",
+    "pin_pick_title": "📌 <b>고정 또는 해제할 대화를 탭하세요</b> (<code>{workspace}</code>):",
+    "pin_success": "📌 대화를 고정했습니다: <b>{name}</b>",
+    "unpin_success": "📍 대화 고정을 해제했습니다: <b>{name}</b>",
+    "pin_failed": "❌ 고정 상태를 변경하지 못했습니다: {reason}",
+    "pin_no_active": "ℹ️ 현재 열려 있는 활성 대화가 없습니다. 먼저 대화를 열거나 프로젝트에서 선택하세요.",
+    "pinned_toast": "📌 고정됨: {name}",
+    "unpinned_toast": "📍 고정 해제됨: {name}"
   },
   "app": {
     "active_port": "활성 CDP 연결 포트: <code>{port}</code>\n\n",
@@ -239,7 +250,9 @@
     "caffeinate_desc": "macOS 절전 방지 기능 켜기/끄기",
     "rename_desc": "현재 대화 이름 변경",
     "wo_desc": "Work Orders 및 전문 데스크 관리",
-    "wo_stop_desc": "실행 중인 Work Order 중지"
+    "wo_stop_desc": "실행 중인 Work Order 중지",
+    "pin_desc": "현재 대화 상단 고정",
+    "unpin_desc": "현재 대화 고정 해제"
   },
   "telegraph": {
     "enabled": "🌐 <b>Telegraph 게시:</b> 활성화됨\n\n아티팩트가 추측 불가능한 URL과 함께 Telegraph/graph.org에 게시됩니다.",

@@ -113,10 +113,17 @@ function renderAgentsKeyboard(workspaces, activeInfo, cachedAgentThreads = [], {
         }
     }
 
-    // 4. Rename Active Chat + Refresh / Close
-    if (activeInfo && (activeInfo.threadId || activeInfo.id)) {
+    // 4. Active Chat Quick Actions (Rename + Pin/Unpin) + Refresh / Close
+    const activeId = activeInfo && (activeInfo.threadId || activeInfo.id);
+    if (activeId) {
+        const matchedActive = allThreads.find(th => th.threadId === activeId);
+        const isActivePinned = Boolean((matchedActive && matchedActive.pinned) || activeInfo.pinned);
         inline_keyboard.push([
-            { text: t('agents.rename_active_btn'), callback_data: 'ag_rn_active' }
+            { text: t('agents.rename_short_btn'), callback_data: 'ag_rn_active' },
+            {
+                text: isActivePinned ? t('agents.unpin_active_btn') : t('agents.pin_active_btn'),
+                callback_data: 'ag_pin_active',
+            },
         ]);
     }
     inline_keyboard.push([
@@ -134,7 +141,8 @@ function renderAgentsKeyboard(workspaces, activeInfo, cachedAgentThreads = [], {
     return { text, reply_markup: { inline_keyboard } };
 }
 
-function renderProjectThreadsKeyboard(ws, wsIdx, cachedAgentThreads = [], page = 0, renameMode = false) {
+function renderProjectThreadsKeyboard(ws, wsIdx, cachedAgentThreads = [], page = 0, mode = 'view') {
+    const viewMode = mode === true ? 'rename' : (mode || 'view');
     const inline_keyboard = [];
     const validThreads = (ws.threads || [])
         .filter(isValidAgentThread)
@@ -150,14 +158,21 @@ function renderProjectThreadsKeyboard(ws, wsIdx, cachedAgentThreads = [], page =
     for (const th of pageThreads) {
         const thIdx = findCachedThreadIndex(cachedAgentThreads, th, ws.workspace);
         const idx = thIdx >= 0 ? thIdx + 1 : 1;
-        const icon = renameMode ? '✏️' : (th.pinned ? '📌' : '💬');
+        let icon = th.pinned ? '📌' : '💬';
+        let cb = `ag_th:${idx}`;
+        if (viewMode === 'rename') {
+            icon = '✏️';
+            cb = `ag_rn:${idx}`;
+        } else if (viewMode === 'pin') {
+            icon = th.pinned ? '📌' : '▫️';
+            cb = `ag_pn:${wsIdx}:${safePage}:${idx}`;
+        }
         const label = formatAgentThreadButtonLabel(th, { icon, showWorkspace: false, maxTitleLen: 32 });
-        const cb = renameMode ? `ag_rn:${idx}` : `ag_th:${idx}`;
         inline_keyboard.push([{ text: label, callback_data: cb }]);
     }
 
     if (totalPages > 1) {
-        const navPrefix = renameMode ? 'ag_rnp' : 'ag_wsp';
+        const navPrefix = viewMode === 'rename' ? 'ag_rnp' : (viewMode === 'pin' ? 'ag_pnp' : 'ag_wsp');
         const navRow = [];
         if (safePage > 0) {
             navRow.push({ text: t('agents.prev_page_btn'), callback_data: `${navPrefix}:${wsIdx}:${safePage - 1}` });
@@ -170,9 +185,10 @@ function renderProjectThreadsKeyboard(ws, wsIdx, cachedAgentThreads = [], page =
     }
 
     if (validThreads.length > 0) {
-        if (!renameMode) {
+        if (viewMode === 'view') {
             inline_keyboard.push([
-                { text: t('agents.rename_pick_btn'), callback_data: `ag_rnp:${wsIdx}:${safePage}` }
+                { text: t('agents.rename_pick_btn'), callback_data: `ag_rnp:${wsIdx}:${safePage}` },
+                { text: t('agents.pin_pick_btn'), callback_data: `ag_pnp:${wsIdx}:${safePage}` },
             ]);
         } else {
             inline_keyboard.push([
@@ -187,8 +203,10 @@ function renderProjectThreadsKeyboard(ws, wsIdx, cachedAgentThreads = [], page =
     ]);
 
     let text;
-    if (renameMode) {
+    if (viewMode === 'rename') {
         text = t('agents.rename_pick_title', { workspace: escapeHtml(ws.workspace) });
+    } else if (viewMode === 'pin') {
+        text = t('agents.pin_pick_title', { workspace: escapeHtml(ws.workspace) });
     } else if (totalPages > 1) {
         text = t('agents.project_view_paged_title', {
             workspace: escapeHtml(ws.workspace),

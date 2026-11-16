@@ -199,7 +199,9 @@
     "caffeinate_desc": "Toggle macOS sleep prevention",
     "rename_desc": "Rename the active conversation",
     "wo_desc": "Manage Work Orders & specialist desks",
-    "wo_stop_desc": "Stop running Work Order(s)"
+    "wo_stop_desc": "Stop running Work Order(s)",
+    "pin_desc": "Pin the active conversation",
+    "unpin_desc": "Unpin the active conversation"
   },
   "telegraph": {
     "enabled": "🌐 <b>Telegraph Publishing:</b> ENABLED\n\nArtifacts will be published to Telegraph/graph.org with unguessable URLs.",
@@ -326,7 +328,18 @@
     "rename_cancelled": "✖️ Rename cancelled.",
     "prev_page_btn": "⬅️ Prev",
     "next_page_btn": "Next ➡️",
-    "show_all_projects_btn": "📂 Show All Projects ({count})"
+    "show_all_projects_btn": "📂 Show All Projects ({count})",
+    "rename_short_btn": "✏️ Rename",
+    "pin_active_btn": "📌 Pin",
+    "unpin_active_btn": "📍 Unpin",
+    "pin_pick_btn": "📌 Pin / Unpin…",
+    "pin_pick_title": "📌 <b>Tap a chat to Pin or Unpin</b> (<code>{workspace}</code>):",
+    "pin_success": "📌 Pinned chat: <b>{name}</b>",
+    "unpin_success": "📍 Unpinned chat: <b>{name}</b>",
+    "pin_failed": "❌ Could not update pin state: {reason}",
+    "pin_no_active": "ℹ️ No active conversation is open right now. Open a chat first or pick one inside a project.",
+    "pinned_toast": "📌 Pinned: {name}",
+    "unpinned_toast": "📍 Unpinned: {name}"
   },
   "artifacts": {
     "list_title": "📎 <b>Artifacts for Current Thread:</b>\n\n",

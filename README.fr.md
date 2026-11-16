@@ -12,7 +12,7 @@ Envoyez des messages, changez de modèle d'IA, gérez les espaces de travail, pr
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.2-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.3-orange.svg)]()
 
 </div>
 
@@ -186,6 +186,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/schedule_task <tâche>` | Planifier une tâche récurrente ou ponctuelle dans l'IDE |
 | `/agents` | Gestionnaire de discussions (Top 5 épinglées, Top 5 récentes avec durée, max 10 par page de projet) |
 | `/rename [titre]` | Renommer la discussion active (ou toute discussion via `/agents`) |
+| `/pin` / `/unpin` | Épingler ou désépingler la discussion active (ou toute discussion via `/agents`) |
 | `/wo [desk] [ordre]` | Ouvrir le panneau **Work Orders** ou envoyer une tâche à un bureau spécialisé (`--model "..."` supporté) |
 | `/wo_stop` | Arrêter les ordres de travail en cours |
 | `/quota` | Vérifier les crédits IA et les limites d'utilisation du modèle |
