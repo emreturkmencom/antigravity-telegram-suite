@@ -150,40 +150,79 @@ async function openDeskWindow(desk, deskDir) {
     throw new Error(`IDE window for desk "${desk}" (${deskFolderName(desk)}) did not appear within 60 s`);
 }
 
-async function sendToWindow(win, text) {
-    const targetId = win.panelId || win.targetId;
-    const flattened = flattenForChat(text);
-    const snippet = extractVerificationSnippet(flattened);
+function createIdeHandlers({
+    port: cdpPort = port,
+    findPanel: findPanelFn = findPanel,
+    dismissPopups: clearPopups = dismissPopups,
+    sendViaCDP: sendPrompt = sendViaCDP,
+    verifyChatMessageSent: verifyMessage = verifyChatMessageSent,
+    sleep: sleepFn = sleep,
+    verifyAttempts = 8,
+    verifyIntervalMs = 750,
+} = {}) {
+    async function sendToIdeWindow(win, text) {
+        const initialTargetId = win.panelId || win.targetId;
+        const flattened = flattenForChat(text);
+        const snippet = extractVerificationSnippet(flattened);
 
-    await dismissPopups(port, targetId).catch(() => {});
-    await sendViaCDP(flattened, port, targetId);
-
-    if (snippet) {
-        let verified = false;
-        for (let i = 0; i < 8; i++) {
-            await sleep(750);
-            if (await verifyChatMessageSent(port, snippet, null, targetId).catch(() => false)) {
-                verified = true;
-                break;
+        await clearPopups(cdpPort, initialTargetId).catch(() => {});
+        let firstSendMissing = false;
+        try {
+            await sendPrompt(flattened, cdpPort, initialTargetId);
+        } catch (e) {
+            if (e && (e.code === 'TARGET_NOT_FOUND' || /TARGET_NOT_FOUND/.test(e.message))) {
+                firstSendMissing = true;
+            } else {
+                throw e;
             }
         }
-        if (!verified) {
-            // One retry if cold-opened extensionView swallowed focus on first attempt
-            await dismissPopups(port, targetId).catch(() => {});
-            await sendViaCDP(flattened, port, targetId);
-            for (let i = 0; i < 8; i++) {
-                await sleep(750);
-                if (await verifyChatMessageSent(port, snippet, null, targetId).catch(() => false)) {
+
+        let verified = false;
+        if (snippet && !firstSendMissing) {
+            for (let i = 0; i < verifyAttempts; i++) {
+                await sleepFn(verifyIntervalMs);
+                if (await verifyMessage(cdpPort, snippet, null, initialTargetId).catch(() => false)) {
                     verified = true;
                     break;
                 }
             }
+        } else if (!snippet && !firstSendMissing) {
+            return;
         }
+
         if (!verified) {
-            throw new Error(`work order message did not appear in IDE desk "${win.desk}" panel after sending`);
+            // Refresh panel ID before retrying in case extensionView reloaded
+            const refreshed = await findPanelFn(win);
+            if (!refreshed || !refreshed.id) {
+                const err = new Error(`TARGET_NOT_FOUND: agent panel not found for desk "${win.desk}"`);
+                err.code = 'TARGET_NOT_FOUND';
+                throw err;
+            }
+            win.panelId = refreshed.id;
+            win.panelWs = refreshed.ws;
+            const retryTargetId = refreshed.id;
+
+            await clearPopups(cdpPort, retryTargetId).catch(() => {});
+            await sendPrompt(flattened, cdpPort, retryTargetId);
+            if (snippet) {
+                for (let i = 0; i < verifyAttempts; i++) {
+                    await sleepFn(verifyIntervalMs);
+                    if (await verifyMessage(cdpPort, snippet, null, retryTargetId).catch(() => false)) {
+                        verified = true;
+                        break;
+                    }
+                }
+                if (!verified) {
+                    throw new Error(`work order message did not appear in IDE desk "${win.desk}" panel after sending`);
+                }
+            }
         }
     }
+
+    return { sendToWindow: sendToIdeWindow };
 }
+
+const { sendToWindow } = createIdeHandlers();
 
 async function checkAgent(win) {
     const id = win.panelId || win.targetId;
@@ -576,6 +615,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+    createIdeHandlers,
     createStandaloneHandlers,
     flattenForChat,
     extractVerificationSnippet,

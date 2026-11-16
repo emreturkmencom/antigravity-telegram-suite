@@ -289,7 +289,8 @@ function matchesTargetId(t, specificTargetId) {
 function filterTargetsById(candidates, specificTargetId) {
     if (!specificTargetId || specificTargetId === 'auto') return candidates;
     const matched = candidates.filter(t => matchesTargetId(t, specificTargetId));
-    return matched.length > 0 ? matched : candidates;
+    if (matched.length > 0) return matched;
+    return isWorkOrdersRunner() ? [] : candidates;
 }
 
 async function resolveTargets(port, includeIframe = true, options = {}) {
@@ -1584,6 +1585,11 @@ async function sendViaCDP(text, port, specificTargetId = null) {
 
     if (specificTargetId) {
         sortedCandidates = filterTargetsById(candidates, specificTargetId);
+        if (isWorkOrdersRunner() && specificTargetId !== 'auto' && sortedCandidates.length === 0) {
+            const err = new Error(`TARGET_NOT_FOUND: ${specificTargetId}`);
+            err.code = 'TARGET_NOT_FOUND';
+            throw err;
+        }
     } else if (preferredTargetId) {
         sortedCandidates = filterTargetsById(candidates, preferredTargetId);
     } else if (activeWorkspaceName) {
@@ -3605,6 +3611,7 @@ module.exports = {
     selectPermissionMode,
     stopAgent,
     getQuota,
+    filterTargetsById,
     resolveTargets,
     listWindows,
     setPreferredWindow,

@@ -25,7 +25,9 @@ async function runTests() {
     process.env.ANTIGRAVITY_PREFERRED_APP = 'ide';
 
     const {
+        filterTargetsById,
         resolveTargets,
+        sendViaCDP,
         listWindows,
         setPreferredWindow,
         setActiveWorkspace,
@@ -240,6 +242,124 @@ async function runTests() {
             assert.deepStrictEqual(Object.keys(STR[lang]).sort(), enKeys, `Key mismatch in work_orders/strings.js for ${lang}`);
         }
         console.log('  ✅ Home-screen model-selector locator priority & 7-language Work Orders strings passed');
+
+        // 7. Runner strict target matching (no fallback to other windows) & sendToWindow panel refresh
+        {
+            const sampleCandidates = [
+                { id: 'PANEL_A', windowId: 'WIN_A', title: 'alpha' },
+                { id: 'PANEL_B', windowId: 'WIN_B', title: 'wo-beta' },
+            ];
+            const prevRunner = process.env.WORK_ORDERS_RUNNER;
+            try {
+                delete process.env.WORK_ORDERS_RUNNER;
+                // Legacy main-process behavior: unmatched target ID falls back to full candidate list
+                assert.deepStrictEqual(
+                    filterTargetsById(sampleCandidates, 'MISSING_ID').map(t => t.id),
+                    ['PANEL_A', 'PANEL_B'],
+                    'Main bot should preserve fallback behavior when target ID does not match'
+                );
+
+                process.env.WORK_ORDERS_RUNNER = '1';
+                assert.deepStrictEqual(
+                    filterTargetsById(sampleCandidates, 'MISSING_ID'),
+                    [],
+                    'Runner must NEVER fall back to other windows when target ID is missing'
+                );
+                assert.deepStrictEqual(
+                    filterTargetsById(sampleCandidates, 'PANEL_B').map(t => t.id),
+                    ['PANEL_B'],
+                    'Runner must still match present target IDs'
+                );
+
+                const srv2 = await startFakeCDPServer(() => [
+                    {
+                        id: 'PANEL_USER',
+                        type: 'iframe',
+                        title: 'http://127.0.0.1:41001/?extensionView=true',
+                        url: 'http://127.0.0.1:41001/?extensionView=true&workspaceUri=file%3A%2F%2F%2Fhome%2Fuser%2FProjects%2Falpha',
+                        webSocketDebuggerUrl: 'ws://127.0.0.1:9999/devtools/page/PANEL_USER',
+                    },
+                ]);
+                try {
+                    await assert.rejects(
+                        () => sendViaCDP('hello', srv2.port, 'STALE_PANEL_ID'),
+                        (err) => err && (err.code === 'TARGET_NOT_FOUND' || /TARGET_NOT_FOUND/.test(err.message)),
+                        'sendViaCDP in runner mode must throw TARGET_NOT_FOUND instead of touching PANEL_USER'
+                    );
+                } finally {
+                    await srv2.close();
+                }
+            } finally {
+                if (prevRunner === undefined) delete process.env.WORK_ORDERS_RUNNER;
+                else process.env.WORK_ORDERS_RUNNER = prevRunner;
+            }
+
+            // sendToWindow refreshes panel ID via findPanel before retry & fails order if panel disappeared
+            const fs = require('fs');
+            const os = require('os');
+            const path = require('path');
+            const { createIdeHandlers } = require('../src/work_orders/runner');
+            const { WorkOrders } = require('../src/work_orders/core');
+
+            const sentTargets = [];
+            const verifyTargets = [];
+            let findPanelCalls = 0;
+            const ideOk = createIdeHandlers({
+                port: 9334,
+                findPanel: async (w) => {
+                    findPanelCalls += 1;
+                    assert.strictEqual(w.targetId, 'WIN_DESK');
+                    return { id: 'PANEL_REFRESHED', ws: 'ws://127.0.0.1:9999/devtools/page/PANEL_REFRESHED' };
+                },
+                dismissPopups: async () => 0,
+                sendViaCDP: async (_text, _port, tid) => { sentTargets.push(tid); },
+                verifyChatMessageSent: async (_port, _snip, _exp, tid) => {
+                    verifyTargets.push(tid);
+                    return tid === 'PANEL_REFRESHED';
+                },
+                sleep: async () => {},
+                verifyAttempts: 2,
+                verifyIntervalMs: 1,
+            });
+            const winObj = { desk: 'beta', targetId: 'WIN_DESK', panelId: 'PANEL_OLD', panelWs: 'ws://old' };
+            await ideOk.sendToWindow(winObj, '[AGTS Work Order o1]\nDo task');
+            assert.strictEqual(findPanelCalls, 1, 'findPanel must be called before retry');
+            assert.deepStrictEqual(sentTargets, ['PANEL_OLD', 'PANEL_REFRESHED'], 'Second send must go ONLY to refreshed panel ID');
+            assert.strictEqual(winObj.panelId, 'PANEL_REFRESHED', 'win.panelId updated to refreshed panel ID');
+            assert(verifyTargets.includes('PANEL_REFRESHED'));
+
+            // If findPanel returns null before retry, sendToWindow throws and WorkOrders marks order failed
+            const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agts-ide-vanish-'));
+            const ideMissing = createIdeHandlers({
+                port: 9334,
+                findPanel: async () => null,
+                dismissPopups: async () => 0,
+                sendViaCDP: async () => {},
+                verifyChatMessageSent: async () => false,
+                sleep: async () => {},
+                verifyAttempts: 1,
+                verifyIntervalMs: 1,
+            });
+            const notes = [];
+            const wo = new WorkOrders({
+                dir: tmpDir,
+                deps: {
+                    listDeskWindows: async () => [],
+                    openDeskWindow: async (desk) => ({ desk, targetId: 'WIN_DESK', panelId: 'PANEL_GONE' }),
+                    sendToWindow: ideMissing.sendToWindow,
+                    closeWindow: async () => {},
+                    notify: (m) => notes.push(m),
+                    sleep: async () => {},
+                },
+                options: { resultSettleMs: 5 },
+            });
+            fs.writeFileSync(path.join(tmpDir, 'inbox', 'vanish1.md'), '---\ndesk: beta\n---\nRun check');
+            await wo.tick();
+            await Promise.all([...wo.running]);
+            assert.strictEqual(wo.orders.get('vanish1').status, 'failed');
+            assert(/TARGET_NOT_FOUND/.test(wo.orders.get('vanish1').reason));
+            console.log('  ✅ Runner strict target ID filtering & sendToWindow panel refresh passed');
+        }
 
         console.log('✅ All Antigravity IDE 2.6+ integration tests passed!');
     } finally {
