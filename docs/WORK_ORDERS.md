@@ -38,7 +38,7 @@ It supports two execution backends via `WORK_ORDERS_BACKEND` (when unset, it aut
 
 1. **`standalone` (Single-Window Sequential — default when `ANTIGRAVITY_PREFERRED_APP=agent`)**
    - Runs on the **Antigravity Standalone App** (`AGENT_CDP_PORT`, default `9333`).
-   - **Non-collision guard:** Waits until your active Standalone session has been idle for `WORK_ORDERS_IDLE_SEC` (default `60`s) before starting an order, queues incoming user Telegram messages while the order runs, and **restores both your previous chat thread and your original AI model** as soon as the queue drains.
+   - **Non-collision guard:** Before starting an order, checks only two conditions: (1) the Standalone agent is not currently generating, and (2) at least `WORK_ORDERS_IDLE_SEC` seconds (default `60`s) have elapsed since your last Telegram message (typing directly into the desktop app at the computer is not detected unless the agent is actively generating). While an order runs, incoming Telegram messages are queued, and **both your previous chat thread and your original AI model** are restored once execution finishes.
 2. **`ide` (Parallel Multi-Window — default when `ANTIGRAVITY_PREFERRED_APP=ide`)**
    - Runs on **Antigravity IDE 2.6+** (`IDE_CDP_PORT`, default `9334`).
    - Opens each desk in its own isolated IDE window (up to `WORK_ORDERS_MAX_WINDOWS` concurrent windows), allowing **multiple different desks to execute in parallel**.
@@ -50,7 +50,7 @@ It supports two execution backends via `WORK_ORDERS_BACKEND` (when unset, it aut
 # WORK_ORDERS_BACKEND=             # auto from ANTIGRAVITY_PREFERRED_APP ('ide' | 'standalone'), or set explicitly
 # WORK_ORDERS_DIR=~/Projects/.agts-work-orders
 # WORK_ORDERS_DEFAULT_MODEL=       # optional global fallback model for work orders
-# WORK_ORDERS_IDLE_SEC=60          # standalone: seconds of user inactivity required before starting
+# WORK_ORDERS_IDLE_SEC=60          # standalone: seconds since last Telegram message required before starting
 # WORK_ORDERS_MAX_WINDOWS=3        # ide: max desk windows open at once (~1–1.5 GB RAM each)
 # WORK_ORDERS_IDLE_CLOSE_MIN=3     # ide: close idle desk windows after N min (0 = immediate)
 # WORK_ORDERS_TIMEOUT_MIN=60       # default per-order timeout in minutes
@@ -69,7 +69,7 @@ Different desks benefit from different models (for example a fast, low-cost Flas
 1. **Queued in `inbox/`:** The order markdown file is created in `inbox/` and moved to `running/` (if `approval: telegram`, it waits for your button press before execution).
 2. **Desk session & model prepared:**
    - In **`ide`** mode, the bot opens (or reuses) the desk's dedicated IDE window, switches to the target model if configured, and injects the prompt with `[AGTS Work Order <id>]`.
-   - In **`standalone`** mode, once user chat is idle, the bot snapshots your current workspace/thread and active model, switches to the desk workspace (`wo-<desk>`), reuses or creates the desk's thread, selects the target model, and injects the prompt.
+   - In **`standalone`** mode, once the Standalone agent is not generating and `WORK_ORDERS_IDLE_SEC` has passed since your last Telegram message, the bot snapshots your current workspace/thread and active model, switches to the desk workspace (`wo-<desk>`), reuses or creates the desk's thread, selects the target model, and injects the prompt.
 3. **Agent writes result file:** The agent executes the task and writes `results/<id>.md` starting with `STATUS: done` or `STATUS: failed`.
 4. **Delivery & cleanup:** Once `results/<id>.md` (and any `expects:` artifact) stabilizes, the result is sent to Telegram, the order moves to `done/` or `failed/`, and Standalone restores your prior session/model (or IDE schedules idle window close).
 
@@ -77,7 +77,7 @@ Different desks benefit from different models (for example a fast, low-cost Flas
 
 - **One order per desk at a time:** Orders targeting the same desk run FIFO. In `ide` mode, orders targeting *different* desks run concurrently up to `WORK_ORDERS_MAX_WINDOWS`.
 - **Window eviction & queued-order protection (`ide` mode):** When `WORK_ORDERS_MAX_WINDOWS` is reached, the longest-idle finished window without a queued order is closed to free a slot. Busy windows and windows with queued orders are never evicted.
-- **Crash/restart safety:** If the bot restarts while an order is in `running/`, that order is marked `failed` (`bot_restarted`) rather than blindly re-executing side effects.
+- **Crash/restart safety:** If the bot restarts while an order is in `running/`, that order is marked `failed`, a Telegram alert is sent (since the agent may still be working in the background), and in `standalone` mode your previous chat thread and AI model are restored on the first tick rather than blindly re-executing side effects.
 
 ## Orders from Scripts & External Orchestrators
 

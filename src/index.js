@@ -3681,7 +3681,7 @@ bot.action(/ws_(.+)/, (ctx) => {
     doLaunchWorkspace(ctx, wsPath);
 });
 
-// ===== WORK ORDERS (opt-in: WORK_ORDERS_ENABLED=true) =====
+// ===== WORK ORDERS (on by default; WORK_ORDERS_ENABLED=false turns it off) =====
 let workOrdersManager = require('./work_orders').startWorkOrders(bot, ALLOWED_CHAT_IDS);
 
 // ===== PROJECT MEMORY =====

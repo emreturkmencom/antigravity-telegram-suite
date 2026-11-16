@@ -11,8 +11,17 @@ const desks = require('./desks');
 const { registerWorkOrdersUI } = require('./telegram');
 const { s } = require('./strings');
 
-function startWorkOrders(bot, chatIds) {
+const DEFAULT_RESTART_RESET_MS = 10 * 60 * 1000;
+
+function startWorkOrders(bot, chatIds, options = {}) {
     if (process.env.WORK_ORDERS_ENABLED === 'false') return null;
+
+    const {
+        forkFn = fork,
+        now = Date.now,
+        setTimeoutFn = setTimeout,
+        restartResetMs = DEFAULT_RESTART_RESET_MS,
+    } = options || {};
 
     const dir = desks.defaultDir();
     try {
@@ -24,6 +33,7 @@ function startWorkOrders(bot, chatIds) {
 
     let child = null;
     let restarts = 0;
+    let stopped = false;
     let reqSeq = 0;
     const pending = new Map(); // requestId -> resolve
 
@@ -64,7 +74,8 @@ function startWorkOrders(bot, chatIds) {
 
     const spawn = () => {
         const backend = getBackend();
-        child = fork(path.join(__dirname, 'runner.js'), [], {
+        const spawnedAt = now();
+        child = forkFn(path.join(__dirname, 'runner.js'), [], {
             env: {
                 ...process.env,
                 ANTIGRAVITY_PREFERRED_APP: process.env.WORK_ORDERS_UI_DRIVER || (backend === 'ide' ? 'ide' : 'agent'),
@@ -95,12 +106,17 @@ function startWorkOrders(bot, chatIds) {
         child.on('exit', (code) => {
             child = null;
             activeOrders.clear();
+            flushQueue().catch(() => {});
+            if (stopped) return;
+            if (now() - spawnedAt >= restartResetMs) {
+                restarts = 0;
+            }
             if (restarts >= 5) {
                 send({ text: `❌ Work orders runner stopped (exit ${code}) after 5 restarts. Check the bot logs.` });
                 return;
             }
             restarts += 1;
-            setTimeout(spawn, 5000 * restarts);
+            setTimeoutFn(spawn, 5000 * restarts);
         });
     };
     spawn();
@@ -133,7 +149,7 @@ function startWorkOrders(bot, chatIds) {
 
     return {
         dir,
-        stop: () => { restarts = 99; if (child) child.kill(); },
+        stop: () => { stopped = true; restarts = 99; if (child) child.kill(); },
         isOrderRunning: () => activeOrders.size > 0,
         shouldQueueUserChat: () => getBackend() === 'standalone' && activeOrders.size > 0,
         getActiveOrder: () => activeOrders.values().next().value || null,

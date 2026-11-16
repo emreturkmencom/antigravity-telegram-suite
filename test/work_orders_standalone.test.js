@@ -670,6 +670,84 @@ async function runTests() {
         console.log('  ✅ Restart recovery: Telegram notified and Standalone chat/model restored on first tick');
     }
 
+    // 13. Runner crash flushes queued user messages & resets restart counter after 10 min uptime
+    {
+        const { EventEmitter } = require('events');
+        const { startWorkOrders } = require('../src/work_orders');
+        const prevBackend = process.env.WORK_ORDERS_BACKEND;
+        process.env.WORK_ORDERS_BACKEND = 'standalone';
+
+        let fakeNow = 1000;
+        const children = [];
+        const scheduledDelays = [];
+        let pendingSpawn = null;
+        const sentAlerts = [];
+
+        const mockBot = {
+            command: () => {},
+            action: () => {},
+            use: () => {},
+            telegram: { sendMessage: async (_id, text) => { sentAlerts.push(text); } },
+        };
+
+        try {
+            const mgr = startWorkOrders(mockBot, [123], {
+                now: () => fakeNow,
+                forkFn: () => {
+                    const ch = new EventEmitter();
+                    ch.connected = true;
+                    ch.send = () => {};
+                    ch.kill = () => {};
+                    children.push(ch);
+                    return ch;
+                },
+                setTimeoutFn: (fn, delay) => {
+                    scheduledDelays.push(delay);
+                    pendingSpawn = fn;
+                },
+            });
+
+            const flushed = [];
+            mgr.setMessageProcessor(async (item) => { flushed.push(item.query); });
+
+            // Simulate running order + queued user messages, then sudden child exit
+            children[0].emit('message', { type: 'order_started', order: { id: 'o-crash', desk: 'ops' } });
+            assert.strictEqual(mgr.isOrderRunning(), true);
+            mgr.queueUserMessage({ query: 'Queued 1' });
+            mgr.queueUserMessage({ query: 'Queued 2' });
+            assert.strictEqual(mgr.getQueuedCount(), 2);
+
+            fakeNow += 5000; // crashed after only 5s (< 10 min)
+            children[0].emit('exit', 1);
+            await new Promise(r => setImmediate(r));
+
+            assert.strictEqual(mgr.isOrderRunning(), false, 'activeOrders cleared on exit');
+            assert.deepStrictEqual(flushed, ['Queued 1', 'Queued 2'], 'Queued user messages flushed on runner crash');
+            assert.strictEqual(scheduledDelays[0], 5000, 'First restart scheduled at 5s');
+
+            // Crash 3 more times quickly (restarts reaches 4 -> delays 10s, 15s, 20s)
+            for (let k = 0; k < 3; k++) {
+                pendingSpawn();
+                fakeNow += 1000;
+                children[children.length - 1].emit('exit', 1);
+            }
+            assert.deepStrictEqual(scheduledDelays, [5000, 10000, 15000, 20000]);
+
+            // Next child lives for 11 minutes (>= 10 min), then exits: restarts must reset to 0 -> 1 (delay 5000, NOT permanent stop!)
+            pendingSpawn();
+            fakeNow += 11 * 60 * 1000;
+            children[children.length - 1].emit('exit', 1);
+            assert.strictEqual(sentAlerts.length, 0, 'Must NOT hit 5-restart permanent stop after 10+ min healthy run');
+            assert.strictEqual(scheduledDelays[scheduledDelays.length - 1], 5000, 'Restart counter reset to 1 (5s backoff) after >=10m uptime');
+
+            mgr.stop();
+        } finally {
+            if (prevBackend === undefined) delete process.env.WORK_ORDERS_BACKEND;
+            else process.env.WORK_ORDERS_BACKEND = prevBackend;
+        }
+        console.log('  ✅ Runner exit queue flush & 10-minute restart counter reset passed');
+    }
+
     console.log('✅ All Work Orders Standalone backend tests passed successfully!');
 }
 
