@@ -242,6 +242,28 @@ async function run() {
         assert(e.notes.some(n => n.text.includes('Claude Opus 5.5 (High)')));
     }
 
+    // resolveBackend(env): 5 cases (explicit ide, explicit standalone, invalid with warning, unset + ide, unset + agent).
+    {
+        const { resolveBackend } = require('../src/work_orders/desks');
+        assert.strictEqual(resolveBackend({ WORK_ORDERS_BACKEND: 'ide', ANTIGRAVITY_PREFERRED_APP: 'agent' }), 'ide');
+        assert.strictEqual(resolveBackend({ WORK_ORDERS_BACKEND: 'standalone', ANTIGRAVITY_PREFERRED_APP: 'ide' }), 'standalone');
+        assert.strictEqual(resolveBackend({ ANTIGRAVITY_PREFERRED_APP: 'IDE' }), 'ide');
+        assert.strictEqual(resolveBackend({ ANTIGRAVITY_PREFERRED_APP: 'agent' }), 'standalone');
+        assert.strictEqual(resolveBackend({}), 'standalone');
+
+        const warnings = [];
+        const origWarn = console.warn;
+        console.warn = (...args) => warnings.push(args.join(' '));
+        try {
+            assert.strictEqual(resolveBackend({ WORK_ORDERS_BACKEND: 'invalid-mode', ANTIGRAVITY_PREFERRED_APP: 'ide' }), 'ide');
+            assert.strictEqual(resolveBackend({ WORK_ORDERS_BACKEND: 'invalid-mode', ANTIGRAVITY_PREFERRED_APP: 'agent' }), 'standalone');
+        } finally {
+            console.warn = origWarn;
+        }
+        assert.strictEqual(warnings.length, 2, 'invalid WORK_ORDERS_BACKEND should emit console.warn');
+        assert(warnings[0].includes('invalid-mode'));
+    }
+
     console.log('✅ work_orders tests passed!');
 }
 

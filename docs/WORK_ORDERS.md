@@ -34,12 +34,12 @@ When an order finishes, the result is delivered directly to Telegram. If a desk 
 
 Work Orders is enabled by default and creates `<PROJECTS_DIR>/.agts-work-orders/` on first start (dot-prefixed so `/workspace` keeps your normal project list clean).
 
-It supports two execution backends via `WORK_ORDERS_BACKEND`:
+It supports two execution backends via `WORK_ORDERS_BACKEND` (when unset, it automatically follows `ANTIGRAVITY_PREFERRED_APP`: `ide` if `ANTIGRAVITY_PREFERRED_APP=ide`, otherwise `standalone`):
 
-1. **`standalone` (Default — Single-Window Sequential)**
+1. **`standalone` (Single-Window Sequential — default when `ANTIGRAVITY_PREFERRED_APP=agent`)**
    - Runs on the **Antigravity Standalone App** (`AGENT_CDP_PORT`, default `9333`).
    - **Non-collision guard:** Waits until your active Standalone session has been idle for `WORK_ORDERS_IDLE_SEC` (default `60`s) before starting an order, queues incoming user Telegram messages while the order runs, and **restores both your previous chat thread and your original AI model** as soon as the queue drains.
-2. **`ide` (Parallel Multi-Window)**
+2. **`ide` (Parallel Multi-Window — default when `ANTIGRAVITY_PREFERRED_APP=ide`)**
    - Runs on **Antigravity IDE 2.6+** (`IDE_CDP_PORT`, default `9334`).
    - Opens each desk in its own isolated IDE window (up to `WORK_ORDERS_MAX_WINDOWS` concurrent windows), allowing **multiple different desks to execute in parallel**.
    - **Zero chat blocking:** Your normal Telegram chat (for example on Standalone port `9333` or another IDE window) stays completely unblocked while IDE work orders run in the background.
@@ -47,7 +47,7 @@ It supports two execution backends via `WORK_ORDERS_BACKEND`:
 
 ```env
 # WORK_ORDERS_ENABLED=false        # on by default; set false to turn it off
-# WORK_ORDERS_BACKEND=standalone   # 'standalone' (sequential) | 'ide' (parallel multi-window)
+# WORK_ORDERS_BACKEND=             # auto from ANTIGRAVITY_PREFERRED_APP ('ide' | 'standalone'), or set explicitly
 # WORK_ORDERS_DIR=~/Projects/.agts-work-orders
 # WORK_ORDERS_DEFAULT_MODEL=       # optional global fallback model for work orders
 # WORK_ORDERS_IDLE_SEC=60          # standalone: seconds of user inactivity required before starting

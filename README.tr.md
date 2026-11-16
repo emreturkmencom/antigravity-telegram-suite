@@ -287,10 +287,10 @@ Antigravity'yi **Telegram (`/wo`)**, **Claude Code**, cron görevleri, CI hatlar
 ### Neden Kullanmalısınız?
 
 - 🧠 **Claude Code Yönetici, Antigravity Ajanları Çalışan Olsun:** Terminalde Claude Code'u (veya Codex / Cursor / özel scriptlerinizi) baş mimar olarak tutun; araştırma, test yazımı, refactor veya QA işlerini Antigravity model kotasına devredin. Dosya yazabilen her uygulama Antigravity'ye iş emri gönderebilir.
-- ⚡ **Aynı Anda Birden Fazla Ajanla Paralel Çalışın (`WORK_ORDERS_BACKEND=ide`):** Her uzman **masa (desk)** kendi izole **Antigravity IDE 2.6+** penceresinde açılır; böylece birden fazla ajan **eşzamanlı olarak paralel** çalışırken ana Telegram sohbetiniz %100 serbest kalır. Boşta kalan pencereler RAM tasarrufu için **3 dakika** sonra otomatik kapanır (`WORK_ORDERS_IDLE_CLOSE_MIN=3`).
+- ⚡ **Aynı Anda Birden Fazla Ajanla Paralel Çalışın (`ide` arka ucu — `ANTIGRAVITY_PREFERRED_APP=ide` iken varsayılan):** Her uzman **masa (desk)** kendi izole **Antigravity IDE 2.6+** penceresinde açılır; böylece birden fazla ajan **eşzamanlı olarak paralel** çalışırken ana Telegram sohbetiniz %100 serbest kalır. Boşta kalan pencereler RAM tasarrufu için **3 dakika** sonra otomatik kapanır (`WORK_ORDERS_IDLE_CLOSE_MIN=3`).
 - 🎯 **Ajan Bazlı AI Model Seçimi:** `/wo` → **🤖 Model** üzerinden her masaya en uygun modeli atayın (ör. hızlı işler için *Gemini Flash*, kodlama için *Gemini Pro / Argon*, denetim için *Claude*) veya tek bir iş için `--model` ile ezin.
 - 🗂 **Kalıcı Uzmanlık Hafızası & İnsan Onayı:** Her masanın kuralları ve geçmiş tecrübelerini hatırladığı kendi `AGENT.md` dosyası vardır; hassas işler çalışmadan önce Telegram'da tek dokunuşla **Onayla / Reddet** şartı koyabilirsiniz.
-- 🧩 **Tek Pencereli Standalone Modda da Çalışır (`WORK_ORDERS_BACKEND=standalone`):** Hafif Standalone uygulamasını mı tercih ediyorsunuz? İşler güvenle sıraya girer, sohbetiniz `60` saniye boşta kalana kadar bekler, sırayla çalışır ve bittiğinde önceki sohbetinizi ve AI modelinizi otomatik geri yükler.
+- 🧩 **Tek Pencereli Standalone Modda da Çalışır (`standalone` arka ucu — `ANTIGRAVITY_PREFERRED_APP=agent` iken varsayılan veya `WORK_ORDERS_BACKEND` ile seçilebilir):** Hafif Standalone uygulamasını mı tercih ediyorsunuz? İşler güvenle sıraya girer, sohbetiniz `60` saniye boşta kalana kadar bekler, sırayla çalışır ve bittiğinde önceki sohbetinizi ve AI modelinizi otomatik geri yükler.
 
 ### Örnek 1: Telegram'dan Yönetim (`/wo`)
 

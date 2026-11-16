@@ -283,10 +283,10 @@ Verwandle Antigravity in einen **Multi-Agenten-Worker-Pool**, den du über **Tel
 ### Warum nutzen?
 
 - 🧠 **Claude Code als Manager, Antigravity als Worker:** Behalte Claude Code (oder Codex / Cursor / eigene Skripte) als Chefarchitekten im Terminal und lagere Recherche, Tests, Refactorings oder QA-Aufgaben an das Modell-Kontingent von Antigravity aus. Jede App, die eine Datei schreiben kann, kann Jobs vergeben.
-- ⚡ **Arbeite mit mehreren Agenten gleichzeitig (`WORK_ORDERS_BACKEND=ide`):** Jeder Spezial-**Desk** öffnet sich in einem eigenen isolierten **Antigravity IDE 2.6+**-Fenster, sodass mehrere Agenten **gleichzeitig parallel** arbeiten — während dein Haupt-Telegram-Chat zu 100 % frei bleibt. Inaktive Fenster schließen sich nach **3 Minuten** automatisch (`WORK_ORDERS_IDLE_CLOSE_MIN=3`), um RAM zu sparen.
+- ⚡ **Arbeite mit mehreren Agenten gleichzeitig (`ide`-Backend — Standard bei `ANTIGRAVITY_PREFERRED_APP=ide`):** Jeder Spezial-**Desk** öffnet sich in einem eigenen isolierten **Antigravity IDE 2.6+**-Fenster, sodass mehrere Agenten **gleichzeitig parallel** arbeiten — während dein Haupt-Telegram-Chat zu 100 % frei bleibt. Inaktive Fenster schließen sich nach **3 Minuten** automatisch (`WORK_ORDERS_IDLE_CLOSE_MIN=3`), um RAM zu sparen.
 - 🎯 **KI-Modell-Routing pro Agent:** Weise jedem Desk über `/wo` → **🤖 Modell** das passende Modell zu (z.B. *Gemini Flash* für schnelle Triage, *Gemini Pro / Argon* fürs Coding, *Claude* für Audits) oder überschreibe es pro Auftrag mit `--model`.
 - 🗂 **Persistentes Domänen-Gedächtnis & Freigabe:** Jeder Desk besitzt einen eigenen Ordner mit `AGENT.md` für Regeln und Gelerntes sowie optionale 1-Klick-**Genehmigen / Ablehnen**-Buttons in Telegram.
-- 🧩 **Funktioniert auch im Einzel-Fenster Standalone-Modus (`WORK_ORDERS_BACKEND=standalone`):** Aufträge warten bis dein Chat `60s` inaktiv ist, laufen nacheinander und stellen danach deinen vorherigen Chat-Thread und dein KI-Modell automatisch wieder her.
+- 🧩 **Funktioniert auch im Einzel-Fenster Standalone-Modus (`standalone`-Backend — Standard bei `ANTIGRAVITY_PREFERRED_APP=agent`, oder explizit per `WORK_ORDERS_BACKEND`):** Aufträge warten bis dein Chat `60s` inaktiv ist, laufen nacheinander und stellen danach deinen vorherigen Chat-Thread und dein KI-Modell automatisch wieder her.
 
 ### Beispiel 1: Steuerung aus Telegram (`/wo`)
 

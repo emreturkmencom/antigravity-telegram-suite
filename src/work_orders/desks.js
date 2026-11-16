@@ -26,6 +26,21 @@ function defaultDir() {
     return path.join(config.projectsDir, '.agts-work-orders');
 }
 
+function resolveBackend(env = process.env) {
+    const raw = env && env.WORK_ORDERS_BACKEND !== undefined ? String(env.WORK_ORDERS_BACKEND).trim() : '';
+    if (raw) {
+        const normalized = raw.toLowerCase();
+        if (normalized === 'ide' || normalized === 'standalone') return normalized;
+        const fallback = String((env && env.ANTIGRAVITY_PREFERRED_APP) || '').trim().toLowerCase() === 'ide'
+            ? 'ide'
+            : 'standalone';
+        console.warn(`[work-orders] invalid WORK_ORDERS_BACKEND="${raw}" (expected "ide" or "standalone"); falling back to "${fallback}"`);
+        return fallback;
+    }
+    const preferred = String((env && env.ANTIGRAVITY_PREFERRED_APP) || '').trim().toLowerCase();
+    return preferred === 'ide' ? 'ide' : 'standalone';
+}
+
 function ensureLayout(dir) {
     for (const sub of ['inbox', 'running', 'done', 'failed', 'results', 'desks', 'archive']) {
         fs.mkdirSync(path.join(dir, sub), { recursive: true });
@@ -234,6 +249,7 @@ module.exports = {
     DESK_RE,
     MODEL_PRESETS,
     defaultDir,
+    resolveBackend,
     ensureLayout,
     slugifyDesk,
     deskFolderName,

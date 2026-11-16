@@ -321,10 +321,10 @@ Turn Antigravity into a **multi-agent worker pool** that you can drive from **Te
 ### Why Use It?
 
 - 🧠 **Use Claude Code as Manager, Antigravity as Workers:** Keep Claude Code (or Codex / Cursor / custom scripts) as your lead architect in the terminal and offload research, test writing, refactoring, or QA tasks to Antigravity's model quota. Any app that can write a file can dispatch jobs to Antigravity.
-- ⚡ **Work with Multiple Agents at the Same Time (`WORK_ORDERS_BACKEND=ide`):** Each specialist **desk** opens in its own isolated **Antigravity IDE 2.6+** window so multiple agents work **simultaneously in parallel** — while your main Telegram chat stays 100% free. Idle windows auto-close after **3 minutes** (`WORK_ORDERS_IDLE_CLOSE_MIN=3`) to save RAM.
+- ⚡ **Work with Multiple Agents at the Same Time (`ide` backend — default when `ANTIGRAVITY_PREFERRED_APP=ide`):** Each specialist **desk** opens in its own isolated **Antigravity IDE 2.6+** window so multiple agents work **simultaneously in parallel** — while your main Telegram chat stays 100% free. Idle windows auto-close after **3 minutes** (`WORK_ORDERS_IDLE_CLOSE_MIN=3`) to save RAM.
 - 🎯 **Per-Agent AI Model Routing:** Assign the right model to each desk via `/wo` → **🤖 Model** (e.g., *Gemini Flash* for fast triage, *Gemini Pro / Argon* for coding, *Claude* for audits) or override per job with `--model`.
 - 🗂 **Persistent Domain Memory & Human Approval:** Every desk has its own folder and `AGENT.md` where it remembers rules and past lessons across runs, plus optional 1-tap **Approve / Reject** gates in Telegram before sensitive jobs run.
-- 🧩 **Works in Single-Window Standalone Mode Too (`WORK_ORDERS_BACKEND=standalone`):** Prefer lightweight Standalone mode? Jobs queue safely, wait until your chat is idle (`60s`), run sequentially, and automatically restore your previous chat thread and AI model when done.
+- 🧩 **Works in Single-Window Standalone Mode Too (`standalone` backend — default when `ANTIGRAVITY_PREFERRED_APP=agent`, or set `WORK_ORDERS_BACKEND` explicitly):** Prefer lightweight Standalone mode? Jobs queue safely, wait until your chat is idle (`60s`), run sequentially, and automatically restore your previous chat thread and AI model when done.
 
 ### Example 1: Control from Telegram (`/wo`)
 

@@ -286,10 +286,10 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 ### 왜 유용한가요?
 
 - 🧠 **Claude Code는 매니저, Antigravity는 실행 워커:** 터미널에서 Claude Code(또는 Codex / Cursor / 스크립트)를 수석 아키텍트로 유지하면서 리서치, 테스트 작성, 리팩터링, QA 업무를 Antigravity 모델 쿼터로 위임하세요. 파일을 쓸 수 있는 모든 앱이 작업을 지시할 수 있습니다.
-- ⚡ **여러 에이전트를 동시에 병렬 실행 (`WORK_ORDERS_BACKEND=ide`):** 각 전문 **데스크(Desk)**가 격리된 **Antigravity IDE 2.6+** 창에서 열려 여러 에이전트가 **동시에 병렬**로 작업하며, 기본 Telegram 채팅은 전혀 차단되지 않습니다. 유휴 창은 RAM 절약을 위해 **3분** 후 자동으로 닫힙니다 (`WORK_ORDERS_IDLE_CLOSE_MIN=3`).
+- ⚡ **여러 에이전트를 동시에 병렬 실행 (`ide` 백엔드 — `ANTIGRAVITY_PREFERRED_APP=ide`일 때 기본값):** 각 전문 **데스크(Desk)**가 격리된 **Antigravity IDE 2.6+** 창에서 열려 여러 에이전트가 **동시에 병렬**로 작업하며, 기본 Telegram 채팅은 전혀 차단되지 않습니다. 유휴 창은 RAM 절약을 위해 **3분** 후 자동으로 닫힙니다 (`WORK_ORDERS_IDLE_CLOSE_MIN=3`).
 - 🎯 **에이전트별 맞춤형 AI 모델 지정:** `/wo` → **🤖 모델**에서 데스크마다 최적의 모델을 지정하거나(빠른 분류는 *Gemini Flash*, 코딩은 *Gemini Pro / Argon*, 감사는 *Claude*) `--model`로 작업별 오버라이드가 가능합니다.
 - 🗂 **영구 도메인 메모리 및 승인 게이트:** 각 데스크는 자체 폴더와 `AGENT.md`에 규칙과 학습 내용을 기억하며, 민감한 작업 전 Telegram에서 원탭 **승인 / 거절**을 요구할 수 있습니다.
-- 🧩 **단일 창 Standalone 모드도 완벽 지원 (`WORK_ORDERS_BACKEND=standalone`):** 가벼운 Standalone 모드에서는 채팅이 유휴 상태(`60초`)가 될 때까지 기다린 뒤 순차 실행하고, 완료 후 이전 대화 스레드와 AI 모델을 자동 복원합니다.
+- 🧩 **단일 창 Standalone 모드도 완벽 지원 (`standalone` 백엔드 — `ANTIGRAVITY_PREFERRED_APP=agent`일 때 기본값, 또는 `WORK_ORDERS_BACKEND`로 지정):** 가벼운 Standalone 모드에서는 채팅이 유휴 상태(`60초`)가 될 때까지 기다린 뒤 순차 실행하고, 완료 후 이전 대화 스레드와 AI 모델을 자동 복원합니다.
 
 ### 예시 1: Telegram에서 제어 (`/wo`)
 

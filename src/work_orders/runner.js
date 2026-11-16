@@ -1,13 +1,22 @@
 // AGTS Work Orders — child process, forked by work_orders/index.js.
-// Backend:
-// - 'standalone' (default): Runs work orders in the Antigravity Standalone App (CDP 9333).
+// Backend (WORK_ORDERS_BACKEND; when unset, defaults to 'ide' if ANTIGRAVITY_PREFERRED_APP=ide, else 'standalone'):
+// - 'standalone': Runs work orders in the Antigravity Standalone App (CDP 9333).
 //   One order runs at a time. Each desk is a workspace + single dedicated chat thread (threadId in desk.json).
 //   Restores user chat after order finishes; queues user messages during order execution.
 // - 'ide': Runs each desk as its own Antigravity IDE window (CDP 9334).
 
-const BACKEND = (process.env.WORK_ORDERS_BACKEND || 'standalone').toLowerCase();
+const {
+    deskFolderName,
+    deskNameFromTarget,
+    resolveBackend,
+    defaultDir,
+    readDeskConfig,
+    writeDeskConfig,
+} = require('./desks');
+
+const BACKEND = resolveBackend(process.env);
 const isStandalone = BACKEND === 'standalone';
-if (!process.env.WORK_ORDERS_UI_DRIVER) {
+if (require.main === module && !process.env.WORK_ORDERS_UI_DRIVER) {
     process.env.ANTIGRAVITY_PREFERRED_APP = isStandalone ? 'agent' : 'ide';
 }
 
@@ -32,7 +41,6 @@ const { ensureIDETargetsObserver } = require('../autoaccept');
 const { STANDALONE_LOCATORS_SCRIPT } = require('../locators/standalone_locators');
 const { ensureMemoryConvention } = require('../memory_convention');
 const { WorkOrders } = require('./core');
-const { deskFolderName, deskNameFromTarget, defaultDir, readDeskConfig, writeDeskConfig } = require('./desks');
 const { s } = require('./strings');
 
 const port = isStandalone

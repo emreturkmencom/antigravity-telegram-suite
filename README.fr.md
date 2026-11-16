@@ -286,10 +286,10 @@ Transformez Antigravity en un **pool de workers multi-agents** pilotable depuis 
 ### Pourquoi l'utiliser ?
 
 - 🧠 **Claude Code comme Manager, Antigravity comme Exécutants :** Gardez Claude Code (ou Codex / Cursor / scripts) comme architecte principal dans le terminal et déléguez la recherche, les tests, le refactoring ou la QA au quota de modèles Antigravity. Toute application capable d'écrire un fichier peut envoyer des tâches.
-- ⚡ **Travaillez avec plusieurs agents en même temps (`WORK_ORDERS_BACKEND=ide`) :** Chaque **desk** spécialisé s'ouvre dans sa propre fenêtre **Antigravity IDE 2.6+** isolée afin que plusieurs agents travaillent **simultanément en parallèle** — pendant que votre chat Telegram principal reste 100 % libre. Les fenêtres inactives se ferment automatiquement après **3 minutes** (`WORK_ORDERS_IDLE_CLOSE_MIN=3`) pour économiser la RAM.
+- ⚡ **Travaillez avec plusieurs agents en même temps (backend `ide` — par défaut avec `ANTIGRAVITY_PREFERRED_APP=ide`) :** Chaque **desk** spécialisé s'ouvre dans sa propre fenêtre **Antigravity IDE 2.6+** isolée afin que plusieurs agents travaillent **simultanément en parallèle** — pendant que votre chat Telegram principal reste 100 % libre. Les fenêtres inactives se ferment automatiquement après **3 minutes** (`WORK_ORDERS_IDLE_CLOSE_MIN=3`) pour économiser la RAM.
 - 🎯 **Routage de modèle IA par agent :** Assignez le modèle idéal à chaque desk via `/wo` → **🤖 Modèle** (ex. *Gemini Flash* pour le tri rapide, *Gemini Pro / Argon* pour le code, *Claude* pour l'audit) ou surchargez par tâche avec `--model`.
 - 🗂 **Mémoire persistante & approbation humaine :** Chaque desk conserve ses règles et apprentissages dans son propre `AGENT.md`, avec validation optionnelle **Approuver / Rejeter** en 1 clic sur Telegram.
-- 🧩 **Fonctionne aussi en mode Standalone mono-fenêtre (`WORK_ORDERS_BACKEND=standalone`) :** Les tâches attendent `60s` d'inactivité du chat, s'exécutent séquentiellement et restaurent automatiquement votre discussion et votre modèle IA précédents.
+- 🧩 **Fonctionne aussi en mode Standalone mono-fenêtre (backend `standalone` — par défaut avec `ANTIGRAVITY_PREFERRED_APP=agent`, ou configurable via `WORK_ORDERS_BACKEND`) :** Les tâches attendent `60s` d'inactivité du chat, s'exécutent séquentiellement et restaurent automatiquement votre discussion et votre modèle IA précédents.
 
 ### Exemple 1 : Contrôle depuis Telegram (`/wo`)
 

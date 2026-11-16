@@ -286,10 +286,10 @@ Turbo 模式运行一个自动协调多个 AI 模型的 **Agents Council** 工�
 ### 核心优势
 
 - 🧠 **Claude Code 当经理，Antigravity 当执行者：** 在终端中保留 Claude Code（或 Codex / Cursor / 自定义脚本）作为主架构师，将调研、编写测试、重构或 QA 任务卸载到 Antigravity 的模型额度上。任何能写文件的应用都能调度 Antigravity。
-- ⚡ **同时并行运行多个代理 (`WORK_ORDERS_BACKEND=ide`)：** 每个专家**工位（Desk）**都在独立的 **Antigravity IDE 2.6+** 窗口中打开，多个代理**同时并行工作**，而你的主 Telegram 聊天完全不受阻塞。空闲窗口在 **3 分钟**后自动关闭（`WORK_ORDERS_IDLE_CLOSE_MIN=3`）以节省内存。
+- ⚡ **同时并行运行多个代理（`ide` 后端 — `ANTIGRAVITY_PREFERRED_APP=ide` 时默认）：** 每个专家**工位（Desk）**都在独立的 **Antigravity IDE 2.6+** 窗口中打开，多个代理**同时并行工作**，而你的主 Telegram 聊天完全不受阻塞。空闲窗口在 **3 分钟**后自动关闭（`WORK_ORDERS_IDLE_CLOSE_MIN=3`）以节省内存。
 - 🎯 **按代理分配专属 AI 模型：** 通过 `/wo` → **🤖 模型**为不同工位绑定不同模型（如用 *Gemini Flash* 快速分类，用 *Gemini Pro / Argon* 编码，用 *Claude* 审计），或单次使用 `--model` 覆盖。
 - 🗂 **持久化领域记忆与人工审批：** 每个工位拥有独立的 `AGENT.md` 长期记忆文件，并支持在敏感任务执行前通过 Telegram 一键**批准 / 拒绝**。
-- 🧩 **同样支持单窗口 Standalone 模式 (`WORK_ORDERS_BACKEND=standalone`)：** 在轻量级 Standalone 模式下，工单安全排队、等待聊天空闲（`60s`）后顺序执行，并在完成后自动恢复你之前的对话线程与 AI 模型。
+- 🧩 **同样支持单窗口 Standalone 模式（`standalone` 后端 — `ANTIGRAVITY_PREFERRED_APP=agent` 时默认，也可通过 `WORK_ORDERS_BACKEND` 显式指定）：** 在轻量级 Standalone 模式下，工单安全排队、等待聊天空闲（`60s`）后顺序执行，并在完成后自动恢复你之前的对话线程与 AI 模型。
 
 ### 示例 1：在 Telegram 中控制 (`/wo`)
 

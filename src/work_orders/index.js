@@ -31,7 +31,7 @@ function startWorkOrders(bot, chatIds) {
     const queuedUserMessages = [];
     let userMessageProcessor = null;
     let lastUserActivityAt = 0;
-    const getBackend = () => (process.env.WORK_ORDERS_BACKEND || 'standalone').toLowerCase();
+    const getBackend = () => desks.resolveBackend(process.env);
 
     const send = async (msg) => {
         const extra = msg.buttons && msg.buttons.length
