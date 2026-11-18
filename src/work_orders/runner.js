@@ -139,7 +139,17 @@ async function withPanel(win) {
     throw new Error(`agent panel composer of desk "${win.desk}" did not become ready within 60 s (Antigravity IDE 2.6+ required)`);
 }
 
-async function openDeskWindow(desk, deskDir) {
+// Desk windows open one at a time. launchIDE() on a cold IDE frees the CDP port with
+// `fuser -k`, so two parallel cold launches kill each other and leave an IDE without
+// a debugging port. Orders still run in parallel once their windows are up.
+let openDeskChain = Promise.resolve();
+function openDeskWindow(desk, deskDir) {
+    const run = openDeskChain.then(() => openDeskWindowNow(desk, deskDir));
+    openDeskChain = run.catch(() => {});
+    return run;
+}
+
+async function openDeskWindowNow(desk, deskDir) {
     const existing = (await listDeskWindows()).find(w => w.desk === desk);
     if (existing) return withPanel(existing);
     await launchIDE(deskDir, port, 'ide');
