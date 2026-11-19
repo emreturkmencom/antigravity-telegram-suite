@@ -36,7 +36,7 @@ Envía mensajes, cambia modelos de IA, administra espacios de trabajo, toma capt
 | 🪟 **Soporte Multi-Ventana** | Dirige comandos a una ventana de IDE específica cuando hay varias abiertas |
 | 💬 **Gestión de Hilos (Threads)** | Lista, cambia y gestiona hilos de chat (conversaciones de agentes) |
 | ⚡ **Aceptación Automática (Auto-Accept)** | Haz clic automáticamente en los botones Run, Accept, Allow, Continue mediante un MutationObserver |
-| 🚀 **Modo Turbo** | Orquestación multi-agente: Claude planifica → Gemini codifica → Claude revisa → Gemini corrige |
+| 🚀 **Modos de Permiso** | Cambia entre los modos de permiso nativos de Antigravity (`🚀 Turbo`, `⚡ Auto`, `🛡️ Default`, `🔒 Review`) con `/mode` o `/turbo` |
 | 🎯 **Modo Goal** | Tareas autónomas de larga duración — el agente trabaja hasta completar el objetivo |
 | 📋 **Modo Plan** | Genera planes de implementación antes de codificar |
 | 🔔 **Notificaciones Proactivas** | TaskWatcher detecta mensajes no solicitados del agente (timers, sub-agentes) y los reenvía a Telegram |
@@ -181,7 +181,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | Comando | Descripción |
 |---|---|
 | `/model` | Cambiar el modelo de IA (Gemini, Claude, etc.) |
-| `/turbo` | Alternar **Modo Turbo** — orquestación multi-agente (ver abajo) |
+| `/mode` / `/turbo` | Cambia el modo de permiso nativo de Antigravity (`Turbo` / `Auto` / `Default` / `Review`) |
 | `/goal <tarea>` | **Modo Goal** — el agente trabaja autónomamente hasta terminar |
 | `/plan <tarea>` | Genera un **plan de implementación** antes de codificar |
 | `/schedule_task <tarea>` | Programar una tarea recurrente o única en el IDE |
@@ -220,52 +220,6 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/version` | Mostrar la información de la versión actual |
 | `/menu` | Actualizar el menú de comandos de Telegram |
 | `/fix_shortcuts` | Reparar los accesos directos de escritorio para aplicaciones Antigravity |
-
----
-
-## 🚀 Modo Turbo (Orquestación Multi-Agente)
-
-El Modo Turbo ejecuta un flujo de trabajo de **Consejo de Agentes (Agents Council)** que coordina automáticamente múltiples modelos de IA:
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          PIPELINE MODO TURBO                        │
-│                                                                     │
-│  Fase 1: PLANIFICACIÓN    Claude Opus → Crea el plan de implementación │
-│  Fase 2: CODIFICACIÓN     Gemini Pro  → Escribe el código              │
-│  Fase 3: REVISIÓN         Claude Opus → Revisión de código y seguridad │
-│  Fase 4: CORRECCIÓN       Gemini Pro  → Corrige los problemas (si los hay) │
-│  Fase 5: RESUMEN          Gemini Pro  → Resumen ejecutivo para el usuario│
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-**Cómo utilizar:**
-1. Habilita el Modo Turbo: `/turbo` → Selecciona "Activar" (Enable)
-2. Envía tu solicitud como texto normal
-3. El bot cambiará automáticamente de modelo y ejecutará todas las fases
-4. Recibirás actualizaciones de fase en tiempo real y un resumen final
-
-> 💡 El Modo Turbo requiere acceso a los modelos de Claude y Gemini en tu suscripción de Antigravity.
-
----
-
-## 🎯 Modo Goal vs 🚀 Modo Turbo
-
-| | Modo Goal (`/goal`) | Modo Turbo (`/turbo`) |
-|---|---|---|
-| **Cómo funciona** | El agente trabaja autónomamente en una sesión hasta terminar | El bot orquesta externamente un pipeline multi-modelo |
-| **Modelos usados** | El modelo actualmente seleccionado | Claude (plan/revisión) + Gemini (código/corrección) — cambio automático |
-| **Ventaja principal** | Simple, fiable, integrado en el IDE | Colaboración multi-modelo: diferentes modelos se verifican entre sí |
-| **Uso de tokens** | Ventana de contexto única (eficiente) | Múltiples round-trips (más tokens) |
-| **Progreso** | Reacción 🤔 → resultado final | Mensaje fijado con actualizaciones en tiempo real |
-| **Mejor para** | Tareas largas con un solo modelo | Tareas complejas que se benefician de revisión multi-modelo |
-| **Arquitectura** | Nativo del IDE (comando `/goal`) | Orquestación externa: CDP + `turbo_orchestrator.js` |
-
-**Cuándo usar cuál:**
-- **Tarea larga simple** (ej. "refactoriza este módulo") → `/goal`
-- **Tarea compleja con revisión multi-modelo** (ej. "construye esta funcionalidad, revisa seguridad, corrige errores") → `/turbo`
-- **Planificación** → `/plan` (genera plan, tú decides después)
-- **Tareas recurrentes o delegación externa** (ej. triaje de comentarios, auditorías QA, tareas delegadas por Claude Code / Cron) → `/wo`
 
 ---
 
@@ -331,7 +285,6 @@ antigravity-telegram-suite/
 │   ├── index.js              # Lógica principal del bot y manejadores de comandos de Telegram
 │   ├── cdp_controller.js     # Comunicación con Chrome DevTools Protocol
 │   ├── autoaccept.js         # Clic automático mediante CDP MutationObserver
-│   ├── turbo_orchestrator.js # Orquestación Modo Turbo (Consejo de Agentes) multi-agente
 │   ├── task_watcher.js       # Vigilante de notificaciones proactivas (transcript.jsonl)
 │   ├── updater.js            # Módulo de auto-actualización (git pull + pm2 restart)
 │   ├── ui_locators.js        # Localizadores de elementos DOM para interacción de UI
@@ -396,7 +349,6 @@ Utiliza `/app` para cambiar el enfoque del bot entre las aplicaciones. La config
 |-------|---------|
 | **Soporte Completo Standalone e IDE 2.6+** | Todos los comandos funcionan de forma nativa tanto con Antigravity Standalone App (2.29+) como con Antigravity IDE (2.6+ / 1.107.0+), incluyendo `/agents`, escritorios paralelos multi-ventana `/wo`, selección de modelo/esfuerzo, auto-aceptación y seguimiento de hilos. |
 | **Auto-Actualización en IDE 2.0** | Si Antigravity IDE se auto-actualiza, los selectores del DOM pueden romperse hasta que el bot también sea actualizado. |
-| **Acceso a Modelos Modo Turbo** | El Modo Turbo requiere que los modelos Claude y Gemini estén disponibles. Si un modelo no está disponible, la canalización fallará. |
 
 ---
 
@@ -426,10 +378,6 @@ Utiliza `/app` para cambiar el enfoque del bot entre las aplicaciones. La config
 - **[Blakey](https://github.com/Blakey)** — PR #33: Alternancia de privacidad de Telegraph, URLs con slug criptográfico indescifrable, comandos de bot y pruebas independientes
 - **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: Chips de skills nativos, encadenamiento de comandos multi-slash y alternancia de menú de skills
 - **[muhsinzyne](https://github.com/muhsinzyne)** — PR #45: Visor interactivo `/live` y `/latest` con actualización en línea y control de detención
-
-## 🌟 Créditos e Inspiraciones
-
-La orquestación multi-agente del **Modo Turbo** se inspiró en el repositorio [Agents-Council](https://github.com/interdesigncorp-lab/Agents-Council) desarrollado por Interdesigncorp Lab.
 
 ---
 

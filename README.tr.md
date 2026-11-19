@@ -36,7 +36,7 @@ Telefonunuzdan veya terminalinizden mesaj gönderin, AI modellerini değiştirin
 | 👥 **Çoklu Kullanıcı (Multi-User)** | Virgülle ayrılmış Chat ID'leri ile botunuzu ekibinizle paylaşın |
 | 💬 **İnteraktif Sohbet Yönetimi** | Son sohbetler, proje klasörleri, hızlı arama (`/agents <kelime>`) ve 2ms anında geçiş butonları |
 | ⚡ **Oto-Onay (Auto-Accept)** | DOM MutationObserver ile Run, Accept, Allow butonlarına otomatik tıklayın |
-| 🚀 **Turbo Mod** | Çoklu ajan orkestrasyonu: Claude planlar → Gemini kodlar → Claude inceler → Gemini düzeltir |
+| 🚀 **İzin Modları** | Antigravity yerel izin modları (`🚀 Turbo`, `⚡ Auto`, `🛡️ Default`, `🔒 Review`) arasında `/mode` veya `/turbo` ile geçiş yapın |
 | 🎯 **Goal Modu** | Otonom uzun süreli görevler — ajan hedef tamamlanıncaya kadar çalışır |
 | 📋 **Plan Modu** | Kodlamadan önce uygulama planı oluşturur |
 | 🔔 **Proaktif Bildirimler** | TaskWatcher, ajanın kendiliğinden gönderdiği mesajları (timer, alt-ajan) Telegram’a iletir |
@@ -181,7 +181,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | Komut | Açıklama |
 |---|---|
 | `/model` | Yapay zeka modelini (Gemini, Claude vb.) değiştirir |
-| `/turbo` | **Turbo Modu** aç/kapat — çoklu ajan orkestrasyonu |
+| `/mode` / `/turbo` | Antigravity yerel izin modunu (`Turbo` / `Auto` / `Default` / `Review`) değiştirir |
 | `/goal <görev>` | **Goal Modu** — ajan görev tamamlanıncaya kadar otonom çalışır |
 | `/plan <görev>` | Kodlamadan önce **uygulama planı** oluşturur |
 | `/schedule_task <görev>` | IDE’de tekrarlayan veya tek seferlik görev planlar |
@@ -221,52 +221,6 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/version` | Mevcut sürüm bilgisini gösterir |
 | `/menu` | Telegram komut menüsünü yeniler |
 | `/fix_shortcuts` | Antigravity uygulamaları için masaüstü kısayollarını onarır |
-
----
-
-## 🚀 Turbo Mod (Multi-Agent Orkestrasyonu)
-
-Turbo Mod, birden fazla AI modelini otomatik koordine eden bir **Ajan Konseyi** (Agents Council) iş akışı yürütür:
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        TURBO MOD AKIŞI                             │
-│                                                                     │
-│  Aşama 1: PLANLAMA        Claude Opus → Mimari planı oluşturur      │
-│  Aşama 2: KODLAMA         Gemini Pro  → Kodu yazar                  │
-│  Aşama 3: İNCELEME        Claude Opus → Güvenlik ve kod incelemesi  │
-│  Aşama 4: DÜZELTME        Gemini Pro  → Bulunan sorunları çözer     │
-│  Aşama 5: ÖZET            Gemini Pro  → Kullanıcıya nihai özet sunar│
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-**Nasıl Kullanılır:**
-1. Turbo Modu Etkinleştirin: `/turbo` → "Etkinleştir" (Enable) seçin
-2. İsteğinizi normal bir metin olarak gönderin
-3. Bot otomatik olarak modelleri değiştirip tüm aşamaları tamamlar
-4. Gerçek zamanlı güncellemeler ve nihai bir özet alırsınız
-
-> 💡 Turbo Mod, Antigravity aboneliğinizde hem Claude hem de Gemini modellerine erişim gerektirir.
-
----
-
-## 🎯 Goal Modu vs 🚀 Turbo Mod
-
-| | Goal Modu (`/goal`) | Turbo Mod (`/turbo`) |
-|---|---|---|
-| **Nasıl çalışır** | Ajan tek oturumda otonom çalışır, bitene kadar durur | Bot dışarıdan çoklu model hattını yönetir |
-| **Kullanılan modeller** | O an seçili olan model | Claude (plan/inceleme) + Gemini (kod/düzeltme) — otomatik geçiş |
-| **Temel avantaj** | Basit, güvenilir, IDE’ye entegre | Çoklu model işbirliği: farklı modeller birbirini kontrol eder |
-| **Token kullanımı** | Tek context penceresi (verimli) | Birden fazla round-trip (daha fazla token) |
-| **İlerleme** | 🤔 reaksiyon → sonuç | Gerçek zamanlı pinned mesaj ile aşama güncellemeleri |
-| **En uygun** | Tek model ile uzun görevler | Çoklu model incelemesi gerektiren karmaşık görevler |
-| **Mimari** | IDE-native (`/goal` slash komutu) | Dış orkestrasyon: CDP + `turbo_orchestrator.js` |
-
-**Hangisini ne zaman kullanmalı:**
-- **Basit uzun görev** (ör. "bu modülü refactor et") → `/goal`
-- **Çoklu model incelemesi gereken görev** (ör. "özellik yap, güvenlik incele, sorunları düzelt") → `/turbo`
-- **Planlama** → `/plan` (plan oluşturur, sonra siz karar verirsiniz)
-- **Tekrarlayan uzmanlık görevleri veya dış orkestrasyon** (ör. yorum yanıtlama, kalite kontrol, cron/Claude Code iş devri) → `/wo`
 
 ---
 
@@ -332,7 +286,6 @@ antigravity-telegram-suite/
 │   ├── index.js              # Ana bot mantığı ve Telegram komutları
 │   ├── cdp_controller.js     # Chrome DevTools Protocol iletişimi
 │   ├── autoaccept.js         # DOM MutationObserver tabanlı oto-onay botu
-│   ├── turbo_orchestrator.js # Çoklu ajan (Turbo Mod) orkestrasyonu
 │   ├── task_watcher.js       # Proaktif bildirim izleyici (transcript.jsonl)
 │   ├── updater.js            # Oto-güncelleme modülü (git pull + pm2 restart)
 │   ├── ui_locators.js        # Arayüz ile etkileşim için DOM seçicileri
@@ -381,7 +334,6 @@ Bot eşzamanlı çalışan **iki Antigravity uygulamasını** destekler:
 |-------|---------|
 | **Standalone ve IDE 2.6+ Desteği** | Tüm komutlar hem Antigravity Standalone App (2.29+) hem de Antigravity IDE (2.6+ / 1.107.0+) ile tam uyumlu çalışır (`/agents`, `/wo` paralel çoklu pencere masaları, model/efor seçimi, oto-onay ve sohbet takibi dahil). |
 | **IDE 2.0 Oto-Güncellemeleri** | Antigravity IDE kendini güncellerse, DOM seçicileri bot da güncellenene kadar geçici olarak bozulabilir. |
-| **Turbo Mod Model Erişimi** | Turbo Mod, hem Claude hem de Gemini modellerine erişim gerektirir. Biri eksikse işlem başarısız olur. |
 
 ---
 
@@ -411,10 +363,6 @@ Bot eşzamanlı çalışan **iki Antigravity uygulamasını** destekler:
 - **[Blakey](https://github.com/Blakey)** — PR #33: Telegraph gizlilik kontrolü, tahmin edilemez kripto slug URL'leri, bot komutları ve bağımsız testler
 - **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: Doğal skill çipleri, çoklu slash komut zincirleme ve skill menü toggle'ı
 - **[muhsinzyne](https://github.com/muhsinzyne)** — PR #45: Yerinde yenileme ve durdurma kontrollü interaktif `/live` & `/latest` canlı yanıt görüntüleyici
-
-## 🌟 Krediler & İlham Kaynakları
-
-Çoklu ajan **Turbo Mod** orkestrasyonu, Interdesigncorp Lab'ın [Agents-Council](https://github.com/interdesigncorp-lab/Agents-Council) deposundan ilham alınarak geliştirilmiştir.
 
 ---
 

@@ -36,7 +36,7 @@
 | 👥 **多用户** | 通过逗号分隔的 Chat ID 与团队共享 Bot 控制权 |
 | 💬 **线程管理** | 查看、切换和管理聊天线程（代理对话） |
 | ⚡ **自动接受** | 通过 DOM MutationObserver 自动点击 Run、Accept、Allow、Continue 按钮 |
-| 🚀 **Turbo 模式** | 多代理协作：Claude 规划 → Gemini 编码 → Claude 审查 → Gemini 修复 |
+| 🚀 **权限模式** | 通过 `/mode` 或 `/turbo` 切换 Antigravity 原生权限模式（`🚀 Turbo`、`⚡ Auto`、`🛡️ Default`、`🔒 Review`） |
 | 🎯 **Goal 模式** | 自主长时间任务 — 代理持续工作直到目标完全达成 |
 | 📋 **Plan 模式** | 在编码前生成实施计划 |
 | 🔔 **主动通知** | TaskWatcher 检测代理的主动消息（定时器、子代理）并转发至 Telegram |
@@ -181,7 +181,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | 命令 | 描述 |
 |---|---|
 | `/model` | 切换 AI 模型（Gemini、Claude 等） |
-| `/turbo` | 切换 **Turbo 模式** — 多代理协作（详见下文） |
+| `/mode` / `/turbo` | 切换 Antigravity 原生权限模式（`Turbo` / `Auto` / `Default` / `Review`） |
 | `/goal <任务>` | 启动 **Goal 模式** — 代理自主工作直到完成 |
 | `/plan <任务>` | 编码前生成**实施计划** |
 | `/schedule_task <任务>` | 在 IDE 中安排定时或一次性任务 |
@@ -220,52 +220,6 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/version` | 显示当前版本信息 |
 | `/menu` | 更新 Telegram 命令菜单 |
 | `/fix_shortcuts` | 修复 Antigravity 应用的桌面快捷方式 |
-
----
-
-## 🚀 Turbo 模式（多代理协作）
-
-Turbo 模式运行一个自动协调多个 AI 模型的 **Agents Council** 工作流：
-
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                        TURBO MODE PIPELINE                         │
-│                                                                     │
-│  Phase 1: PLANNING        Claude Opus → 创建实施计划                │
-│  Phase 2: CODING          Gemini Pro  → 编写代码                    │
-│  Phase 3: REVIEW          Claude Opus → 安全和代码审查              │
-│  Phase 4: FIX (如需要)    Gemini Pro  → 修复发现的问题              │
-│  Phase 5: SUMMARY         Gemini Pro  → 为用户生成执行摘要          │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-**使用方法：**
-1. 启用 Turbo 模式：`/turbo` → 选择 "Enable"
-2. 像往常一样以普通文本发送请求
-3. Bot 将自动切换模型并执行所有阶段
-4. 你将收到实时阶段更新和最终摘要
-
-> 💡 Turbo 模式需要在你的 Antigravity 订阅中同时拥有 Claude 和 Gemini 模型的访问权限。
-
----
-
-## 🎯 Goal 模式 vs 🚀 Turbo 模式
-
-| | Goal Mode (`/goal`) | Turbo Mode (`/turbo`) |
-|---|---|---|
-| **工作方式** | 代理在单个会话中自主工作直到完成 | Bot 在外部协调多模型管道 |
-| **使用的模型** | 当前选择的模型 | Claude（规划/审查）+ Gemini（编码/修复）— 自动切换 |
-| **核心优势** | 简单、可靠的 IDE 原生功能 | 多模型协作：不同模型交叉检查 |
-| **Token 用量** | 单个上下文窗口（高效） | 多次往返调用（消耗更多 Token） |
-| **进度显示** | 🤔 反应 → 最终结果 | 包含阶段更新的实时置顶消息 |
-| **适合场景** | 使用单个模型的长任务 | 需要多模型审查的复杂任务 |
-| **架构** | IDE 原生（`/goal` 斜杠命令） | 基于 CDP + `turbo_orchestrator.js` 的外部协调 |
-
-**何时使用哪个：**
-- **简单但耗时的任务**（例如："重构这个模块"）→ `/goal`
-- **需要跨模型审查的复杂任务**（例如："构建此功能、审查安全性、修复问题"）→ `/turbo`
-- **制定计划** → `/plan`（仅生成计划，然后由你决定）
-- **持续的专业工位或外部编排**（例如：评论处理、QA 审计、通过 Claude Code / Cron 派发并行任务）→ `/wo`
 
 ---
 
@@ -331,7 +285,6 @@ antigravity-telegram-suite/
 │   ├── index.js              # 主 Bot 逻辑和 Telegram 命令处理
 │   ├── cdp_controller.js     # Chrome DevTools Protocol 通信
 │   ├── autoaccept.js         # 基于 CDP MutationObserver 的自动接受按钮点击器
-│   ├── turbo_orchestrator.js # 多代理 Turbo Mode (Agents Council) 协调
 │   ├── task_watcher.js       # 主动通知监视器（transcript.jsonl 监控）
 │   ├── updater.js            # 自更新模块（git pull + pm2 restart）
 │   ├── ui_locators.js        # IDE/Agent UI 交互的 DOM 元素定位器
@@ -396,7 +349,6 @@ Bot 支持**两个 Antigravity 应用**同时运行：
 |-------|---------| 
 | **Standalone 与 IDE 2.6+ 完整支持** | 所有命令均原生支持 Antigravity Standalone App (2.29+) 与 Antigravity IDE (2.6+ / 1.107.0+)，包括 `/agents`、`/wo` 多窗口并行工位、模型与思考强度选择、自动接受及会话追踪。 |
 | **IDE 2.0 自动更新** | Antigravity IDE 自动更新后，Bot 更新之前 DOM 选择器可能会失效。 |
-| **Turbo Mode 模型访问** | Turbo Mode 需要 Claude 和 Gemini 模型均可用。如果其中一个不可用，管道将失败。 |
 
 ---
 
@@ -426,10 +378,6 @@ Bot 支持**两个 Antigravity 应用**同时运行：
 - **[Blakey](https://github.com/Blakey)** — PR #33: Telegraph 隐私切换、不可猜测的加密 slug URL、Bot 命令和独立测试
 - **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: 原生 Skill 芯片、多斜杠命令链接和 Skill 菜单切换
 - **[muhsinzyne](https://github.com/muhsinzyne)** — PR #45: 支持原地刷新与停止控制的交互式 `/live` 与 `/latest` 实时响应查看器
-
-## 🌟 致谢与灵感
-
-多代理 **Turbo Mode** 协调的灵感来源于 Interdesigncorp Lab 的 [Agents-Council](https://github.com/interdesigncorp-lab/Agents-Council) 仓库。
 
 ---
 

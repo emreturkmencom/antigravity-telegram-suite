@@ -36,7 +36,7 @@ Sende Nachrichten, wechsle KI-Modelle, verwalte Arbeitsbereiche, nimm Screenshot
 | 🪟 **Multi-Window-Unterstützung** | Leite Befehle an ein bestimmtes IDE-Fenster weiter, wenn mehrere geöffnet sind |
 | 💬 **Thread-Verwaltung** | Liste, wechsle und verwalte Chat-Threads (Agentengespräche) |
 | ⚡ **Auto-Accept** | Klicke automatisch auf Run, Accept, Allow, Continue-Buttons über einen DOM MutationObserver |
-| 🚀 **Turbo Modus** | Multi-Agenten-Orchestrierung: Claude plant → Gemini programmiert → Claude überprüft → Gemini korrigiert |
+| 🚀 **Berechtigungsmodi** | Wechsle per `/mode` oder `/turbo` zwischen nativen Antigravity-Berechtigungsmodi (`🚀 Turbo`, `⚡ Auto`, `🛡️ Default`, `🔒 Review`) |
 | 🎯 **Goal Modus** | Autonome langfristige Aufgaben — Agent arbeitet bis das Ziel erreicht ist |
 | 📋 **Plan Modus** | Erstellt einen Implementierungsplan vor dem Programmieren |
 | 🔔 **Proaktive Benachrichtigungen** | TaskWatcher erkennt unaufgeforderte Agenten-Nachrichten (Timer, Sub-Agents) und leitet sie an Telegram weiter |
@@ -178,7 +178,7 @@ chmod +x scripts/install.sh
 | Befehl | Beschreibung |
 |---|---|
 | `/model` | KI-Modell wechseln (Gemini, Claude, usw.) |
-| `/turbo` | **Turbo-Modus** umschalten — Multi-Agenten-Orchestrierung (siehe unten) |
+| `/mode` / `/turbo` | Nativen Antigravity-Berechtigungsmodus wechseln (`Turbo` / `Auto` / `Default` / `Review`) |
 | `/goal <Aufgabe>` | **Goal Modus** — Agent arbeitet autonom bis zur Fertigstellung |
 | `/plan <Aufgabe>` | Erstellt einen **Implementierungsplan** vor dem Programmieren |
 | `/schedule_task <Aufgabe>` | Wiederkehrende oder einmalige Aufgabe in der IDE planen |
@@ -217,52 +217,6 @@ chmod +x scripts/install.sh
 | `/version` | Aktuelle Versionsinfo anzeigen |
 | `/menu` | Telegram-Befehlsmenü aktualisieren |
 | `/fix_shortcuts` | Desktop-Verknüpfungen für Antigravity-Apps reparieren |
-
----
-
-## 🚀 Turbo-Modus (Multi-Agenten-Orchestrierung)
-
-Der Turbo-Modus führt einen **Agents Council**-Workflow aus, der mehrere KI-Modelle automatisch koordiniert:
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        TURBO-MODUS-PIPELINE                        │
-│                                                                     │
-│  Phase 1: PLANUNG          Claude Opus → Erstellt einen Umsetzungsplan │
-│  Phase 2: PROGRAMMIERUNG   Gemini Pro  → Schreibt den Code          │
-│  Phase 3: ÜBERPRÜFUNG      Claude Opus → Sicherheits- & Code-Review │
-│  Phase 4: KORREKTUR (opt.) Gemini Pro  → Behebt gefundene Probleme  │
-│  Phase 5: ZUSAMMENFASSUNG  Gemini Pro  → Zusammenfassung für Nutzer │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-**Verwendung:**
-1. Turbo-Modus aktivieren: `/turbo` → "Aktivieren" (Enable) wählen
-2. Sende deine Anfrage als normalen Text
-3. Der Bot wechselt automatisch die Modelle und führt alle Phasen aus
-4. Du erhältst Echtzeit-Updates zu den Phasen und eine finale Zusammenfassung
-
-> 💡 Der Turbo-Modus erfordert Zugriff auf sowohl Claude- als auch Gemini-Modelle in deinem Antigravity-Abonnement.
-
----
-
-## 🎯 Goal Modus vs 🚀 Turbo Modus
-
-| | Goal Modus (`/goal`) | Turbo Modus (`/turbo`) |
-|---|---|---|
-| **Wie es funktioniert** | Agent arbeitet autonom in einer Sitzung bis zur Fertigstellung | Bot orchestriert extern eine Multi-Modell-Pipeline |
-| **Verwendete Modelle** | Das aktuell ausgewählte Modell | Claude (Plan/Review) + Gemini (Code/Fix) — automatischer Wechsel |
-| **Hauptvorteil** | Einfach, zuverlässig, IDE-nativ | Multi-Modell-Zusammenarbeit: verschiedene Modelle kontrollieren sich gegenseitig |
-| **Token-Verbrauch** | Einzelnes Context-Window (effizient) | Mehrere Round-Trips (mehr Tokens) |
-| **Fortschritt** | 🤔 Reaktion → Endergebnis | Echtzeit-Updates über angepinnte Nachricht |
-| **Am besten für** | Lange Aufgaben mit einem Modell | Komplexe Aufgaben mit Multi-Modell-Review |
-| **Architektur** | IDE-nativ (`/goal` Slash-Befehl) | Externe Orchestrierung: CDP + `turbo_orchestrator.js` |
-
-**Wann was verwenden:**
-- **Einfache lange Aufgabe** (z.B. "dieses Modul refactoren") → `/goal`
-- **Komplexe Aufgabe mit Multi-Modell-Review** (z.B. "Feature bauen, Sicherheit prüfen, Fehler beheben") → `/turbo`
-- **Planung** → `/plan` (erstellt Plan, dann entscheidest du)
-- **Wiederkehrende Spezialaufgaben oder externe Orchestrierung** (z.B. Kommentar-Triage, QA-Audits, Jobs aus Claude Code / Cron) → `/wo`
 
 ---
 
@@ -328,7 +282,6 @@ antigravity-telegram-suite/
 │   ├── index.js              # Haupt-Bot-Logik & Telegram-Befehls-Handler
 │   ├── cdp_controller.js     # Chrome DevTools Protocol-Kommunikation
 │   ├── autoaccept.js         # Auto-Accept-Button-Klicker via CDP MutationObserver
-│   ├── turbo_orchestrator.js # Multi-Agenten-Turbo-Modus-Orchestrierung
 │   ├── task_watcher.js       # Proaktiver Benachrichtigungswatcher (transcript.jsonl)
 │   ├── updater.js            # Auto-Update-Modul (git pull + pm2 restart)
 │   ├── ui_locators.js        # DOM-Element-Selektoren für IDE/Agent-UI-Interaktion
@@ -393,7 +346,6 @@ Verwende `/app`, um den Fokus des Bots zwischen den Apps zu wechseln. Die Einste
 |-------|---------|
 | **Volle Standalone- & IDE-2.6+-Unterstützung** | Alle Befehle funktionieren nativ sowohl mit der Antigravity Standalone App (2.29+) als auch mit der Antigravity IDE (2.6+ / 1.107.0+), einschließlich `/agents`, paralleler `/wo`-Multi-Window-Desks, Modell-/Effort-Auswahl, Auto-Accept und Gesprächsverfolgung. |
 | **Auto-Update in IDE 2.0** | Wenn sich die Antigravity IDE automatisch aktualisiert, können DOM-Selektoren brechen, bis der Bot ebenfalls aktualisiert wird. |
-| **Turbo-Modus-Modellzugriff** | Der Turbo-Modus erfordert, dass sowohl Claude- als auch Gemini-Modelle verfügbar sind. Wenn ein Modell nicht verfügbar ist, schlägt die Pipeline fehl. |
 
 ---
 
@@ -423,10 +375,6 @@ Verwende `/app`, um den Fokus des Bots zwischen den Apps zu wechseln. Die Einste
 - **[Blakey](https://github.com/Blakey)** — PR #33: Telegraph-Datenschutz-Toggle, unerratbare Krypto-Slug-URLs, Bot-Befehle und eigenständige Tests
 - **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: Native Skill-Chips, Multi-Slash-Befehlskettung und Skill-Menü-Umschalter
 - **[muhsinzyne](https://github.com/muhsinzyne)** — PR #45: Interaktive `/live`- & `/latest`-Antwortansicht mit Inline-Aktualisierung und Stopp-Steuerung
-
-## 🌟 Credits & Inspirationen
-
-Die Multi-Agenten-**Turbo Modus**-Orchestrierung wurde vom Repository [Agents-Council](https://github.com/interdesigncorp-lab/Agents-Council) des Interdesigncorp Labs inspiriert.
 
 ---
 

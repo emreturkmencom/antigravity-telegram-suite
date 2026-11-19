@@ -36,7 +36,7 @@ Telegram으로 Antigravity AI 에이전트를 원격 제어하고, **Claude Code
 | 👥 **멀티 유저** | 쉼표로 구분된 Chat ID를 통해 팀과 봇 제어를 공유합니다 |
 | 💬 **스레드 관리** | 채팅 스레드(에이전트 대화)를 조회, 전환, 관리합니다 |
 | ⚡ **자동 수락** | DOM MutationObserver를 통해 Run, Accept, Allow, Continue 버튼을 자동 클릭합니다 |
-| 🚀 **터보 모드** | 멀티 에이전트 오케스트레이션: Claude가 계획 → Gemini가 구현 → Claude가 리뷰 → Gemini가 수정 |
+| 🚀 **권한 모드** | `/mode` 또는 `/turbo`로 Antigravity 네이티브 권한 모드(`🚀 Turbo`, `⚡ Auto`, `🛡️ Default`, `🔒 Review`)를 전환합니다 |
 | 🎯 **Goal 모드** | 장시간 작업을 자율 실행 — 목표가 완전히 달성될 때까지 에이전트가 작업합니다 |
 | 📋 **Plan 모드** | 코딩 전에 구현 계획을 생성합니다 |
 | 🔔 **능동 알림** | TaskWatcher가 비요청 에이전트 메시지(타이머, 서브 에이전트)를 감지해 Telegram으로 전달합니다 |
@@ -181,7 +181,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | 명령어 | 설명 |
 |---|---|
 | `/model` | AI 모델(Gemini, Claude 등)을 전환합니다 |
-| `/turbo` | **터보 모드**를 토글합니다 — 멀티 에이전트 오케스트레이션 (아래 참고) |
+| `/mode` / `/turbo` | Antigravity 네이티브 권한 모드(`Turbo` / `Auto` / `Default` / `Review`)를 전환합니다 |
 | `/goal <task>` | **Goal 모드** 시작 — 완료될 때까지 에이전트가 자율적으로 작업합니다 |
 | `/plan <task>` | 코딩 전에 **구현 계획**을 생성합니다 |
 | `/schedule_task <task>` | IDE에서 반복 작업 또는 1회성 작업을 예약합니다 |
@@ -220,52 +220,6 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/version` | 현재 버전 정보를 표시합니다 |
 | `/menu` | Telegram 명령어 메뉴를 업데이트합니다 |
 | `/fix_shortcuts` | Antigravity 앱의 데스크톱 바로가기를 복구합니다 |
-
----
-
-## 🚀 터보 모드 (멀티 에이전트 오케스트레이션)
-
-터보 모드는 여러 AI 모델을 자동으로 조율하는 **Agents Council** 워크플로우를 실행합니다:
-
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                        TURBO MODE PIPELINE                         │
-│                                                                     │
-│  Phase 1: PLANNING        Claude Opus → Creates implementation plan │
-│  Phase 2: CODING          Gemini Pro  → Writes the code             │
-│  Phase 3: REVIEW          Claude Opus → Security & code review      │
-│  Phase 4: FIX (if needed) Gemini Pro  → Fixes issues found          │
-│  Phase 5: SUMMARY         Gemini Pro  → Executive summary for user  │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-**사용 방법:**
-1. 터보 모드 활성화: `/turbo` → "Enable" 선택
-2. 평소처럼 요청을 일반 텍스트로 전송
-3. 봇이 자동으로 모델을 전환하며 모든 단계를 수행
-4. 실시간 단계 업데이트와 최종 요약을 받게 됩니다
-
-> 💡 터보 모드를 사용하려면 Antigravity 구독에서 Claude와 Gemini 모델 모두에 접근할 수 있어야 합니다.
-
----
-
-## 🎯 Goal 모드 vs 🚀 Turbo 모드
-
-| | Goal Mode (`/goal`) | Turbo Mode (`/turbo`) |
-|---|---|---|
-| **동작 방식** | 하나의 세션에서 완료될 때까지 에이전트가 자율 작업 | 봇이 외부에서 멀티 모델 파이프라인을 오케스트레이션 |
-| **사용 모델** | 현재 선택된 모델 | Claude(계획/리뷰) + Gemini(구현/수정) — 자동 전환 |
-| **핵심 장점** | 단순하고 안정적인 IDE 기본 기능 | 멀티 모델 협업으로 서로 교차 검증 |
-| **토큰 사용량** | 단일 컨텍스트 윈도우(효율적) | 여러 번 왕복 호출(토큰 더 많이 사용) |
-| **진행 표시** | 🤔 리액션 → 최종 결과 | 실시간 단계 업데이트가 포함된 고정 메시지 |
-| **적합한 작업** | 단일 모델로 긴 작업 수행 | 멀티 모델 리뷰가 유리한 복잡한 작업 |
-| **아키텍처** | IDE 네이티브 (`/goal` 슬래시 명령) | CDP + `turbo_orchestrator.js` 기반 외부 오케스트레이션 |
-
-**언제 무엇을 쓸까:**
-- **단순하지만 긴 작업** (예: "이 모듈 리팩터링") → `/goal`
-- **교차 모델 리뷰가 필요한 복잡한 작업** (예: "이 기능 만들고, 보안 리뷰하고, 이슈 수정") → `/turbo`
-- **계획 수립** → `/plan` (계획만 생성한 뒤 직접 결정)
-- **반복되는 전문 업무 또는 외부 오케스트레이션** (예: 댓글 분류, QA 점검, Claude Code / Cron 작업 위임) → `/wo`
 
 ---
 
@@ -331,7 +285,6 @@ antigravity-telegram-suite/
 │   ├── index.js              # 메인 봇 로직 및 Telegram 명령어 핸들러
 │   ├── cdp_controller.js     # Chrome DevTools Protocol 통신
 │   ├── autoaccept.js         # CDP MutationObserver 기반 자동 수락 버튼 클릭기
-│   ├── turbo_orchestrator.js # 멀티 에이전트 Turbo Mode (Agents Council) 오케스트레이션
 │   ├── task_watcher.js       # 능동 알림 감시기 (transcript.jsonl 모니터)
 │   ├── updater.js            # 자체 업데이트 모듈 (git pull + pm2 restart)
 │   ├── ui_locators.js        # IDE/Agent UI 상호작용용 DOM 요소 locator
@@ -396,7 +349,6 @@ antigravity-telegram-suite/
 |-------|---------|
 | **Standalone 및 IDE 2.6+ 완벽 지원** | `/agents`, `/wo` 멀티 윈도우 병렬 데스크, 모델 및 추론 강도 선택, 자동 수락, 대화 추적을 포함한 모든 명령어가 Antigravity Standalone App(2.29+)과 Antigravity IDE(2.6+ / 1.107.0+) 모두에서 기본 동작합니다. |
 | **IDE 2.0 자동 업데이트** | Antigravity IDE가 자동 업데이트되면, 봇도 함께 업데이트되기 전까지 DOM selector가 깨질 수 있습니다. |
-| **Turbo Mode 모델 접근성** | Turbo Mode는 Claude와 Gemini 모델이 모두 사용 가능해야 합니다. 하나라도 사용할 수 없으면 파이프라인이 실패합니다. |
 
 ---
 
@@ -426,10 +378,6 @@ antigravity-telegram-suite/
 - **[Blakey](https://github.com/Blakey)** — PR #33: Telegraph 개인정보 보호 토글, 추측 불가능한 암호화 슬러그 URL, 봇 명령어 및 독립형 테스트
 - **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: 네이티브 스킬 칩, 멀티 슬래시 명령 연결 및 스킬 메뉴 토글
 - **[muhsinzyne](https://github.com/muhsinzyne)** — PR #45: 인라인 새로고침 및 중지 컨트롤이 포함된 대화형 `/live` 및 `/latest` 실시간 응답 뷰어
-
-## 🌟 크레딧 및 영감
-
-멀티 에이전트 **Turbo Mode** 오케스트레이션은 Interdesigncorp Lab의 [Agents-Council](https://github.com/interdesigncorp-lab/Agents-Council) 저장소에서 영감을 받았습니다.
 
 ---
 

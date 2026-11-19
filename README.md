@@ -36,7 +36,7 @@ Send messages, switch AI models, manage workspaces, take screenshots, and orches
 | 👥 **Multi-User** | Share bot control with your team via comma-separated Chat IDs |
 | 💬 **Interactive Chat Threads** | Interactive button UI with recent chats, project folders, fast search (`/agents <keyword>`), and instant UUID switching |
 | ⚡ **Auto-Accept** | Automatically click Run, Accept, Allow, Continue buttons via a DOM MutationObserver |
-| 🚀 **Turbo Mode** | Multi-agent orchestration: Claude plans → Gemini codes → Claude reviews → Gemini fixes |
+| 🚀 **Permission Modes** | Switch Antigravity native permission modes (`🚀 Turbo`, `⚡ Auto`, `🛡️ Default`, `🔒 Review`) via `/mode` or `/turbo` |
 | 🎯 **Goal Mode** | Autonomous long-running tasks — agent works until the goal is fully achieved |
 | 📋 **Plan Mode** | Generate implementation plans before coding |
 | 🔔 **Proactive Notifications** | TaskWatcher detects unsolicited agent messages (timers, sub-agents) and forwards to Telegram |
@@ -50,7 +50,6 @@ Send messages, switch AI models, manage workspaces, take screenshots, and orches
 | 📡 **Telegraph Publishing** | Task checklists, implementation plans, and walkthroughs can be published with 128-bit unguessable crypto slug URLs (or kept private in chat), with full toggle and wipe controls |
 | 🤝 **Connect Claude Code & Parallel Agents (`/wo`)** | Bridge **Claude Code**, CLI tools, cron jobs, or webhooks to Antigravity — run **multiple specialist agents at the same time** in isolated IDE windows, assign a custom AI model per agent, and receive results on disk & Telegram |
 | 📊 **Dark-Mode Table Cards** | Automatically renders Markdown tables into crisp dark-mode dashboard PNG cards with status pills and color-coded deltas so wide tables stay readable on mobile |
-
 
 ---
 
@@ -203,7 +202,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | Command | Description |
 |---|---|
 | `/model` | Switch AI model (Gemini, Claude, etc.) |
-| `/turbo` | Toggle **Turbo Mode** — multi-agent orchestration (see below) |
+| `/mode` / `/turbo` | Switch Antigravity native permission mode (`Turbo` / `Auto` / `Default` / `Review`) |
 | `/goal <task>` | Start **Goal Mode** — agent works autonomously until done |
 | `/plan <task>` | Generate an **implementation plan** before coding |
 | `/schedule_task <prompt>` | Schedule a recurring or one-time task in the IDE |
@@ -254,53 +253,6 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 | `/switchacc <id>` | Inject credentials for the specified account, gracefully restart the IDE/Agent, and log in |
 | `/getinfo <id>` | Retrieve detailed subscription details and render custom model usage progress bars |
 | `/delacc <id>` | Delete a saved Google account's authentication token from the bot's database |
-
-
----
-
-## 🚀 Turbo Mode (Multi-Agent Orchestration)
-
-Turbo Mode runs an **Agents Council** workflow that coordinates multiple AI models automatically:
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        TURBO MODE PIPELINE                         │
-│                                                                     │
-│  Phase 1: PLANNING        Claude Opus → Creates implementation plan │
-│  Phase 2: CODING          Gemini Pro  → Writes the code             │
-│  Phase 3: REVIEW          Claude Opus → Security & code review      │
-│  Phase 4: FIX (if needed) Gemini Pro  → Fixes issues found          │
-│  Phase 5: SUMMARY         Gemini Pro  → Executive summary for user  │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-**How to use:**
-1. Enable Turbo Mode: `/turbo` → Select "Enable"
-2. Send your request as normal text
-3. The bot will automatically switch models and run all phases
-4. You'll receive real-time phase updates and a final summary
-
-> 💡 Turbo Mode requires access to both Claude and Gemini models in your Antigravity subscription.
-
----
-
-## 🎯 Goal Mode vs 🚀 Turbo Mode
-
-| | Goal Mode (`/goal`) | Turbo Mode (`/turbo`) |
-|---|---|---|
-| **How it works** | Agent works autonomously in a single session until done | Bot orchestrates multi-model pipeline externally |
-| **Models used** | Whichever model is currently selected | Claude (plan/review) + Gemini (code/fix) — automatic switching |
-| **Key advantage** | Simple, reliable, native IDE feature | Multi-model collaboration: different models cross-check each other |
-| **Token usage** | Single context window (efficient) | Multiple round-trips (more tokens) |
-| **Progress** | 🤔 reaction → final result | Real-time pinned message with phase updates |
-| **Best for** | Long tasks with a single model | Complex tasks benefiting from multi-model review |
-| **Architecture** | IDE-native (`/goal` slash command) | External orchestration via CDP + `turbo_orchestrator.js` |
-
-**When to use which:**
-- **Simple long task** (e.g., "refactor this module") → `/goal` 
-- **Complex task needing cross-model review** (e.g., "build this feature, review security, fix issues") → `/turbo`
-- **Planning** → `/plan` (generates plan, then you decide)
-- **Recurring domain tasks or external orchestration** (e.g., comment triage, QA audits, cron/Claude Code delegating jobs) → `/wo`
 
 ---
 
@@ -366,7 +318,6 @@ antigravity-telegram-suite/
 │   ├── index.js               # Main bot logic & Telegram command handlers
 │   ├── cdp_controller.js      # Chrome DevTools Protocol communication
 │   ├── autoaccept.js          # Auto-accept button clicker via CDP MutationObserver
-│   ├── turbo_orchestrator.js  # Multi-agent Turbo Mode (Agents Council) orchestration
 │   ├── task_watcher.js        # Proactive notification watcher (transcript.jsonl monitor)
 │   ├── updater.js             # Self-update module (git pull + pm2 restart)
 │   ├── ui_locators.js         # DOM element locators for IDE/Agent UI interaction
@@ -479,10 +430,6 @@ Use `/app` to switch the bot's focus between apps. The `ANTIGRAVITY_PREFERRED_AP
 - **[Blakey](https://github.com/Blakey)** — PR #33: Telegraph privacy toggle, unguessable crypto slug URLs, bot commands, and standalone tests
 - **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: Native skill chips, multi-slash command chaining, and skills menu toggle
 - **[muhsinzyne](https://github.com/muhsinzyne)** — PR #45: Interactive `/live` & `/latest` response viewer with in-place refresh and stop controls
-
-## 🌟 Credits & Inspirations
-
-The multi-agent **Turbo Mode** orchestration was inspired by the [Agents-Council](https://github.com/interdesigncorp-lab/Agents-Council) repository by Interdesigncorp Lab.
 
 ---
 
