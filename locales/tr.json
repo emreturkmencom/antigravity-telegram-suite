@@ -74,7 +74,11 @@
     "no_new": "[Yeni mesaj yok]",
     "error": "❌ Hata: {error}\n(Antigravity açık mı?)",
     "last_agent_reply": "📋 Son Agent Yanıtı:",
-    "not_found_active": "⚠️ Aktif sohbet penceresi bulunamadı. Lütfen /agents komutuyla bir sohbet seçin veya yeni bir mesaj gönderin."
+    "not_found_active": "⚠️ Aktif sohbet penceresi bulunamadı. Lütfen /agents komutuyla bir sohbet seçin veya yeni bir mesaj gönderin.",
+    "updated_at": "⏱️ Güncellendi: {time}",
+    "btn_refresh": "🔄 Yenile",
+    "btn_stop": "🛑 Durdur",
+    "refreshed": "🔄 Güncellendi!"
   },
   "screenshot": {
     "taking": "📸 IDE ekran görüntüsü alınıyor (CDP üzerinden)...",
@@ -145,6 +149,7 @@
     "help_desc": "Tüm komutların listesini gösterir",
     "ask_desc": "Sorunuzu ajana iletir",
     "latest_desc": "Son yanıtı getirir",
+    "live_desc": "Yerinde yenilemeli canlı yanıt görüntüleyici",
     "screenshot_desc": "IDE ekran görüntüsü alır",
     "status_desc": "Sistem durumu (IDE, CDP, PM2)",
     "start_ide_desc": "IDE başlatır",

@@ -12,7 +12,7 @@ Envoyez des messages, changez de modèle d'IA, gérez les espaces de travail, pr
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.5-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.6-orange.svg)]()
 
 </div>
 
@@ -425,6 +425,7 @@ Utilisez `/app` pour basculer le bot entre les applications. Le paramètre `ANTI
 - **[Forwead](https://github.com/Forwead)** — Issue #32: Optimisation de la latence de réponse et synchronisation de base de TaskWatcher
 - **[Blakey](https://github.com/Blakey)** — PR #33: Bascule de confidentialité Telegraph, slugs d'URL crypto impossibles à deviner, commandes de bot et tests autonomes
 - **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: Chips de skills natifs, chaînage de commandes multi-slash et bascule de menu de skills
+- **[muhsinzyne](https://github.com/muhsinzyne)** — PR #45 : Visionneuse interactive `/live` et `/latest` avec actualisation en place et bouton d'arrêt
 
 ## 🌟 Crédits & Inspirations
 

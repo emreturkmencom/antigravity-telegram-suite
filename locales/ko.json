@@ -187,7 +187,11 @@
     "last_agent_reply": "📋 마지막 에이전트 응답:",
     "no_new": "[새 메시지 없음]",
     "not_found_active": "⚠️ 활성 채팅 창을 찾을 수 없습니다. /agents 명령으로 채팅을 선택하거나 새 메시지를 보내세요.",
-    "title": "📝 최신 응답:\n\n"
+    "title": "📝 최신 응답:\n\n",
+    "updated_at": "⏱️ 업데이트: {time}",
+    "btn_refresh": "🔄 새로고침",
+    "btn_stop": "🛑 중지",
+    "refreshed": "🔄 업데이트됨!"
   },
   "menu": {
     "agents_desc": "최근 채팅 스레드 목록 및 전환",
@@ -215,6 +219,7 @@
     "help_desc": "사용 가능한 모든 명령어 표시",
     "lang_desc": "언어 전환",
     "latest_desc": "최신 응답 가져오기",
+    "live_desc": "인라인 새로고침이 포함된 실시간 응답 뷰어",
     "menu_desc": "명령어 메뉴 업데이트",
     "model_desc": "모델 선택 메뉴 열기",
     "model_not_selected": "⚠️ 선택된 모델이 없습니다",

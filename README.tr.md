@@ -12,7 +12,7 @@ Telefonunuzdan veya terminalinizden mesaj gönderin, AI modellerini değiştirin
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.5-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.6-orange.svg)]()
 
 </div>
 
@@ -410,6 +410,7 @@ Bot eşzamanlı çalışan **iki Antigravity uygulamasını** destekler:
 - **[Forwead](https://github.com/Forwead)** — Issue #32: Yanıt gecikmesi optimizasyonu ve TaskWatcher baseline senkronizasyonu
 - **[Blakey](https://github.com/Blakey)** — PR #33: Telegraph gizlilik kontrolü, tahmin edilemez kripto slug URL'leri, bot komutları ve bağımsız testler
 - **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: Doğal skill çipleri, çoklu slash komut zincirleme ve skill menü toggle'ı
+- **[muhsinzyne](https://github.com/muhsinzyne)** — PR #45: Yerinde yenileme ve durdurma kontrollü interaktif `/live` & `/latest` canlı yanıt görüntüleyici
 
 ## 🌟 Krediler & İlham Kaynakları
 

@@ -74,7 +74,11 @@
     "no_new": "[Aucun nouveau message]",
     "error": "❌ Erreur : {error}\n(Est-ce que Antigravity est ouvert ?)",
     "last_agent_reply": "📋 Dernière réponse de l'agent :",
-    "not_found_active": "⚠️ Fenêtre de discussion active introuvable. Veuillez sélectionner une discussion avec la commande /agents ou envoyer un nouveau message."
+    "not_found_active": "⚠️ Fenêtre de discussion active introuvable. Veuillez sélectionner une discussion avec la commande /agents ou envoyer un nouveau message.",
+    "updated_at": "⏱️ Mis à jour : {time}",
+    "btn_refresh": "🔄 Actualiser",
+    "btn_stop": "🛑 Arrêter",
+    "refreshed": "🔄 Mis à jour !"
   },
   "screenshot": {
     "taking": "📸 Capture de l'IDE en cours (via CDP)...",
@@ -145,6 +149,7 @@
     "help_desc": "Afficher toutes les commandes disponibles",
     "ask_desc": "Poser une question à l'agent",
     "latest_desc": "Obtenir la dernière réponse",
+    "live_desc": "Aperçu en direct de la réponse avec actualisation",
     "screenshot_desc": "Prendre une capture de l'IDE",
     "status_desc": "Statut du système (IDE, CDP, PM2)",
     "start_ide_desc": "Démarrer l'IDE",

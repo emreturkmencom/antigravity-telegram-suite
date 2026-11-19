@@ -12,7 +12,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.5-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.6-orange.svg)]()
 
 </div>
 
@@ -425,6 +425,7 @@ Bot 支持**两个 Antigravity 应用**同时运行：
 - **[Forwead](https://github.com/Forwead)** — Issue #32: 响应延迟优化与 TaskWatcher 基线同步
 - **[Blakey](https://github.com/Blakey)** — PR #33: Telegraph 隐私切换、不可猜测的加密 slug URL、Bot 命令和独立测试
 - **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: 原生 Skill 芯片、多斜杠命令链接和 Skill 菜单切换
+- **[muhsinzyne](https://github.com/muhsinzyne)** — PR #45: 支持原地刷新与停止控制的交互式 `/live` 与 `/latest` 实时响应查看器
 
 ## 🌟 致谢与灵感
 

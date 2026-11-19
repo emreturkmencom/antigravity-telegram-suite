@@ -12,7 +12,7 @@ Telegram으로 Antigravity AI 에이전트를 원격 제어하고, **Claude Code
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.5-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.6-orange.svg)]()
 
 </div>
 
@@ -425,6 +425,7 @@ antigravity-telegram-suite/
 - **[Forwead](https://github.com/Forwead)** — Issue #32: 응답 지연 시간 최적화 및 TaskWatcher 기준선 동기화
 - **[Blakey](https://github.com/Blakey)** — PR #33: Telegraph 개인정보 보호 토글, 추측 불가능한 암호화 슬러그 URL, 봇 명령어 및 독립형 테스트
 - **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: 네이티브 스킬 칩, 멀티 슬래시 명령 연결 및 스킬 메뉴 토글
+- **[muhsinzyne](https://github.com/muhsinzyne)** — PR #45: 인라인 새로고침 및 중지 컨트롤이 포함된 대화형 `/live` 및 `/latest` 실시간 응답 뷰어
 
 ## 🌟 크레딧 및 영감
 

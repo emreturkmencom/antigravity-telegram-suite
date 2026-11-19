@@ -12,7 +12,7 @@ Send messages, switch AI models, manage workspaces, take screenshots, and orches
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.5-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.6-orange.svg)]()
 
 </div>
 
@@ -478,6 +478,7 @@ Use `/app` to switch the bot's focus between apps. The `ANTIGRAVITY_PREFERRED_AP
 - **[Forwead](https://github.com/Forwead)** — Issue #32: Response latency optimization & TaskWatcher baseline synchronization
 - **[Blakey](https://github.com/Blakey)** — PR #33: Telegraph privacy toggle, unguessable crypto slug URLs, bot commands, and standalone tests
 - **[0ALI0ZARGAR0](https://github.com/0ALI0ZARGAR0)** — PR #34: Native skill chips, multi-slash command chaining, and skills menu toggle
+- **[muhsinzyne](https://github.com/muhsinzyne)** — PR #45: Interactive `/live` & `/latest` response viewer with in-place refresh and stop controls
 
 ## 🌟 Credits & Inspirations
 

@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.9.6] - 2026-11-19
+
+### Added
+- **Interactive `/live` & `/latest` Viewer with In-Place Refresh (inspired by PR #45 by [@muhsinzyne](https://github.com/muhsinzyne))**:
+  - Added `/live` command (registered in Telegram's native `/` menu across all 7 languages) and enhanced `/latest` with a live timestamp header (`⏱️ Updated: HH:MM:SS`) plus a compact `[ 🔄 Refresh | 🛑 Stop ]` inline action bar.
+  - Tapping `🔄 Refresh` re-reads the active agent response and updates the existing Telegram message in place via `editMessageText` (with 4096-char safe tail chunking and plain-text HTML fallback) without flooding the chat with duplicate bubbles.
+  - Added `@muhsinzyne` to the Contributors / Acknowledgements list across all 7 READMEs.
+
+### Security
+- **Patched Transitive Dependency Advisories (`npm audit fix`)**:
+  - Updated `undici` (`7.29.0` → `7.30.2`, fixing CVE-2026-109829 while preserving Node 18/20 compatibility), `ws` (`7.5.10` → `7.5.14`), and `source-map-js` (`1.2.1` → `1.2.3`) — `0` production vulnerabilities remaining.
+
 ## [3.9.5] - 2026-11-19
 
 ### Added

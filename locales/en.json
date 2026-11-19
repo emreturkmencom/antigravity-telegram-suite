@@ -74,7 +74,11 @@
     "no_new": "[No new messages]",
     "error": "❌ Error: {error}\n(Is Antigravity open?)",
     "last_agent_reply": "📋 Last Agent Reply:",
-    "not_found_active": "⚠️ Active chat window not found. Please select a chat using the /agents command or send a new message."
+    "not_found_active": "⚠️ Active chat window not found. Please select a chat using the /agents command or send a new message.",
+    "updated_at": "⏱️ Updated: {time}",
+    "btn_refresh": "🔄 Refresh",
+    "btn_stop": "🛑 Stop",
+    "refreshed": "🔄 Updated!"
   },
   "screenshot": {
     "taking": "📸 Taking IDE screenshot (via CDP)...",
@@ -145,6 +149,7 @@
     "help_desc": "Show all available commands",
     "ask_desc": "Send a question to the agent",
     "latest_desc": "Get the latest response",
+    "live_desc": "Live response viewer with inline refresh",
     "screenshot_desc": "Take an IDE screenshot",
     "status_desc": "System status (IDE, CDP, PM2)",
     "start_ide_desc": "Start IDE",
