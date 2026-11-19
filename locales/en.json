@@ -112,6 +112,8 @@
     "select_prompt": "🤖 Select a model:",
     "changing": "🔄 Changing model: {model}",
     "select_failed": "❌ Model could not be selected. Make sure the chat screen is open in the IDE.",
+    "select_effort": "🤖 Select effort tier for <b>{model}</b>:",
+    "back_to_list": "🔙 Model List",
     "error": "Error!"
   },
   "workspace": {

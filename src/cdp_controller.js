@@ -3092,11 +3092,15 @@ async function getCurrentModel(port) {
                             const label = btn.getAttribute('aria-label') || '';
                             const current = label.match(/(?:current|当前)[：:]\\s*(.+)$/i);
                             if (current && current[1]) return current[1].trim();
-                            const spans = Array.from(btn.querySelectorAll('span')).map(s => (s.textContent || '').trim()).filter(Boolean);
-                            if (spans.length >= 2 && /^(low|medium|high)$/i.test(spans[spans.length - 1])) {
-                                const tier = spans[spans.length - 1];
-                                const formattedTier = tier.charAt(0).toUpperCase() + tier.slice(1).toLowerCase();
-                                return spans.slice(0, -1).join(' ') + ' (' + formattedTier + ')';
+                            const leafSpans = Array.from(btn.querySelectorAll('span'))
+                                .filter(s => s.children.length === 0)
+                                .map(s => (s.textContent || '').trim())
+                                .filter(t => t && !/^(new|beta|notice|unavailable)$/i.test(t));
+                            if (leafSpans.length >= 2) {
+                                const lastSpan = leafSpans[leafSpans.length - 1];
+                                if (lastSpan.length <= 24) {
+                                    return leafSpans.slice(0, -1).join(' ') + ' (' + lastSpan + ')';
+                                }
                             }
                             const txt = btn.textContent.trim();
                             if (txt) return txt;
@@ -4004,64 +4008,307 @@ async function getAvailableModels(port) {
                 expression: `
                     ${DriverFactory.getDriver().getLocatorsScript()}
                     (async () => {
+                        const stripPunct = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+                        const effortDisplayAliases = {
+                            xhigh: 'Extra',
+                            'x-high': 'Extra',
+                            extrahigh: 'Extra',
+                            'extra-high': 'Extra',
+                            'extra high': 'Extra',
+                            extra_high: 'Extra',
+                        };
+                        const effortRank = {
+                            off: 0, none: 0, minimal: 10, min: 10, low: 20,
+                            medium: 30, med: 30, standard: 30, balanced: 30, default: 30,
+                            high: 40, extra: 50, xhigh: 50, max: 60, maximum: 60, ultra: 70, extreme: 80
+                        };
+                        const normEffortDisplay = (raw) => {
+                            const t = String(raw || '').trim();
+                            if (!t) return '';
+                            const lower = t.toLowerCase();
+                            const compact = stripPunct(t);
+                            if (effortDisplayAliases[lower]) return effortDisplayAliases[lower];
+                            if (effortDisplayAliases[compact]) return effortDisplayAliases[compact];
+                            return t === lower ? (t.charAt(0).toUpperCase() + t.slice(1)) : t;
+                        };
                         const cleanModelText = (text) => (text || '')
-                            .replace(/\\s*\\(?\\b(low|medium|high)\\b\\)?\\s*/gi, ' ')
                             .replace(/Fla\\s*h/g, 'Flash')
                             .replace(/Fa\\s*t/g, 'Fast')
                             .replace(/\\bopus?\\b/gi, 'Opus')
                             .replace(/Fa\\s*t$/i, '')
-                            .replace(/New$/i, '')
+                            .replace(/(Notice|New|Unavailable)$/i, '')
                             .replace(/\\s+/g, ' ')
                             .trim();
-                        
-                        const seen = new Set();
-                        const models = [];
-                        
-                        // 1. Standalone 2.0 model panel
-                        const panel = document.querySelector('[data-testid="model-selector-panel"]');
-                        if (panel) {
-                            // Effort tier groups (Gemini 4 Argon, Gemini 3.8 Flash, Claude Opus 5.5, Claude Sonnet 5.5, etc.)
-                            const effortGroups = Array.from(panel.querySelectorAll('[data-testid="model-selector-effort-group"]'));
-                            for (const eg of effortGroups) {
-                                const baseName = (eg.getAttribute('data-model-base') || eg.textContent || '').trim();
-                                if (!baseName || seen.has(baseName)) continue;
-                                seen.add(baseName);
-                                const rowEl = eg.closest('[role="menuitem"]') || eg.parentElement;
-                                const sibText = (eg.nextElementSibling?.textContent || '').trim();
-                                const rowText = ((rowEl ? rowEl.textContent : '') || '').replace(/New$/i, '').trim();
-                                const tierMatch = (/^(Low|Medium|High)$/i.test(sibText) ? [null, sibText] : null) || rowText.match(/(Low|Medium|High)$/i);
-                                const currentTier = tierMatch ? (tierMatch[1].charAt(0).toUpperCase() + tierMatch[1].slice(1).toLowerCase()) : 'Medium';
-                                models.push({
-                                    name: baseName,
-                                    baseName: baseName,
-                                    hasTiers: true,
-                                    tiers: baseName.includes('3.1 Pro') ? ['Low', 'High'] : ['Low', 'Medium', 'High'],
-                                    currentTier: currentTier
-                                });
+
+                        const isDisabledEl = (el) => !el || el.getAttribute('aria-disabled') === 'true' || el.hasAttribute('data-disabled');
+
+                        // Read active trigger model text so we can mark isCurrent accurately
+                        let activeTriggerText = '';
+                        try {
+                            const trig = AG_UI.getModelSelectorButton();
+                            if (trig) {
+                                const aria = trig.getAttribute('aria-label') || '';
+                                const cm = aria.match(/(?:current|当前)[：:]\\s*(.+)$/i);
+                                activeTriggerText = (cm && cm[1] ? cm[1] : trig.textContent || '').trim();
                             }
-                            
-                            // Direct items (GPT-OSS, etc.)
-                            const directItems = Array.from(panel.querySelectorAll('[data-testid="model-selector-item"]'));
-                            for (const di of directItems) {
-                                const labelAttr = (di.getAttribute('data-model-label') || '').trim();
-                                const rawText = (di.textContent || '').replace(/Notice$/i, '').replace(/New$/i, '').trim();
-                                const name = labelAttr || rawText;
-                                if (name && !seen.has(name)) {
-                                    seen.add(name);
-                                    models.push({
-                                        name: name,
-                                        baseName: name,
-                                        hasTiers: false,
-                                        tiers: []
-                                    });
+                        } catch (_) {}
+                        const activeTriggerLower = activeTriggerText.toLowerCase();
+                        const activeTriggerNorm = stripPunct(activeTriggerText);
+                        const isModelActive = (baseName, isDirect) => {
+                            if (!activeTriggerLower || !baseName) return false;
+                            const bl = baseName.toLowerCase();
+                            if (isDirect) return activeTriggerNorm === stripPunct(baseName) || activeTriggerLower === bl;
+                            return activeTriggerLower === bl ||
+                                activeTriggerLower.startsWith(bl + ' ') ||
+                                activeTriggerLower.startsWith(bl + '(');
+                        };
+
+                        // Layer 3 helper: read Redux cascadeModelConfigData.clientModelConfigs if available
+                        let reduxConfigs = [];
+                        try {
+                            const root = document.getElementById('root') || document.body;
+                            const fk = Object.keys(root).find(k => k.startsWith('__reactContainer') || k.startsWith('__reactFiber'));
+                            if (fk) {
+                                const q = [root[fk]];
+                                const visited = new Set();
+                                let steps = 0;
+                                while (q.length && steps < 3000) {
+                                    steps++;
+                                    const f = q.shift();
+                                    if (!f || visited.has(f)) continue;
+                                    visited.add(f);
+                                    if (f.memoizedProps && f.memoizedProps.store && typeof f.memoizedProps.store.getState === 'function') {
+                                        const st = f.memoizedProps.store.getState();
+                                        const cfgs = st && st.userStatus && st.userStatus.cascadeModelConfigData && st.userStatus.cascadeModelConfigData.clientModelConfigs;
+                                        if (Array.isArray(cfgs)) {
+                                            reduxConfigs = cfgs.map(c => ({ label: c.label || '', disabled: !!c.disabled }));
+                                        }
+                                        break;
+                                    }
+                                    if (f.child) q.push(f.child);
+                                    if (f.sibling) q.push(f.sibling);
                                 }
                             }
-                            
+                        } catch (_) {}
+
+                        // Layer 1: Instant extraction of effort options from React SubmenuRoot element tree (0ms, no hover)
+                        const extractSubmenuFromFiber = (rowEl) => {
+                            try {
+                                const fk = Object.keys(rowEl).find(k => k.startsWith('__reactFiber'));
+                                if (!fk) return null;
+                                let cur = rowEl[fk];
+                                for (let d = 0; d < 10 && cur; d++) {
+                                    const p = cur.memoizedProps;
+                                    if (d >= 2 && p && p.children) {
+                                        const opts = [];
+                                        const seenOpt = new Set();
+                                        let activeEffortId = null;
+
+                                        const extractText = (node, depth) => {
+                                            if (!node || depth > 6) return '';
+                                            if (typeof node === 'string' || typeof node === 'number') return String(node);
+                                            if (Array.isArray(node)) return node.map(n => extractText(n, depth + 1)).join('');
+                                            if (typeof node === 'object' && node.props) return extractText(node.props.children, depth + 1);
+                                            return '';
+                                        };
+
+                                        const walkEl = (el, depth, radioVal) => {
+                                            if (!el || depth > 12) return;
+                                            if (Array.isArray(el)) {
+                                                for (const child of el) walkEl(child, depth + 1, radioVal);
+                                                return;
+                                            }
+                                            if (typeof el !== 'object' || !el.props) return;
+                                            const pr = el.props;
+                                            const nextRadioVal = (typeof pr.value === 'string' && pr.children && Array.isArray(pr.children))
+                                                ? pr.value
+                                                : radioVal;
+
+                                            const isEffortOpt = pr['data-testid'] === 'model-selector-effort-option' ||
+                                                typeof pr['data-effort'] === 'string' ||
+                                                typeof pr['data-tier'] === 'string';
+                                            if (isEffortOpt && !pr.disabled) {
+                                                const rawLabel = extractText(pr.children, 0).trim();
+                                                const rawId = String(pr['data-effort'] || pr['data-tier'] || stripPunct(rawLabel)).trim().toLowerCase();
+                                                const label = rawLabel || normEffortDisplay(rawId);
+                                                const key = rawId || stripPunct(label);
+                                                if (label && key && !seenOpt.has(key)) {
+                                                    seenOpt.add(key);
+                                                    opts.push({ id: rawId || key, label });
+                                                    if (nextRadioVal && !activeEffortId) activeEffortId = nextRadioVal;
+                                                }
+                                                return;
+                                            }
+                                            if (pr.children) walkEl(pr.children, depth + 1, nextRadioVal);
+                                        };
+
+                                        walkEl(p.children, 0, null);
+                                        if (opts.length > 0) {
+                                            return { options: opts, activeEffortId };
+                                        }
+                                    }
+                                    cur = cur.return;
+                                }
+                            } catch (_) {}
+                            return null;
+                        };
+
+                        // Layer 2: Live submenu hover fallback (if React internals ever change)
+                        const extractSubmenuViaHover = async (rowEl, mainPanel) => {
+                            try {
+                                const rect = rowEl.getBoundingClientRect();
+                                const cx = rect.left + rect.width / 2;
+                                const cy = rect.top + rect.height / 2;
+                                rowEl.focus();
+                                rowEl.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, cancelable: true, composed: true, clientX: cx, clientY: cy, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
+                                rowEl.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, cancelable: true, composed: true, clientX: cx, clientY: cy, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
+                                rowEl.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true, clientX: cx, clientY: cy }));
+                                rowEl.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, clientX: cx, clientY: cy }));
+                                rowEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39, bubbles: true }));
+                                rowEl.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight', code: 'ArrowRight', keyCode: 39, bubbles: true }));
+
+                                const mainId = mainPanel ? mainPanel.id : '';
+                                let opts = [];
+                                let activeEffortId = null;
+                                for (let i = 0; i < 8; i++) {
+                                    await new Promise(r => setTimeout(r, 30));
+                                    const subMenus = Array.from(document.querySelectorAll('[role="menu"][data-nested], [role="menu"], [data-radix-popper-content-wrapper], [data-radix-menu-content]'))
+                                        .filter(el => el.offsetWidth > 0 && el.offsetHeight > 0 && el !== mainPanel && (!mainId || el.id !== mainId));
+                                    for (const sm of subMenus) {
+                                        const items = Array.from(sm.querySelectorAll('[role="menuitemradio"], [role="menuitem"], [role="menuitemcheckbox"]'))
+                                            .filter(el => el.offsetWidth > 0 && !isDisabledEl(el));
+                                        if (items.length > 0) {
+                                            const seen = new Set();
+                                            for (const item of items) {
+                                                const innerOpt = item.querySelector('[data-testid="model-selector-effort-option"], [data-effort], [data-tier]') || item;
+                                                const label = (innerOpt.textContent || item.textContent || '').trim();
+                                                const id = (innerOpt.getAttribute('data-effort') || innerOpt.getAttribute('data-tier') || stripPunct(label)).trim().toLowerCase();
+                                                if (label && !seen.has(id)) {
+                                                    seen.add(id);
+                                                    opts.push({ id, label });
+                                                    if (item.getAttribute('aria-checked') === 'true' || item.hasAttribute('data-checked')) {
+                                                        activeEffortId = id;
+                                                    }
+                                                }
+                                            }
+                                            break;
+                                        }
+                                    }
+                                    if (opts.length > 0) break;
+                                }
+                                rowEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', code: 'ArrowLeft', keyCode: 37, bubbles: true }));
+                                if (opts.length > 0) return { options: opts, activeEffortId };
+                            } catch (_) {}
+                            return null;
+                        };
+
+                        // Layer 3: Redux clientModelConfigs fallback
+                        const extractFromReduxConfigs = (baseName) => {
+                            if (!baseName || reduxConfigs.length === 0) return [];
+                            const esc = baseName.replace(/[.*+?^$()|[\\]\\\\]/g, '\\\\$&');
+                            const re = new RegExp('^' + esc + '\\\\s*\\\\(([^()]+)\\\\)$', 'i');
+                            const seen = new Set();
+                            const found = [];
+                            for (const cfg of reduxConfigs) {
+                                if (cfg.disabled || !cfg.label) continue;
+                                const m = cfg.label.trim().match(re);
+                                if (!m) continue;
+                                const rawCode = m[1].trim();
+                                const id = stripPunct(rawCode);
+                                const label = normEffortDisplay(rawCode);
+                                if (!id || seen.has(id)) continue;
+                                seen.add(id);
+                                found.push({ id, label, order: found.length });
+                            }
+                            found.sort((a, b) => {
+                                const ra = effortRank[a.id] ?? effortRank[stripPunct(a.label)] ?? 45;
+                                const rb = effortRank[b.id] ?? effortRank[stripPunct(b.label)] ?? 45;
+                                return ra !== rb ? ra - rb : a.order - b.order;
+                            });
+                            return found.map(({ id, label }) => ({ id, label }));
+                        };
+
+                        const seen = new Set();
+                        const models = [];
+
+                        // 1. Standalone / IDE 2.6+ model panel — preserve exact visual DOM order
+                        const panel = document.querySelector('[data-testid="model-selector-panel"]');
+                        if (panel) {
+                            const menuRows = Array.from(panel.querySelectorAll('[role="menuitem"]'));
+                            for (const row of menuRows) {
+                                if (isDisabledEl(row)) continue;
+
+                                const eg = row.querySelector('[data-testid="model-selector-effort-group"]');
+                                const isDirect = row.matches('[data-testid="model-selector-item"]');
+                                if (!eg && !isDirect) continue; // skip utility rows like "View Usage"
+
+                                if (eg) {
+                                    const baseName = (eg.getAttribute('data-model-base') || eg.textContent || '').trim();
+                                    if (!baseName || seen.has(baseName)) continue;
+                                    seen.add(baseName);
+
+                                    let discovered = extractSubmenuFromFiber(row);
+                                    if (!discovered || discovered.options.length === 0) {
+                                        discovered = await extractSubmenuViaHover(row, panel);
+                                    }
+                                    let tierOptions = (discovered && discovered.options && discovered.options.length > 0)
+                                        ? discovered.options
+                                        : extractFromReduxConfigs(baseName);
+                                    if (tierOptions.length === 0) {
+                                        tierOptions = baseName.includes('3.1 Pro')
+                                            ? [{ id: 'low', label: 'Low' }, { id: 'high', label: 'High' }]
+                                            : [{ id: 'low', label: 'Low' }, { id: 'medium', label: 'Medium' }, { id: 'high', label: 'High' }];
+                                    }
+
+                                    // Determine current tier label dynamically (no hardcoded Low|Medium|High regex!)
+                                    let currentTier = null;
+                                    if (discovered && discovered.activeEffortId) {
+                                        const activeIdNorm = stripPunct(discovered.activeEffortId);
+                                        const matchedOpt = tierOptions.find(o => stripPunct(o.id) === activeIdNorm || stripPunct(o.label) === activeIdNorm);
+                                        if (matchedOpt) currentTier = matchedOpt.label;
+                                    }
+                                    if (!currentTier) {
+                                        const sibText = (eg.nextElementSibling?.textContent || '').trim();
+                                        if (sibText && sibText.length <= 24 && !/^(new|beta|notice|unavailable)$/i.test(sibText)) {
+                                            currentTier = sibText;
+                                        }
+                                    }
+                                    if (!currentTier) {
+                                        currentTier = tierOptions[0] ? tierOptions[0].label : 'Medium';
+                                    }
+
+                                    models.push({
+                                        name: baseName,
+                                        baseName: baseName,
+                                        hasTiers: true,
+                                        tiers: tierOptions.map(o => o.label),
+                                        tierOptions: tierOptions,
+                                        currentTier: currentTier,
+                                        isCurrent: isModelActive(baseName, false),
+                                    });
+                                } else if (isDirect) {
+                                    const labelAttr = (row.getAttribute('data-model-label') || '').trim();
+                                    const rawText = (row.textContent || '').replace(/(Notice|New|Unavailable)$/i, '').trim();
+                                    const name = labelAttr || rawText;
+                                    if (name && !seen.has(name)) {
+                                        seen.add(name);
+                                        models.push({
+                                            name: name,
+                                            baseName: name,
+                                            hasTiers: false,
+                                            tiers: [],
+                                            tierOptions: [],
+                                            isCurrent: isModelActive(name, true),
+                                        });
+                                    }
+                                }
+                            }
+
                             if (models.length > 0) return models;
                         }
-                        
-                        // 2. Generic / IDE options
-                        const agItems = AG_UI.getModelOptions().filter(AG_UI.isVisible);
+
+                        // 2. Generic / legacy IDE options
+                        const agItems = AG_UI.getModelOptions().filter(el => AG_UI.isVisible(el) && !isDisabledEl(el));
                         if (agItems.length > 0) {
                             for (const item of agItems) {
                                 const baseAttr = item.querySelector('[data-model-base]')?.getAttribute('data-model-base') || item.getAttribute('data-model-base');
@@ -4070,25 +4317,47 @@ async function getAvailableModels(port) {
                                 if (name && !seen.has(name)) {
                                     seen.add(name);
                                     const isSubmenuGroup = !!baseAttr || item.getAttribute('aria-haspopup') === 'menu' || !!item.querySelector('[data-testid="model-selector-effort-group"]');
-                                    const hasTiers = isSubmenuGroup || ((name.includes('Gemini') || name.includes('Flash') || name.includes('Pro') || name.includes('Claude')) && !name.includes('Thinking') && !name.includes('GPT-OSS'));
+                                    const hasTiers = isSubmenuGroup || ((name.includes('Gemini') || name.includes('Flash') || name.includes('Pro') || name.includes('Claude')) && !name.includes('Thinking') && !name.includes('GPT-OSS') && !name.includes('Orchestrator'));
+                                    let tierOptions = [];
+                                    let currentTier = null;
+                                    if (hasTiers) {
+                                        const rowEl = item.closest('[role="menuitem"]') || item;
+                                        const discovered = extractSubmenuFromFiber(rowEl);
+                                        tierOptions = (discovered && discovered.options && discovered.options.length > 0)
+                                            ? discovered.options
+                                            : extractFromReduxConfigs(name);
+                                        if (tierOptions.length === 0) {
+                                            tierOptions = [{ id: 'low', label: 'Low' }, { id: 'medium', label: 'Medium' }, { id: 'high', label: 'High' }];
+                                        }
+                                        if (discovered && discovered.activeEffortId) {
+                                            const activeIdNorm = stripPunct(discovered.activeEffortId);
+                                            const mOpt = tierOptions.find(o => stripPunct(o.id) === activeIdNorm || stripPunct(o.label) === activeIdNorm);
+                                            if (mOpt) currentTier = mOpt.label;
+                                        }
+                                    }
                                     models.push({
                                         name: name,
                                         baseName: name,
                                         hasTiers: hasTiers,
-                                        tiers: hasTiers ? ['Low', 'Medium', 'High'] : [],
-                                        currentTier: 'Medium'
+                                        tiers: tierOptions.map(o => o.label),
+                                        tierOptions: tierOptions,
+                                        currentTier: currentTier || (hasTiers ? 'Medium' : null),
+                                        isCurrent: isModelActive(name, !hasTiers),
                                     });
                                 }
                             }
                         }
-                        
+
                         return models;
                     })()
                 `, returnByValue: true, awaitPromise: true
             });
 
-            // Close model popup by pressing Escape
+            // Close model popup (and any nested submenu) by pressing Escape
             if (Input) {
+                await Input.dispatchKeyEvent({ type: 'rawKeyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+                await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+                await new Promise(r => setTimeout(r, 60));
                 await Input.dispatchKeyEvent({ type: 'rawKeyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
                 await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
             }
@@ -4115,21 +4384,31 @@ async function selectModel(port, modelName, specificTargetId = null) {
             const evaluateScript = `
                 ${DriverFactory.getDriver().getLocatorsScript()}
                 (async () => {
-                    const rawTarget = ${JSON.stringify(modelName)};
-                    
-                    // Parse target: Effort tiers apply to Gemini and Claude models (skip GPT-OSS which has "(Medium)" in its base label)
-                    let targetEffort = null;
-                    let targetBase = rawTarget;
-                    if (!/gpt-oss/i.test(rawTarget)) {
-                        const effortMatch = rawTarget.match(/\\((Low|Medium|High)\\)$/i) || rawTarget.match(/(low|medium|high)$/i);
-                        if (effortMatch) {
-                            targetEffort = effortMatch[1].toLowerCase();
-                            targetBase = rawTarget.replace(/\\s*\\(?\\s*(low|medium|high)\\s*\\)?\\s*$/i, '').trim();
-                        }
-                    }
-
+                    const rawTarget = ${JSON.stringify(modelName)}.trim();
                     const stripPunct = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-                    const targetBaseNorm = stripPunct(targetBase);
+                    const isDisabledEl = (el) => !el || el.getAttribute('aria-disabled') === 'true' || el.hasAttribute('data-disabled');
+
+                    const effortAliasGroups = [
+                        ['extra', 'xhigh', 'x-high', 'extrahigh', 'extra-high', 'extra high', 'extra_high'],
+                        ['minimal', 'min'],
+                        ['medium', 'med'],
+                        ['maximum', 'max'],
+                    ];
+                    const getEffortAliases = (raw) => {
+                        const lower = String(raw || '').trim().toLowerCase();
+                        const compact = stripPunct(raw);
+                        if (!compact) return [];
+                        const set = new Set([lower, compact]);
+                        for (const grp of effortAliasGroups) {
+                            if (grp.some(g => g === lower || stripPunct(g) === compact)) {
+                                for (const a of grp) {
+                                    set.add(a);
+                                    set.add(stripPunct(a));
+                                }
+                            }
+                        }
+                        return Array.from(set).filter(Boolean);
+                    };
 
                     const dispatchClick = (el) => {
                         if (!el) return false;
@@ -4182,49 +4461,143 @@ async function selectModel(port, modelName, specificTargetId = null) {
                         }
                     }
 
-                    let candidateList = AG_UI.getModelOptions().filter(AG_UI.isVisible);
+                    let candidateList = AG_UI.getModelOptions().filter(el => AG_UI.isVisible(el) && !isDisabledEl(el));
                     if (candidateList.length === 0) {
                         return { needCdpOpen: true };
                     }
 
-                    // Find matching base item
-                    let matchedItem = candidateList.find(el => {
-                        const baseAttr = el.querySelector('[data-model-base]')?.getAttribute('data-model-base') || el.getAttribute('data-model-base');
-                        if (baseAttr && (stripPunct(baseAttr) === targetBaseNorm || stripPunct(baseAttr).includes(targetBaseNorm) || targetBaseNorm.includes(stripPunct(baseAttr)))) return true;
-                        const labelAttr = el.getAttribute('data-model-label');
-                        if (labelAttr && (stripPunct(labelAttr) === targetBaseNorm || stripPunct(labelAttr).includes(targetBaseNorm))) return true;
-                        
-                        const innerSpan = el.querySelector('span.truncate span, span[data-model-base], span span') || el;
-                        const innerNorm = stripPunct(innerSpan.textContent);
-                        const fullNorm = stripPunct(el.textContent);
+                    const normalizeToRow = (el) => (el && el.getAttribute('role') !== 'menuitem' && el.closest('[role="menuitem"]'))
+                        ? el.closest('[role="menuitem"]')
+                        : el;
 
-                        return innerNorm === targetBaseNorm || 
-                               innerNorm.startsWith(targetBaseNorm) || 
-                               fullNorm === targetBaseNorm || 
-                               fullNorm.startsWith(targetBaseNorm);
-                    });
+                    const isSubmenuRow = (row) => !!(row && (row.getAttribute('aria-haspopup') === 'menu' || row.querySelector('[data-testid="model-selector-effort-group"]')));
+
+                    const rawTargetNorm = stripPunct(rawTarget);
+
+                    // Step 2A: Check exact match against direct (non-submenu) items first (e.g. "Orchestrator (Neon)", "GPT-OSS 120B (Medium)")
+                    const directRow = candidateList
+                        .map(normalizeToRow)
+                        .find(row => {
+                            if (!row || isDisabledEl(row) || isSubmenuRow(row)) return false;
+                            const labelAttr = row.getAttribute('data-model-label') || '';
+                            const cleanTxt = (row.textContent || '').replace(/(Notice|New|Unavailable)$/i, '').trim();
+                            return (labelAttr && stripPunct(labelAttr) === rawTargetNorm) || stripPunct(cleanTxt) === rawTargetNorm;
+                        });
+
+                    if (directRow) {
+                        dispatchClick(directRow);
+                        await new Promise(r => setTimeout(r, 150));
+                        return { selected: true, method: "direct_click", model: directRow.getAttribute('data-model-label') || directRow.textContent.trim() };
+                    }
+
+                    // Step 2B: Dynamically match effort-group base names (supports ANY effort tier now or in the future!)
+                    let targetBase = rawTarget;
+                    let targetEffort = null;
+                    let matchedItem = null;
+
+                    const effortEntries = [];
+                    const seenRows = new Set();
+                    for (const el of candidateList) {
+                        const row = normalizeToRow(el);
+                        if (!row || seenRows.has(row) || isDisabledEl(row)) continue;
+                        seenRows.add(row);
+                        const baseEl = row.querySelector('[data-model-base]') || (row.hasAttribute('data-model-base') ? row : null);
+                        const baseAttr = baseEl ? (baseEl.getAttribute('data-model-base') || '').trim() : '';
+                        if (baseAttr) {
+                            effortEntries.push({ row, baseAttr });
+                        }
+                    }
+                    // Longest base name first so "Gemini 4 Neon" matches cleanly before shorter prefixes
+                    effortEntries.sort((a, b) => b.baseAttr.length - a.baseAttr.length);
+
+                    for (const entry of effortEntries) {
+                        const esc = entry.baseAttr.replace(/[.*+?^$()|[\\]\\\\]/g, '\\\\$&');
+                        const re = new RegExp('^' + esc + '(?:\\\\s*\\\\(([^()]+)\\\\)|\\\\s+(.+))?$', 'i');
+                        const m = rawTarget.match(re);
+                        if (m) {
+                            matchedItem = entry.row;
+                            targetBase = entry.baseAttr;
+                            const extracted = (m[1] || m[2] || '').trim();
+                            targetEffort = extracted || null;
+                            break;
+                        }
+                    }
+
+                    // Step 2C: Generic fallback parsing for legacy / non-data-model-base menus
+                    if (!matchedItem) {
+                        if (!/^(?:gpt-oss|orchestrator)\\b/i.test(rawTarget)) {
+                            const parenMatch = rawTarget.match(/^(.+?)\\s*\\(([^()]+)\\)\\s*$/);
+                            if (parenMatch) {
+                                targetBase = parenMatch[1].trim();
+                                targetEffort = parenMatch[2].trim();
+                            } else {
+                                const wordMatch = rawTarget.match(/^(.+?)\\s+(minimal|min|low|medium|med|high|extra|xhigh|x-high|max|maximum|ultra|extreme|off|none)\\s*$/i);
+                                if (wordMatch) {
+                                    targetBase = wordMatch[1].trim();
+                                    targetEffort = wordMatch[2].trim();
+                                }
+                            }
+                        }
+
+                        const targetBaseNorm = stripPunct(targetBase);
+                        matchedItem = candidateList.find(el => {
+                            const row = normalizeToRow(el);
+                            if (isDisabledEl(row)) return false;
+                            const baseAttr = el.querySelector('[data-model-base]')?.getAttribute('data-model-base') || el.getAttribute('data-model-base');
+                            if (baseAttr && (stripPunct(baseAttr) === targetBaseNorm || stripPunct(baseAttr).includes(targetBaseNorm) || targetBaseNorm.includes(stripPunct(baseAttr)))) return true;
+                            const labelAttr = el.getAttribute('data-model-label');
+                            if (labelAttr && (stripPunct(labelAttr) === targetBaseNorm || stripPunct(labelAttr).includes(targetBaseNorm))) return true;
+
+                            const innerSpan = el.querySelector('span.truncate span, span[data-model-base], span span') || el;
+                            const innerNorm = stripPunct(innerSpan.textContent);
+                            const fullNorm = stripPunct(el.textContent);
+
+                            return innerNorm === targetBaseNorm ||
+                                   innerNorm.startsWith(targetBaseNorm) ||
+                                   fullNorm === targetBaseNorm ||
+                                   fullNorm.startsWith(targetBaseNorm);
+                        });
+                    }
 
                     if (!matchedItem) {
                         return { selected: false, reason: "base_model_not_found", targetBase, available: candidateList.map(i => i.textContent.trim()) };
                     }
 
-                    // Normalize matchedItem to the outer [role="menuitem"] row if it matched an inner span
-                    if (matchedItem.getAttribute('role') !== 'menuitem' && matchedItem.closest('[role="menuitem"]')) {
-                        matchedItem = matchedItem.closest('[role="menuitem"]');
-                    }
-
-                    const isSubmenuItem = matchedItem.getAttribute('aria-haspopup') === 'menu' || !!matchedItem.querySelector('[data-testid="model-selector-effort-group"]');
+                    matchedItem = normalizeToRow(matchedItem);
+                    const isSubmenuItem = isSubmenuRow(matchedItem);
                     const effectiveEffort = targetEffort || (isSubmenuItem ? 'high' : null);
 
-                    // Models with effort submenu (Gemini 4 Argon, Gemini 3.8 Flash, Claude Opus 5.5, Claude Sonnet 5.5, etc.)
+                    // Models with effort submenu (Gemini 4 Neon, Argon, Hydrogen, Flash, Claude Opus/Sonnet, or any future tiered model)
                     if (effectiveEffort) {
+                        const targetAliases = new Set(getEffortAliases(effectiveEffort));
+                        const matchesEffortEl = (opt, allowPrefix = false) => {
+                            const innerOpt = opt.querySelector('[data-testid="model-selector-effort-option"], [data-effort], [data-tier]') || opt;
+                            const texts = [
+                                (innerOpt.textContent || '').trim(),
+                                (opt.textContent || '').trim(),
+                                (innerOpt.getAttribute('data-effort') || '').trim(),
+                                (innerOpt.getAttribute('data-tier') || '').trim(),
+                                (opt.getAttribute('data-effort') || '').trim(),
+                                (opt.getAttribute('data-tier') || '').trim(),
+                                (opt.getAttribute('aria-label') || '').trim(),
+                            ].filter(Boolean);
+
+                            for (const t of texts) {
+                                const tl = t.toLowerCase();
+                                const tc = stripPunct(t);
+                                if (targetAliases.has(tl) || targetAliases.has(tc)) return true;
+                                if (allowPrefix) {
+                                    for (const alias of targetAliases) {
+                                        if (alias.length >= 2 && (tl.startsWith(alias) || tc.startsWith(alias))) return true;
+                                    }
+                                }
+                            }
+                            return false;
+                        };
+
                         // Check if direct effort button exists inside item
                         const directEffortBtn = Array.from(matchedItem.querySelectorAll('button, [role="button"], [role="menuitem"], [role="radio"], div[class*="cursor-pointer"], span[class*="cursor-pointer"]'))
-                            .find(el => {
-                                const t = (el.textContent || '').trim().toLowerCase();
-                                const attr = (el.getAttribute('data-effort') || el.getAttribute('data-tier') || '').trim().toLowerCase();
-                                return t === effectiveEffort || t.includes(effectiveEffort) || attr === effectiveEffort;
-                            });
+                            .find(el => !isDisabledEl(el) && matchesEffortEl(el, false));
 
                         if (directEffortBtn) {
                             dispatchClick(directEffortBtn);
@@ -4246,7 +4619,7 @@ async function selectModel(port, modelName, specificTargetId = null) {
                             if (subMenus.length > 0) {
                                 for (const sm of subMenus) {
                                     const items = Array.from(sm.querySelectorAll('[role="menuitemradio"], [role="menuitem"], [role="menuitemcheckbox"], [data-radix-collection-item], div[data-base-ui-focusable], div[class*="cursor-pointer"], button'))
-                                        .filter(el => el.offsetWidth > 0 && (el.textContent || '').trim().length > 0 && !candidateList.includes(el));
+                                        .filter(el => el.offsetWidth > 0 && !isDisabledEl(el) && (el.textContent || '').trim().length > 0 && !candidateList.includes(el));
                                     if (items.length > 0) {
                                         subOptions.push(...items);
                                     }
@@ -4256,21 +4629,19 @@ async function selectModel(port, modelName, specificTargetId = null) {
                         }
 
                         if (subOptions.length > 0) {
-                            const effortOption = subOptions.find(opt => {
-                                const optText = (opt.textContent || '').trim().toLowerCase();
-                                const effortAttr = (opt.getAttribute('data-effort') || opt.getAttribute('data-tier') || '').trim().toLowerCase();
-                                const ariaLabel = (opt.getAttribute('aria-label') || '').trim().toLowerCase();
-                                return optText === effectiveEffort || 
-                                       optText.startsWith(effectiveEffort) || 
-                                       effortAttr === effectiveEffort || 
-                                       ariaLabel.startsWith(effectiveEffort);
-                            }) || subOptions[subOptions.length - 1];
+                            let effortOption = subOptions.find(opt => matchesEffortEl(opt, false))
+                                || subOptions.find(opt => matchesEffortEl(opt, true));
+
+                            if (!effortOption && !targetEffort) {
+                                effortOption = subOptions[subOptions.length - 1];
+                            }
 
                             if (effortOption) {
                                 dispatchClick(effortOption);
                                 await new Promise(r => setTimeout(r, 150));
                                 return { selected: true, method: "effort_submenu", base: targetBase, effort: effectiveEffort };
                             }
+                            return { selected: false, reason: "effort_not_found", base: targetBase, effort: effectiveEffort };
                         }
                     }
 
@@ -4292,6 +4663,14 @@ async function selectModel(port, modelName, specificTargetId = null) {
 
                 const retryRes = await Runtime.evaluate({ expression: evaluateScript, returnByValue: true, awaitPromise: true });
                 selectVal = retryRes.result?.value;
+            }
+
+            if ((!selectVal || !selectVal.selected) && Input) {
+                await Input.dispatchKeyEvent({ type: 'rawKeyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+                await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+                await new Promise(r => setTimeout(r, 50));
+                await Input.dispatchKeyEvent({ type: 'rawKeyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+                await Input.dispatchKeyEvent({ type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
             }
 
             await client.close();

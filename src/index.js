@@ -17,6 +17,7 @@ const updater = require('./updater');
 const TaskWatcher = require('./task_watcher');
 const { extractLocalImageMarkdown } = require('./local_media');
 const { extractAndRenderMarkdownTables } = require('./table_renderer');
+const { buildTierKeyboardRows } = require('./model_utils');
 const { ensureCdpReady, isConnectionRefusedError } = require('./cdp_health');
 const accountManager = require('./account_manager');
 const { ensureMemoryConvention } = require('./memory_convention');
@@ -3350,9 +3351,11 @@ async function ensureModelsCache() {
         }
         if (!cachedModelsList || cachedModelsList.length === 0) {
             cachedModelsList = [
-                { name: 'Gemini 4 Argon', baseName: 'Gemini 4 Argon', hasTiers: true, tiers: ['Low', 'Medium', 'High'], currentTier: 'High' },
+                { name: 'Gemini 4 Neon', baseName: 'Gemini 4 Neon', hasTiers: true, tiers: ['Low', 'Medium', 'High', 'Extra'], currentTier: 'High' },
+                { name: 'Gemini 4 Argon', baseName: 'Gemini 4 Argon', hasTiers: true, tiers: ['Low', 'Medium', 'High'], currentTier: 'Medium' },
+                { name: 'Gemini 4 Hydrogen', baseName: 'Gemini 4 Hydrogen', hasTiers: true, tiers: ['Low', 'Medium', 'High', 'Extra'], currentTier: 'Medium' },
                 { name: 'Gemini 3.8 Flash', baseName: 'Gemini 3.8 Flash', hasTiers: true, tiers: ['Low', 'Medium', 'High'], currentTier: 'Medium' },
-                { name: 'Claude Opus 5.5', baseName: 'Claude Opus 5.5', hasTiers: true, tiers: ['Low', 'Medium', 'High'], currentTier: 'High' },
+                { name: 'Claude Opus 5.5', baseName: 'Claude Opus 5.5', hasTiers: true, tiers: ['Low', 'Medium', 'High'], currentTier: 'Medium' },
                 { name: 'Claude Sonnet 5.5', baseName: 'Claude Sonnet 5.5', hasTiers: true, tiers: ['Low', 'Medium', 'High'], currentTier: 'Medium' },
                 { name: 'GPT-OSS 120B (Medium)', baseName: 'GPT-OSS 120B (Medium)', hasTiers: false, tiers: [] }
             ];
@@ -3366,8 +3369,11 @@ function buildModelListButtons(models) {
         const isObj = typeof m === 'object';
         const name = isObj ? m.name : m;
         const hasTiers = isObj ? m.hasTiers : false;
+        const isCurrent = isObj ? !!m.isCurrent : false;
+        const currentTier = isObj && hasTiers && m.currentTier ? ` (${m.currentTier})` : '';
         
-        const label = `🤖 ${name}`;
+        const prefixIcon = isCurrent ? '✅' : '🤖';
+        const label = `${prefixIcon} ${name}${currentTier}`;
         
         if (hasTiers) {
             return [{ text: label, callback_data: `md_tier_${idx}` }];
@@ -3411,7 +3417,7 @@ const handleModel = async (ctx) => {
 };
 bot.command('model', handleModel);
 
-// 1. Base model clicked -> show tier selection sub-menu
+// 1. Base model clicked -> show dynamically discovered tier selection sub-menu
 bot.action(/md_tier_(\d+)/, async (ctx) => {
     try {
         const idx = parseInt(ctx.match[1], 10);
@@ -3421,22 +3427,16 @@ bot.action(/md_tier_(\d+)/, async (ctx) => {
             return ctx.answerCbQuery(t('model.not_found') || 'Model not found');
         }
 
-        const cleanName = (modelObj.name || modelObj.baseName || '')
-            .replace(/\s*\(?\b(low|medium|high)\b\)?\s*/gi, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-
+        const cleanName = (modelObj.baseName || modelObj.name || '').trim();
         ctx.answerCbQuery(cleanName);
 
-        const tierButtons = [];
-        const tiersRow = (modelObj.tiers || ['Low', 'Medium', 'High']).map(tier => {
-            const tierEmoji = tier.toLowerCase() === 'high' ? '🔴' : (tier.toLowerCase() === 'medium' ? '🟡' : '🟢');
-            return { text: `${tierEmoji} ${tier}`, callback_data: `md_sel_${idx}_${tier}` };
-        });
-        tierButtons.push(tiersRow);
-        tierButtons.push([{ text: '🔙 Model Listesi', callback_data: 'md_back' }]);
+        const rawTiers = (Array.isArray(modelObj.tierOptions) && modelObj.tierOptions.length > 0)
+            ? modelObj.tierOptions
+            : (Array.isArray(modelObj.tiers) && modelObj.tiers.length > 0 ? modelObj.tiers : ['Low', 'Medium', 'High']);
+        const tierButtons = buildTierKeyboardRows(idx, rawTiers, modelObj.currentTier);
+        tierButtons.push([{ text: t('model.back_to_list'), callback_data: 'md_back' }]);
 
-        const text = `🤖 <b>${escapeHtml(cleanName)}</b> için düşünme seviyesini (effort tier) seçin:`;
+        const text = t('model.select_effort', { model: escapeHtml(cleanName) });
         if (ctx.callbackQuery && ctx.callbackQuery.message) {
             await ctx.editMessageText(text, {
                 parse_mode: 'HTML',
@@ -3469,38 +3469,55 @@ bot.action('md_back', async (ctx) => {
     }
 });
 
-// 3. Concrete model with tier selected: md_sel_<idx>_<tier>
-bot.action(/md_sel_(\d+)_(.+)/, async (ctx) => {
+// 3. Concrete model with tier selected: md_sel_<idx>_<tier> or md_seli_<idx>_<tierIdx>
+async function handleModelTierSelection(ctx, idx, tierLabel) {
     try {
-        const idx = parseInt(ctx.match[1], 10);
-        const tier = ctx.match[2];
         const models = await ensureModelsCache();
         const modelObj = models[idx];
-        
-        const cleanBase = (modelObj ? (modelObj.baseName || modelObj.name) : '')
-            .replace(/\s*\(?\b(low|medium|high)\b\)?\s*/gi, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-        const fullModelName = cleanBase ? `${cleanBase} (${tier})` : `${tier}`;
+        const cleanBase = (modelObj ? (modelObj.baseName || modelObj.name) : '').trim();
+        const fullModelName = cleanBase ? `${cleanBase} (${tierLabel})` : `${tierLabel}`;
         ctx.answerCbQuery(fullModelName);
-        
+
         const changingText = t('model.changing', { model: fullModelName });
         if (ctx.callbackQuery && ctx.callbackQuery.message) {
-            await ctx.editMessageText(changingText).catch(()=>{});
+            await ctx.editMessageText(changingText).catch(() => {});
         } else {
             await ctx.reply(changingText);
         }
-        
+
         const success = await selectModel(CDP_PORT, fullModelName);
         if (success) {
+            if (Array.isArray(cachedModelsList)) {
+                cachedModelsList.forEach((m, i) => {
+                    if (m && typeof m === 'object') {
+                        m.isCurrent = (i === idx);
+                        if (i === idx) m.currentTier = tierLabel;
+                    }
+                });
+            }
             await sendMainMenu(ctx, t('model.changed', { model: fullModelName }));
         } else {
             ctx.reply(t('model.select_failed'));
         }
-    } catch(e) {
+    } catch (e) {
         ctx.answerCbQuery(t('model.error'));
     }
+}
+
+bot.action(/md_seli_(\d+)_(\d+)/, async (ctx) => {
+    const idx = parseInt(ctx.match[1], 10);
+    const tierIdx = parseInt(ctx.match[2], 10);
+    const models = await ensureModelsCache();
+    const modelObj = models[idx];
+    const tiers = modelObj?.tiers || [];
+    const tierLabel = tiers[tierIdx] || 'High';
+    return handleModelTierSelection(ctx, idx, tierLabel);
+});
+
+bot.action(/md_sel_(\d+)_(.+)/, async (ctx) => {
+    const idx = parseInt(ctx.match[1], 10);
+    const tierLabel = ctx.match[2];
+    return handleModelTierSelection(ctx, idx, tierLabel);
 });
 
 // 4. Direct model selected without tiers: md_direct_<idx>
@@ -3521,6 +3538,11 @@ bot.action(/md_direct_(\d+)/, async (ctx) => {
         
         const success = await selectModel(CDP_PORT, modelName);
         if (success) {
+            if (Array.isArray(cachedModelsList)) {
+                cachedModelsList.forEach((m, i) => {
+                    if (m && typeof m === 'object') m.isCurrent = (i === idx);
+                });
+            }
             await sendMainMenu(ctx, t('model.changed', { model: modelName }));
         } else {
             ctx.reply(t('model.select_failed'));
@@ -3532,7 +3554,7 @@ bot.action(/md_direct_(\d+)/, async (ctx) => {
 
 // Fallback / legacy base64 callback
 bot.action(/md_(.+)/, async (ctx) => {
-    if (ctx.match[1].startsWith('tier_') || ctx.match[1].startsWith('sel_') || ctx.match[1].startsWith('direct_') || ctx.match[1] === 'back') return;
+    if (ctx.match[1].startsWith('tier_') || ctx.match[1].startsWith('sel_') || ctx.match[1].startsWith('seli_') || ctx.match[1].startsWith('direct_') || ctx.match[1] === 'back') return;
     try {
         const modelName = Buffer.from(ctx.match[1], 'base64').toString('utf-8');
         ctx.answerCbQuery(modelName);

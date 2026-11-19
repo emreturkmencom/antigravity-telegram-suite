@@ -112,6 +112,8 @@
     "select_prompt": "🤖 Model seçin:",
     "changing": "🔄 Model değiştiriliyor: {model}",
     "select_failed": "❌ Model seçilemedi. IDE'de sohbet ekranı açık olduğundan emin olun.",
+    "select_effort": "🤖 <b>{model}</b> için düşünme seviyesini (effort) seçin:",
+    "back_to_list": "🔙 Model Listesi",
     "error": "Hata!"
   },
   "workspace": {

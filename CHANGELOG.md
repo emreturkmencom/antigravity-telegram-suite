@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.9.5] - 2026-11-19
+
+### Added
+- **Automatic Dynamic Effort Tier Discovery (`Extra` / `XHigh` & Any Future Effort Tiers)**:
+  - Replaced hardcoded `Low | Medium | High` effort lists and regexes in `getAvailableModels`, `selectModel`, `getCurrentModel`, `src/model_utils.js`, and `src/index.js` with a **3-layer automatic discovery pipeline**: (1) instant React `SubmenuRoot` extraction (`[data-testid="model-selector-effort-option"]` + `data-effort`), (2) live submenu hover fallback (`[role="menuitemradio"]`), and (3) Redux `cascadeModelConfigData.clientModelConfigs` fallback.
+  - Supports `Extra` (`xhigh`) on models like `Gemini 4 Neon` and `Gemini 4 Hydrogen` today, and automatically surfaces any future effort tiers Antigravity introduces (wrapping cleanly onto multi-row Telegram inline keyboards for 5+ tiers with dynamic icons and active `✓` markers).
+  - Preserves Antigravity's exact visual model order, hides disabled/unavailable models (`aria-disabled="true"` / `data-disabled`), shows active model (`✅`) and current effort tier in `/model`, supports direct parenthesized models (`Orchestrator (Neon)`, `GPT-OSS 120B (Medium)`), and localizes the effort-selection submenu across all 7 languages (`model.select_effort`, `model.back_to_list`).
+
 ## [3.9.4] - 2026-11-17
 
 ### Added

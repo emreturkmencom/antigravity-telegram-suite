@@ -112,6 +112,8 @@
     "select_prompt": "🤖 Wähle ein Modell:",
     "changing": "🔄 Wechsle Modell: {model}",
     "select_failed": "❌ Modell konnte nicht ausgewählt werden. Stelle sicher, dass das Chat-Fenster geöffnet ist.",
+    "select_effort": "🤖 Wähle die Denk-Stufe (Effort) für <b>{model}</b>:",
+    "back_to_list": "🔙 Modellliste",
     "error": "Fehler!"
   },
   "workspace": {

@@ -12,7 +12,7 @@ Telegram으로 Antigravity AI 에이전트를 원격 제어하고, **Claude Code
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-green.svg)](https://nodejs.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/Version-3.9.4-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-3.9.5-orange.svg)]()
 
 </div>
 

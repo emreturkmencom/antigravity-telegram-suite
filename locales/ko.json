@@ -272,6 +272,8 @@
     "error": "오류!",
     "not_found": "❌ 모델을 찾을 수 없거나 선택할 수 없습니다.",
     "select_failed": "❌ 모델을 선택할 수 없습니다. IDE에서 채팅 화면이 열려 있는지 확인하세요.",
+    "select_effort": "🤖 <b>{model}</b>의 추론 강도(Effort)를 선택하세요:",
+    "back_to_list": "🔙 모델 목록",
     "select_prompt": "🤖 모델을 선택하세요:",
     "selecting": "🔄 모델 선택 중: {model}"
   },

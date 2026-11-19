@@ -112,6 +112,8 @@
     "select_prompt": "🤖 请选择模型：",
     "changing": "🔄 正在切换模型：{model}",
     "select_failed": "❌ 无法选择模型。请确认 Antigravity 中已打开聊天界面。",
+    "select_effort": "🤖 请为 <b>{model}</b> 选择思考强度 (Effort)：",
+    "back_to_list": "🔙 模型列表",
     "error": "出错了！"
   },
   "workspace": {

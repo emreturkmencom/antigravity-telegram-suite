@@ -112,6 +112,8 @@
     "select_prompt": "🤖 Sélectionnez un modèle :",
     "changing": "🔄 Changement de modèle : {model}",
     "select_failed": "❌ Le modèle n'a pas pu être sélectionné. Assurez-vous que l'écran de chat est ouvert.",
+    "select_effort": "🤖 Sélectionnez le niveau d'effort pour <b>{model}</b> :",
+    "back_to_list": "🔙 Liste des Modèles",
     "error": "Erreur !"
   },
   "workspace": {

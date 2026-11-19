@@ -338,7 +338,7 @@ const STANDALONE_LOCATORS_SCRIPT = `
             if (visibleExplicit.length > 0) return visibleExplicit[0];
             if (validExplicit.length > 0) return validExplicit[0];
 
-            const modelKeywords = ['gemini', 'claude', 'gpt', 'opus', 'sonnet', 'flash', 'argon', 'carbon', 'hydrogen', 'orchestrator', 'llama', 'mistral', 'deepseek'];
+            const modelKeywords = ['gemini', 'claude', 'gpt', 'opus', 'sonnet', 'flash', 'neon', 'argon', 'carbon', 'hydrogen', 'orchestrator', 'llama', 'mistral', 'deepseek'];
             const allButtons = Array.from(document.querySelectorAll('button, [role="button"]')).filter(el => {
                 if (!AG_UI.isVisible(el) || isNonModelTrigger(el)) return false;
                 const inMenu = el.closest('[role="menu"], [role="listbox"], [data-radix-popper-content-wrapper], div[class*="popover"], div[class*="dropdown-content"]');
@@ -361,7 +361,7 @@ const STANDALONE_LOCATORS_SCRIPT = `
 
         getModelOptions: () => {
             const isFile = (str) => /\.(js|jsx|ts|tsx|md|json|py|html|css|txt|sh)$/i.test((str || '').trim());
-            const modelKeywords = ['gemini', 'claude', 'gpt', 'opus', 'sonnet', 'flash', 'argon', 'carbon', 'hydrogen', 'orchestrator', 'llama', 'mistral', 'deepseek'];
+            const modelKeywords = ['gemini', 'claude', 'gpt', 'opus', 'sonnet', 'flash', 'neon', 'argon', 'carbon', 'hydrogen', 'orchestrator', 'llama', 'mistral', 'deepseek'];
             
             const selectorBtn = AG_UI.getModelSelectorButton();
             const ariaControlsId = selectorBtn ? selectorBtn.getAttribute('aria-controls') : null;
